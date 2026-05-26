@@ -194,7 +194,7 @@ export const MistakePracticeView: React.FC<Props> = ({ mistakes, onClose, onComp
         </div>
 
         {/* Footer — Back + Next/Finish */}
-        <div className="px-5 pt-4 pb-[max(20px,env(safe-area-inset-bottom,20px))] border-t border-slate-100 bg-white shrink-0">
+        <div className="px-5 pt-4 pb-[max(88px,calc(env(safe-area-inset-bottom,0px)+72px))] border-t border-slate-100 bg-white shrink-0">
           <div className="flex gap-3">
             <button
               onClick={handleBack}
