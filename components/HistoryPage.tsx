@@ -440,9 +440,6 @@ export const HistoryPage: React.FC<Props> = ({ user, onUpdateUser, settings, ini
                     <ChevronDown size={18} className="rotate-90" />
                 </button>
             )}
-            <h3 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-                 <FileText className="text-blue-600" /> Downloads & History
-            </h3>
         </div>
 
         {activeTab === 'READING' && (

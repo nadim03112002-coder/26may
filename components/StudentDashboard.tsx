@@ -1936,6 +1936,7 @@ export const StudentDashboard: React.FC<Props> = ({
 
   // ── MY MISTAKE COUNT (lightweight: synced via storage event + 30s poll) ──
   const [mistakeCount, setMistakeCount] = useState<number>(() => getMistakeBankSync().length);
+  const [quickCardPage, setQuickCardPage] = useState(0);
   const [showMistakePractice, setShowMistakePractice] = useState(false);
   const [homeMistakes, setHomeMistakes] = useState<MistakeEntry[]>([]);
   useEffect(() => {
@@ -7526,6 +7527,7 @@ export const StudentDashboard: React.FC<Props> = ({
                   </div>
                 )}
 
+
                 {/* CONTENT TYPE PREFERENCE */}
                 {isHomeSectionVisible('home_content_type_pref', settings) && (
                 <div className="mb-4">
@@ -7556,36 +7558,8 @@ export const StudentDashboard: React.FC<Props> = ({
                 </div>
                 )}
 
-                {/* CLASS NAVIGATION BUTTONS */}
-                {isHomeSectionVisible('home_class_picker', settings) && (() => { return (
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() => { hapticStrong(); setSyllabusMode('SCHOOL'); setActiveSessionBoard(activeSessionBoard || user.board || 'CBSE'); setContentViewStep('SUBJECTS'); setInitialParentSubject(null); onTabChange('COURSES'); }}
-                    className="flex items-center gap-3 px-3 py-4 rounded-2xl border-2 border-slate-200 bg-white active:scale-95 transition-all shadow-sm"
-                  >
-                    <span className="text-3xl leading-none shrink-0">📚</span>
-                    <div className="flex-1 text-left min-w-0">
-                      <div className="text-sm font-black text-slate-800 leading-tight">Class 6–12</div>
-                      <div className="text-[10px] text-slate-500 font-medium mt-0.5">CBSE · BSEB · NCERT</div>
-                    </div>
-                    <ChevronRight size={18} className="text-slate-400 shrink-0" />
-                  </button>
-                  <button
-                    onClick={() => { hapticStrong(); setSyllabusMode('COMPETITION'); setActiveSessionClass('COMPETITION'); setActiveSessionBoard(activeSessionBoard || user.board || 'CBSE'); setContentViewStep('SUBJECTS'); setInitialParentSubject(null); onTabChange('COURSES'); }}
-                    className="flex items-center gap-3 px-3 py-4 rounded-2xl active:scale-95 transition-all shadow-sm"
-                    style={{ background: 'linear-gradient(135deg,#f97316 0%,#ea580c 60%,#dc2626 100%)' }}
-                  >
-                    <span className="text-3xl leading-none shrink-0">🏆</span>
-                    <div className="flex-1 text-left min-w-0">
-                      <div className="text-sm font-black text-white leading-tight">Competition</div>
-                      <div className="text-[10px] text-orange-100 font-medium mt-0.5">SSC · UPSC · Railway</div>
-                    </div>
-                    <ChevronRight size={18} className="text-white shrink-0" />
-                  </button>
-                </div>
-                ); })()}
-                {/* DEAD CODE REMOVED — old class picker IIFE replaced above */}
-                {false && (() => {
+                {/* CLASS NAVIGATION — grouped class picker */}
+                {isHomeSectionVisible('home_class_picker', settings) && (() => {
                   type ClassTheme = {
                     label: string;
                     accent: string;
@@ -7693,40 +7667,31 @@ export const StudentDashboard: React.FC<Props> = ({
                   return (
                     <div className="space-y-4">
 
-                      {/* ── HOME MODE TOGGLE ── */}
-                      <div className="relative flex rounded-2xl p-1 gap-1" style={{ background: 'rgba(0,0,0,0.05)', border: '1.5px solid rgba(0,0,0,0.07)' }}>
-                        <button
-                          onClick={() => setSyllabusMode('SCHOOL')}
-                          className="relative flex-1 flex flex-col items-center justify-center gap-0.5 py-3 rounded-xl transition-all duration-200"
-                          style={syllabusMode === 'SCHOOL' ? {
-                            background: 'linear-gradient(135deg, #2563eb, #4f46e5)',
-                            color: '#fff',
-                            boxShadow: '0 4px 18px rgba(79,70,229,0.45)'
-                          } : { color: '#64748b' }}
-                        >
-                          <span className="text-xl leading-none mb-0.5">📚</span>
-                          <span className="text-[11px] font-black tracking-wide">Class 6–12</span>
-                          <span className={`text-[9px] font-semibold ${syllabusMode === 'SCHOOL' ? 'text-indigo-100' : 'text-slate-400'}`}>CBSE · BSEB · NCERT</span>
-                          {syllabusMode === 'SCHOOL' && <span className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-white/70 animate-pulse" />}
-                        </button>
-                        <button
-                          onClick={() => { hapticStrong(); setSyllabusMode('COMPETITION'); }}
-                          className="relative flex-1 flex flex-col items-center justify-center gap-0.5 py-3 rounded-xl transition-all duration-200"
-                          style={syllabusMode === 'COMPETITION' ? {
-                            background: 'linear-gradient(135deg, #ea580c, #dc2626)',
-                            color: '#fff',
-                            boxShadow: '0 4px 18px rgba(220,38,38,0.45)'
-                          } : { color: '#64748b' }}
-                        >
-                          <span className="text-xl leading-none mb-0.5">🏆</span>
-                          <span className="text-[11px] font-black tracking-wide">Competition</span>
-                          <span className={`text-[9px] font-semibold ${syllabusMode === 'COMPETITION' ? 'text-orange-100' : 'text-slate-400'}`}>SSC · UPSC · Railway</span>
-                          {syllabusMode === 'COMPETITION' && <span className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-white/70 animate-pulse" />}
-                        </button>
-                      </div>
+                      {/* ── COMPETITION BUTTON ── */}
+                      <button
+                        onClick={() => { hapticStrong(); goToClass('COMPETITION'); }}
+                        className="w-full relative overflow-hidden rounded-2xl text-left active:scale-[0.97] transition-all duration-150"
+                        style={{
+                          background: 'linear-gradient(135deg, #ea580c 0%, #dc2626 100%)',
+                          boxShadow: '0 4px 20px rgba(234,88,12,0.4)'
+                        }}
+                      >
+                        <div className="flex items-center gap-4 px-5 py-5">
+                          <span className="text-4xl leading-none shrink-0">🏆</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[9px] font-black uppercase tracking-[0.15em] text-orange-200 mb-1">Competitive Exams</p>
+                            <h3 className="text-[22px] font-black text-white leading-tight">Competition</h3>
+                            <p className="text-[10px] font-semibold text-orange-100 mt-0.5">SSC · UPSC · Railway · Banking</p>
+                          </div>
+                          <div className="shrink-0 w-10 h-10 rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center">
+                            <ChevronRight size={18} className="text-white" />
+                          </div>
+                        </div>
+                        <div className="h-[3px] bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-400" />
+                      </button>
 
                       {/* ── CLASS 6-12 GROUPS ── */}
-                      {syllabusMode === 'SCHOOL' && groups.map((g) => {
+                      {groups.map((g) => {
                         const t = themes[g.key];
                         const isTwoCol = g.classes.length === 2;
                         const dotColor = g.key === 'junior' ? '#10b981' : g.key === 'secondary' ? '#3b82f6' : '#9333ea';
@@ -7774,6 +7739,11 @@ export const StudentDashboard: React.FC<Props> = ({
                                   ? 'bg-purple-100 text-purple-700 border-purple-300'
                                   : '';
 
+                                const classEmoji: Record<string, string> = {
+                                  '6': '📘', '7': '🖊️', '8': '🌐',
+                                  '9': '📚', '11': '🚀',
+                                };
+
                                 return (
                                   <button
                                     key={c}
@@ -7781,12 +7751,14 @@ export const StudentDashboard: React.FC<Props> = ({
                                     className={`group relative w-full rounded-2xl text-left overflow-hidden active:scale-[0.97] transition-all duration-150 bg-gradient-to-br ${cardBg}`}
                                     style={{ border: `2px solid ${borderColor}` }}
                                   >
-                                    {/* BOARD badge top-right */}
-                                    {(isBoard10 || isBoard12) && (
+                                    {/* BOARD badge OR emoji icon top-right */}
+                                    {(isBoard10 || isBoard12) ? (
                                       <span className={`absolute top-2 right-2 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full border text-[7px] font-black uppercase tracking-wider ${badgeBg}`}>
                                         <Crown size={7} /> Board
                                       </span>
-                                    )}
+                                    ) : classEmoji[c] ? (
+                                      <span className="absolute top-2 right-2 text-base leading-none opacity-70 select-none">{classEmoji[c]}</span>
+                                    ) : null}
 
                                     <div className="px-3 pt-3 pb-3">
                                       <p className="text-[8px] font-bold uppercase tracking-widest text-slate-400 mb-0.5">Class</p>
@@ -7805,135 +7777,6 @@ export const StudentDashboard: React.FC<Props> = ({
                         );
                       })}
 
-                      {/* ── COMPETITION MODE HERO ── */}
-                      {syllabusMode === 'COMPETITION' && isHomeSectionVisible('home_govt_exams', settings) && (() => {
-                        const compSubjects = getSubjectsList('COMPETITION', null, currentBoard);
-                        const compSubjectCount = compSubjects.length;
-                        const compLive = classContentStats[`${currentBoard}_COMPETITION`];
-                        return (
-                          <div className="space-y-3">
-
-                            {/* Hero Banner */}
-                            <button
-                              onClick={() => { hapticStrong(); goToClass("COMPETITION"); }}
-                              className="group relative w-full rounded-3xl text-left overflow-hidden active:scale-[0.98] transition-all duration-200"
-                              style={{
-                                background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 40%, #7c3aed 75%, #dc2626 100%)',
-                                boxShadow: '0 8px 32px rgba(99,38,237,0.4), 0 2px 8px rgba(0,0,0,0.25)'
-                              }}
-                            >
-                              {/* Decorative orbs */}
-                              <div className="absolute -top-8 -right-8 w-36 h-36 rounded-full opacity-[0.12]" style={{ background: 'radial-gradient(circle, #fbbf24, transparent)' }} />
-                              <div className="absolute -bottom-6 left-4 w-28 h-28 rounded-full opacity-[0.10]" style={{ background: 'radial-gradient(circle, #f97316, transparent)' }} />
-                              <div className="absolute top-1/2 right-12 w-20 h-20 rounded-full opacity-[0.08]" style={{ background: 'radial-gradient(circle, #a855f7, transparent)' }} />
-
-                              <div className="relative px-5 pt-5 pb-4">
-                                {/* Header row */}
-                                <div className="flex items-start justify-between mb-3">
-                                  <div>
-                                    <div className="flex items-center gap-2 mb-1.5">
-                                      <span className="text-2xl leading-none">🏆</span>
-                                      <span className="text-[9px] font-black uppercase tracking-[0.15em] text-white/50">Competitive Exams</span>
-                                    </div>
-                                    <h3 className="text-[22px] font-black text-white leading-[1.15]">
-                                      Govt. Exams
-                                      <br />
-                                      <span className="text-[17px] text-amber-300 font-black">Preparation Hub</span>
-                                    </h3>
-                                  </div>
-                                  <div className="shrink-0 w-10 h-10 rounded-2xl bg-white/10 border border-white/15 flex items-center justify-center group-hover:bg-white/20 transition-colors mt-1">
-                                    <ChevronRight size={18} className="text-white" />
-                                  </div>
-                                </div>
-
-                                {/* Exam chips */}
-                                <div className="flex flex-wrap gap-1.5 mb-4">
-                                  {['SSC', 'UPSC', 'Railway', 'Banking', 'Police', 'State PCS'].map((exam) => (
-                                    <span key={exam} className="px-2.5 py-1 rounded-full text-[9px] font-black text-white/90 tracking-wide" style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.18)' }}>
-                                      {exam}
-                                    </span>
-                                  ))}
-                                </div>
-
-                                {/* Stats strip */}
-                                <div className="flex items-center gap-4">
-                                  <div className="flex items-center gap-2">
-                                    <div className="w-7 h-7 rounded-xl flex items-center justify-center" style={{ background: 'rgba(99,102,241,0.3)' }}>
-                                      <BookOpenText size={13} className="text-indigo-200" />
-                                    </div>
-                                    <div>
-                                      <div className="text-sm font-black text-white leading-none">{compSubjectCount}</div>
-                                      <div className="text-[8px] font-bold text-white/45 uppercase tracking-wide mt-0.5">Books</div>
-                                    </div>
-                                  </div>
-                                  {compLive && compLive.notes > 0 && (
-                                    <div className="flex items-center gap-2">
-                                      <div className="w-7 h-7 rounded-xl flex items-center justify-center" style={{ background: 'rgba(59,130,246,0.3)' }}>
-                                        <FileText size={13} className="text-blue-200" />
-                                      </div>
-                                      <div>
-                                        <div className="text-sm font-black text-white leading-none">{compLive.notes}</div>
-                                        <div className="text-[8px] font-bold text-white/45 uppercase tracking-wide mt-0.5">Notes</div>
-                                      </div>
-                                    </div>
-                                  )}
-                                  {compLive && compLive.mcq > 0 && (
-                                    <div className="flex items-center gap-2">
-                                      <div className="w-7 h-7 rounded-xl flex items-center justify-center" style={{ background: 'rgba(245,158,11,0.3)' }}>
-                                        <BrainCircuit size={13} className="text-amber-200" />
-                                      </div>
-                                      <div>
-                                        <div className="text-sm font-black text-white leading-none">{compLive.mcq}</div>
-                                        <div className="text-[8px] font-bold text-white/45 uppercase tracking-wide mt-0.5">MCQs</div>
-                                      </div>
-                                    </div>
-                                  )}
-                                  {compLive && compLive.video > 0 && (
-                                    <div className="flex items-center gap-2">
-                                      <div className="w-7 h-7 rounded-xl flex items-center justify-center" style={{ background: 'rgba(34,197,94,0.3)' }}>
-                                        <Video size={13} className="text-green-200" />
-                                      </div>
-                                      <div>
-                                        <div className="text-sm font-black text-white leading-none">{compLive.video}</div>
-                                        <div className="text-[8px] font-bold text-white/45 uppercase tracking-wide mt-0.5">Videos</div>
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-
-                              {/* Bottom gold bar */}
-                              <div className="h-[3px] bg-gradient-to-r from-amber-400 via-orange-500 to-rose-500" />
-                            </button>
-
-                            {/* Quick Access Grid */}
-                            <div className="grid grid-cols-3 gap-2">
-                              {([
-                                { icon: '📖', label: 'Reading', sub: 'Continue reading', page: 'READING_PAGE', grad: 'from-sky-500 to-blue-600', light: 'from-sky-50 to-blue-50', border: 'border-sky-200', text: 'text-sky-700' },
-                                { icon: '🃏', label: 'Flashcards', sub: 'Session history', page: 'FLASHCARDS_PAGE', grad: 'from-violet-500 to-purple-600', light: 'from-violet-50 to-purple-50', border: 'border-violet-200', text: 'text-violet-700' },
-                                { icon: '💾', label: 'Offline', sub: 'Saved content', page: 'OFFLINE_PAGE', grad: 'from-emerald-500 to-teal-600', light: 'from-emerald-50 to-teal-50', border: 'border-emerald-200', text: 'text-emerald-700' },
-                                { icon: '🕐', label: 'Login Log', sub: 'Session history', page: 'LOGIN_HISTORY_PAGE', grad: 'from-blue-500 to-indigo-600', light: 'from-blue-50 to-indigo-50', border: 'border-blue-200', text: 'text-blue-700' },
-                                { icon: '💰', label: 'Credits', sub: 'Earn & spend', page: 'CREDITS_PAGE', grad: 'from-amber-500 to-yellow-500', light: 'from-amber-50 to-yellow-50', border: 'border-amber-200', text: 'text-amber-700' },
-                                { icon: '❌', label: 'Mistakes', sub: `${mistakeCount} galtiyan`, page: 'MY_MISTAKES_PAGE', grad: 'from-rose-500 to-pink-600', light: 'from-rose-50 to-pink-50', border: 'border-rose-200', text: 'text-rose-700' },
-                              ] as {icon:string;label:string;sub:string;page:string;grad:string;light:string;border:string;text:string}[]).map(item => (
-                                <button
-                                  key={item.page}
-                                  onClick={() => { hapticStrong(); onTabChange(item.page as any); }}
-                                  className={`group relative flex flex-col items-center gap-1.5 px-2 py-3.5 rounded-2xl border-2 ${item.border} bg-gradient-to-br ${item.light} active:scale-95 transition-all overflow-hidden`}
-                                >
-                                  <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${item.grad} flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform`}>
-                                    <span className="text-base leading-none">{item.icon}</span>
-                                  </div>
-                                  <div className="text-center">
-                                    <div className={`text-[10px] font-black ${item.text} leading-tight`}>{item.label}</div>
-                                    <div className={`text-[8px] font-semibold ${item.text} opacity-60 leading-tight mt-0.5`}>{item.sub}</div>
-                                  </div>
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        );
-                      })()}
 
                     </div>
                   );
@@ -7942,69 +7785,69 @@ export const StudentDashboard: React.FC<Props> = ({
 
             </div>
 
-            {/* ── COMPETITIVE · GOVT. EXAMS ── */}
-            {isHomeSectionVisible('home_govt_exams', settings) && (
-            <div className="mt-2">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-base leading-none">🎯</span>
-                <span className="text-[11px] font-black text-slate-600 uppercase tracking-widest">Competitive · Govt. Exams</span>
-              </div>
-              <button
-                onClick={() => { hapticStrong(); setSyllabusMode('COMPETITION'); setActiveSessionClass('COMPETITION'); setActiveSessionBoard(activeSessionBoard || user.board || 'CBSE'); setContentViewStep('SUBJECTS'); setInitialParentSubject(null); onTabChange('COURSES'); }}
-                className="w-full relative overflow-hidden rounded-2xl text-left active:scale-[0.99] transition-all shadow-sm"
-                style={{ background: 'linear-gradient(135deg,#fff1f0 0%,#ffe4e1 60%,#ffd6d0 100%)', border: '1px solid #fecaca' }}
-              >
-                <div className="flex items-center justify-between px-4 py-4">
-                  <div className="flex-1 min-w-0 pr-2">
-                    <p className="text-[10px] font-black text-red-500 uppercase tracking-wider mb-1">Competitive Mode</p>
-                    <h3 className="text-[24px] font-black text-red-900 leading-tight mb-1">Govt. Exams</h3>
-                    <div className="flex items-center gap-1.5 mb-3 flex-wrap">
-                      <span className="text-[11px] font-bold text-slate-700">7 Books</span>
-                      <span className="text-slate-400 text-xs">·</span>
-                      <span className="text-[11px] text-slate-500">SSC</span>
-                      <span className="text-slate-400 text-xs">·</span>
-                      <span className="text-[11px] text-slate-500">Railway</span>
-                      <span className="text-slate-400 text-xs">·</span>
-                      <span className="text-[11px] text-slate-500">UPSC</span>
-                    </div>
-                    <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-black text-white" style={{ background: '#ef4444' }}>
-                      Tap to open →
-                    </span>
-                  </div>
-                  <div className="text-[56px] leading-none shrink-0 select-none">🏛️</div>
-                </div>
-              </button>
-            </div>
-            )}
 
-            {/* ── QUICK ACTION CARDS 3×2 ── */}
-            <div className="mt-2 grid grid-cols-3 gap-2">
-              {([
-                { label: 'Reading',     sub: 'Continue where left', page: 'READING_PAGE',      bgCircle: 'bg-blue-100',   icon: '📖', arrow: 'text-blue-500'   },
-                { label: 'Flashcards',  sub: 'Session history',     page: 'FLASHCARDS_PAGE',   bgCircle: 'bg-purple-100', icon: '🃏', arrow: 'text-purple-500' },
-                { label: 'Offline',     sub: 'Saved content',       page: 'OFFLINE_PAGE',      bgCircle: 'bg-emerald-100',icon: '💾', arrow: 'text-emerald-500'},
-                { label: 'Login',       sub: 'Session log',         page: 'LOGIN_HISTORY_PAGE',bgCircle: 'bg-blue-100',   icon: '👤', arrow: 'text-blue-500'   },
-                { label: 'Credits',     sub: 'Earn & spend log',    page: 'CREDITS_PAGE',      bgCircle: 'bg-amber-100',  icon: '💰', arrow: 'text-amber-500'  },
-                { label: 'My Mistakes', sub: `${mistakeCount} galtiyan`, page: 'MY_MISTAKES_PAGE', bgCircle: 'bg-rose-100', icon: '❌', arrow: 'text-rose-500' },
-              ] as {label:string;sub:string;page:string;bgCircle:string;icon:string;arrow:string}[]).map(item => (
-                <button
-                  key={item.page}
-                  onClick={() => { hapticStrong(); onTabChange(item.page as any); }}
-                  className="flex flex-col items-start gap-2 p-3 rounded-2xl bg-white border border-slate-100 shadow-sm active:scale-95 transition-all"
-                >
-                  <div className="flex items-center justify-between w-full">
-                    <div className={`w-10 h-10 rounded-2xl ${item.bgCircle} flex items-center justify-center text-xl shrink-0`}>
-                      {item.icon}
+
+            {/* ── QUICK ACTION CARDS — paginated 3 at a time ── */}
+            {(() => {
+              const qCards = [
+                { label: 'Reading',     sub: 'Continue where left',  page: 'READING_PAGE',      bgCircle: 'bg-blue-100',   icon: '📖', arrow: 'text-blue-500'   },
+                { label: 'Flashcards',  sub: 'Session history',      page: 'FLASHCARDS_PAGE',   bgCircle: 'bg-purple-100', icon: '🃏', arrow: 'text-purple-500' },
+                { label: 'Offline',     sub: 'Saved content',        page: 'OFFLINE_PAGE',      bgCircle: 'bg-emerald-100',icon: '💾', arrow: 'text-emerald-500'},
+                { label: 'Login',       sub: 'Session log',          page: 'LOGIN_HISTORY_PAGE',bgCircle: 'bg-blue-100',   icon: '👤', arrow: 'text-blue-500'   },
+                { label: 'Credits',     sub: 'Earn & spend log',     page: 'CREDITS_PAGE',      bgCircle: 'bg-amber-100',  icon: '💰', arrow: 'text-amber-500'  },
+                { label: 'My Mistakes', sub: `${mistakeCount} galtiyan`, page: 'MY_MISTAKES_PAGE', bgCircle: 'bg-rose-100',icon: '❌', arrow: 'text-rose-500'  },
+              ] as {label:string;sub:string;page:string;bgCircle:string;icon:string;arrow:string}[];
+              const totalPages = Math.ceil(qCards.length / 3);
+              const visible = qCards.slice(quickCardPage * 3, quickCardPage * 3 + 3);
+              return (
+                <div className="mt-2">
+                  <div className="grid grid-cols-3 gap-2">
+                    {visible.map(item => (
+                      <button
+                        key={item.page}
+                        onClick={() => { hapticStrong(); onTabChange(item.page as any); }}
+                        className="flex flex-col items-start gap-2 p-3 rounded-2xl bg-white border border-slate-100 shadow-sm active:scale-95 transition-all"
+                      >
+                        <div className="flex items-center justify-between w-full">
+                          <div className={`w-10 h-10 rounded-2xl ${item.bgCircle} flex items-center justify-center text-xl shrink-0`}>
+                            {item.icon}
+                          </div>
+                          <ChevronRight size={14} className={item.arrow} />
+                        </div>
+                        <div>
+                          <div className="text-[11px] font-black text-slate-800 leading-tight">{item.label}</div>
+                          <div className="text-[9px] text-slate-500 font-medium leading-tight mt-0.5">{item.sub}</div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                  {/* Prev / dots / Next */}
+                  <div className="flex items-center justify-between mt-2 px-0.5">
+                    <button
+                      onClick={() => setQuickCardPage(p => Math.max(0, p - 1))}
+                      disabled={quickCardPage === 0}
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white border border-slate-200 shadow-sm text-[11px] font-bold text-slate-500 active:scale-95 transition-all disabled:opacity-30 disabled:pointer-events-none"
+                    >
+                      <ChevronLeft size={13} /> Back
+                    </button>
+                    <div className="flex items-center gap-1.5">
+                      {Array.from({ length: totalPages }).map((_, i) => (
+                        <button key={i} onClick={() => setQuickCardPage(i)}
+                          className={`w-1.5 h-1.5 rounded-full transition-all ${i === quickCardPage ? 'bg-slate-600 w-3' : 'bg-slate-300'}`}
+                        />
+                      ))}
                     </div>
-                    <ChevronRight size={14} className={item.arrow} />
+                    <button
+                      onClick={() => setQuickCardPage(p => Math.min(totalPages - 1, p + 1))}
+                      disabled={quickCardPage === totalPages - 1}
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white border border-slate-200 shadow-sm text-[11px] font-bold text-slate-500 active:scale-95 transition-all disabled:opacity-30 disabled:pointer-events-none"
+                    >
+                      Next <ChevronRight size={13} />
+                    </button>
                   </div>
-                  <div>
-                    <div className="text-[11px] font-black text-slate-800 leading-tight">{item.label}</div>
-                    <div className="text-[9px] text-slate-500 font-medium leading-tight mt-0.5">{item.sub}</div>
-                  </div>
-                </button>
-              ))}
-            </div>
+                </div>
+              );
+            })()}
 
             {/* ── MY MISTAKES — dedicated home section ── */}
             <div className="mt-2">
@@ -8622,6 +8465,14 @@ export const StudentDashboard: React.FC<Props> = ({
               })()}
 
               <div className="p-5 relative z-[2]">
+                {/* Settings icon — top right corner of profile card */}
+                <button
+                  onClick={() => setShowProfileSettings(v => !v)}
+                  className={`absolute top-4 z-10 w-8 h-8 rounded-xl flex items-center justify-center transition-all active:scale-90 ${(user.subscriptionLevel === 'ULTRA' && user.isPremium) ? 'right-12' : 'right-4'} ${showProfileSettings ? 'bg-slate-600/60 ring-1 ring-slate-500/40' : 'bg-white/8 hover:bg-white/15'}`}
+                >
+                  <Settings size={14} className={`transition-transform duration-300 ${showProfileSettings ? 'rotate-90 text-white' : 'text-slate-400'}`} />
+                </button>
+
                 {/* Avatar row */}
                 {(() => {
                   const _aScore = (user.role === 'ADMIN' || user.role === 'SUB_ADMIN') ? 9999999 : (user.totalScore || 0);
@@ -8840,6 +8691,48 @@ export const StudentDashboard: React.FC<Props> = ({
               </div>
             </div>
 
+            {/* ── Settings Panel — slides down from profile card icon ── */}
+            {showProfileSettings && (
+              <div className="bg-[#0f0f0f] rounded-2xl border border-slate-700/60 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="px-4 py-2.5 border-b border-slate-800/60 flex items-center gap-2">
+                  <Settings size={12} className="text-slate-500" />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Settings</span>
+                </div>
+                {/* App Guide */}
+                <button onClick={() => setShowUserGuide(true)}
+                  className="w-full px-4 py-3.5 flex items-center gap-3 hover:bg-white/4 active:bg-white/6 transition-colors border-b border-slate-800/40">
+                  <div className="w-9 h-9 rounded-xl bg-indigo-500/15 flex items-center justify-center shrink-0">
+                    <span className="text-base">📖</span>
+                  </div>
+                  <div className="flex-1 text-left min-w-0">
+                    <p className="text-sm font-bold text-white">App Guide</p>
+                    <p className="text-[11px] text-slate-500">Har feature ka guide padhein</p>
+                  </div>
+                  <ChevronRight size={14} className="text-slate-600 shrink-0" />
+                </button>
+                {/* Reset Settings */}
+                <button onClick={() => {
+                  const keysToRemove: string[] = [];
+                  for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key && key.startsWith(`nst_credit_skip_${user.id}_`)) keysToRemove.push(key);
+                  }
+                  keysToRemove.forEach(k => localStorage.removeItem(k));
+                  showAlert('Settings reset ho gayi! Credit popup dobara dikhega.', 'SUCCESS');
+                }}
+                  className="w-full px-4 py-3.5 flex items-center gap-3 hover:bg-white/4 active:bg-white/6 transition-colors">
+                  <div className="w-9 h-9 rounded-xl bg-orange-500/15 flex items-center justify-center shrink-0">
+                    <RotateCcw size={14} className="text-orange-400" />
+                  </div>
+                  <div className="flex-1 text-left min-w-0">
+                    <p className="text-sm font-bold text-white">Reset Settings</p>
+                    <p className="text-[11px] text-slate-500">Sab settings default pe reset karo</p>
+                  </div>
+                  <ChevronRight size={14} className="text-slate-600 shrink-0" />
+                </button>
+              </div>
+            )}
+
             {/* ── CARD 2: Actions ── */}
             <div className="bg-[#0f0f0f] rounded-2xl border border-slate-800 overflow-hidden">
               {/* Admin Panel */}
@@ -8857,79 +8750,6 @@ export const StudentDashboard: React.FC<Props> = ({
                 </button>
               )}
 
-              {/* History */}
-              {/* Settings button — opens sub-panel with App Guide, Activity History, Reset Settings */}
-              <button onClick={() => setShowProfileSettings(v => !v)}
-                className="w-full px-4 py-3.5 flex items-center gap-3 hover:bg-white/4 active:bg-white/6 transition-colors border-b border-slate-800/80">
-                <div className="w-9 h-9 rounded-xl bg-slate-500/15 flex items-center justify-center shrink-0">
-                  <Settings size={16} className="text-slate-400" />
-                </div>
-                <div className="flex-1 text-left min-w-0">
-                  <p className="text-sm font-bold text-white">Settings</p>
-                  <p className="text-[11px] text-slate-500">Guide, History, Reset</p>
-                </div>
-                <ChevronRight size={14} className={`text-slate-600 shrink-0 transition-transform duration-200 ${showProfileSettings ? 'rotate-90' : ''}`} />
-              </button>
-
-              {/* Settings sub-panel — expands inline */}
-              {showProfileSettings && (() => {
-                const histAccess = getFeatureAccess('HISTORY_PAGE');
-                const histLocked = !histAccess.hasAccess;
-                return (
-                  <div className="border-b border-slate-800/80 bg-white/[0.02]">
-                    {/* App Guide */}
-                    <button onClick={() => setShowUserGuide(true)}
-                      className="w-full px-6 py-3 flex items-center gap-3 hover:bg-white/4 active:bg-white/6 transition-colors border-b border-slate-800/40">
-                      <div className="w-8 h-8 rounded-lg bg-indigo-500/15 flex items-center justify-center shrink-0">
-                        <span className="text-sm">📖</span>
-                      </div>
-                      <div className="flex-1 text-left min-w-0">
-                        <p className="text-sm font-bold text-white">App Guide</p>
-                        <p className="text-[10px] text-slate-500">Har feature ka guide padhein</p>
-                      </div>
-                      <ChevronRight size={13} className="text-slate-600 shrink-0" />
-                    </button>
-
-                    {/* Activity History */}
-                    {!histAccess.isHidden && (
-                      <button onClick={() => { if (histLocked) { showAlert('🔒 Locked by Admin.', 'ERROR'); return; } onTabChange('HISTORY'); setShowProfileSettings(false); }}
-                        className="w-full px-6 py-3 flex items-center gap-3 hover:bg-white/4 active:bg-white/6 transition-colors border-b border-slate-800/40">
-                        <div className="w-8 h-8 rounded-lg bg-rose-500/15 flex items-center justify-center shrink-0">
-                          <History size={14} className="text-rose-400" />
-                        </div>
-                        <div className="flex-1 text-left min-w-0">
-                          <p className="text-sm font-bold text-white flex items-center gap-2">
-                            Activity History {histLocked && <Lock size={10} className="text-red-400" />}
-                          </p>
-                          <p className="text-[10px] text-slate-500">Tests, sessions & past activity</p>
-                        </div>
-                        <ChevronRight size={13} className="text-slate-600 shrink-0" />
-                      </button>
-                    )}
-
-                    {/* Reset Settings */}
-                    <button onClick={() => {
-                      const keysToRemove: string[] = [];
-                      for (let i = 0; i < localStorage.length; i++) {
-                        const key = localStorage.key(i);
-                        if (key && key.startsWith(`nst_credit_skip_${user.id}_`)) keysToRemove.push(key);
-                      }
-                      keysToRemove.forEach(k => localStorage.removeItem(k));
-                      showAlert('Settings reset ho gayi! Credit popup dobara dikhega.', 'SUCCESS');
-                    }}
-                      className="w-full px-6 py-3 flex items-center gap-3 hover:bg-white/4 active:bg-white/6 transition-colors">
-                      <div className="w-8 h-8 rounded-lg bg-orange-500/15 flex items-center justify-center shrink-0">
-                        <RotateCcw size={14} className="text-orange-400" />
-                      </div>
-                      <div className="flex-1 text-left min-w-0">
-                        <p className="text-sm font-bold text-white">Reset Settings</p>
-                        <p className="text-[10px] text-slate-500">Sab settings default pe reset karo</p>
-                      </div>
-                      <ChevronRight size={13} className="text-slate-600 shrink-0" />
-                    </button>
-                  </div>
-                );
-              })()}
 
               {/* Teacher Store — only visible for actual teachers */}
               {user.role === 'TEACHER' && (
@@ -9184,13 +9004,13 @@ export const StudentDashboard: React.FC<Props> = ({
         })() }}
       >
         {/* Main Header Row */}
-        <div className="flex items-center justify-between w-full px-3 pt-2 pb-1.5">
+        <div className="flex items-center justify-between w-full px-3 pt-2 pb-2">
           {/* LEFT: hamburger + logo + app name */}
           <div
             className="flex items-center gap-2 shrink-0 cursor-pointer"
             onClick={() => setShowSidebar(true)}
           >
-            <button className="p-1 rounded-lg transition-colors hover:bg-white/20 -ml-1 shrink-0">
+            <button className="p-1.5 rounded-lg transition-colors hover:bg-white/20 -ml-1 shrink-0">
               <Menu size={20} className="text-white" />
             </button>
             {user.photoURL && user.avatarChoice === 'gmail' ? (
@@ -9203,7 +9023,7 @@ export const StudentDashboard: React.FC<Props> = ({
               </div>
             )}
             <div className="flex items-center gap-1 min-w-0">
-              <span className="font-black text-[19px] leading-tight tracking-tight uppercase whitespace-nowrap text-white">
+              <span className="font-black text-[18px] leading-tight tracking-tight uppercase whitespace-nowrap text-white">
                 {settings?.appShortName || settings?.appName || "IIC"}
               </span>
               <BadgeCheck size={16} className="text-blue-200 shrink-0" fill="rgba(191,219,254,0.35)" />
@@ -9216,10 +9036,10 @@ export const StudentDashboard: React.FC<Props> = ({
             {/* Streak pill */}
             <button
               onClick={() => setShowStreakPopup(true)}
-              className={`inline-flex items-center gap-0.5 px-2 py-1 rounded-full text-[11px] font-black shrink-0 active:scale-90 transition-all ${user.streak > 0 ? 'bg-orange-500 text-white shadow shadow-orange-500/50' : 'bg-white/15 text-white/60 border border-white/20'}`}
+              className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-black shrink-0 active:scale-90 transition-all ${user.streak > 0 ? 'bg-orange-500 text-white shadow shadow-orange-500/50' : 'bg-white/15 text-white/60 border border-white/20'}`}
               title={`Login streak: ${user.streak} day${user.streak === 1 ? '' : 's'}`}
             >
-              <span className="text-[13px] leading-none">🔥</span>
+              <span className="text-[11px] leading-none">🔥</span>
               <span>{user.streak}d</span>
             </button>
 
@@ -9402,24 +9222,29 @@ export const StudentDashboard: React.FC<Props> = ({
         </div>
 
         {/* SECOND LINE: greeting + Level / Credits / Subscription pills */}
-        <div className="flex items-center justify-between w-full mt-0.5 pt-1 px-4 pb-1.5 border-t border-white/10">
+        <div className="flex items-center justify-between w-full mt-0 pt-0.5 px-4 pb-0.5 border-t border-white/10">
 
-          {/* Left: two-line greeting */}
+          {/* Left: single-line greeting + next arrow */}
           {(() => {
             const fullName = user.name || "Student";
             const isLong = fullName.length > 10;
             const overflowPx = isLong ? Math.min(90, (fullName.length - 10) * 7) : 0;
             return (
-              <div className="flex flex-col shrink-0 min-w-0">
-                <div className="overflow-hidden" style={isLong ? { maskImage: 'linear-gradient(to right, black 72%, transparent 100%)', maxWidth: '168px' } : {}}>
+              <div className="flex items-center gap-1.5 shrink-0 min-w-0">
+                <div className="overflow-hidden" style={isLong ? { maskImage: 'linear-gradient(to right, black 72%, transparent 100%)', maxWidth: '150px' } : {}}>
                   <span
-                    className={`text-[13px] font-black text-white leading-tight whitespace-nowrap inline-block${isLong ? ' nst-name-scroll' : ''}`}
+                    className={`text-[12px] font-black text-white leading-tight whitespace-nowrap inline-block${isLong ? ' nst-name-scroll' : ''}`}
                     style={isLong ? { '--nst-scroll': `-${overflowPx}px` } as React.CSSProperties : {}}
                   >
                     Hey, {fullName} 👋
                   </span>
                 </div>
-                <span className="text-[10px] text-white/70 font-medium leading-tight mt-0.5">Keep learning, keep growing!</span>
+                <button
+                  onClick={() => onTabChange('PROFILE')}
+                  className="shrink-0 w-5 h-5 rounded-full bg-white/15 flex items-center justify-center active:scale-90 transition-all"
+                >
+                  <ChevronRight size={11} className="text-white" />
+                </button>
               </div>
             );
           })()}
@@ -9506,16 +9331,14 @@ export const StudentDashboard: React.FC<Props> = ({
               } else if (user.subscriptionTier === 'LIFETIME') {
                 expiryText = '∞ Life';
               }
-              const showExpiry = _topBarInfoPhase === 1 && !!expiryText;
               return (
                 <span
-                  key={_topBarInfoPhase}
                   onClick={() => onTabChange('STORE')}
-                  className={`inline-flex items-center gap-0.5 px-2.5 py-1 rounded-full text-[10px] font-black border whitespace-nowrap shrink-0 transition-all duration-300 cursor-pointer active:scale-95 shadow-sm ${tierBg}`}
-                  style={{ animation: 'fade-in-up 0.35s ease-out both' }}
+                  className={`inline-flex items-center justify-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black border whitespace-nowrap shrink-0 cursor-pointer active:scale-95 shadow-sm ${tierBg}`}
+                  style={{ minWidth: '56px' }}
                   title="Subscription"
                 >
-                  {showExpiry ? expiryText : tierLabel}
+                  {tierLabel}{expiryText ? <span className="opacity-70 font-semibold">· {expiryText}</span> : null}
                 </span>
               );
             })()}
