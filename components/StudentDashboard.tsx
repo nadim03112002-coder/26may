@@ -1936,7 +1936,6 @@ export const StudentDashboard: React.FC<Props> = ({
 
   // ── MY MISTAKE COUNT (lightweight: synced via storage event + 30s poll) ──
   const [mistakeCount, setMistakeCount] = useState<number>(() => getMistakeBankSync().length);
-  const [quickCardPage, setQuickCardPage] = useState(0);
   const [showMistakePractice, setShowMistakePractice] = useState(false);
   const [homeMistakes, setHomeMistakes] = useState<MistakeEntry[]>([]);
   useEffect(() => {
@@ -6946,956 +6945,184 @@ export const StudentDashboard: React.FC<Props> = ({
             isLayoutEditing={isLayoutEditing}
             onToggleVisibility={toggleLayoutVisibility}
           >
-            <div className="grid grid-cols-2 gap-4">
-              {/* CLASS SELECTION */}
-              <div className="col-span-2 bg-white rounded-3xl p-5 border border-slate-100 shadow-md transition-all">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-2xl leading-none">🎓</span>
-                  <h3 className="font-black text-slate-800 text-xl leading-tight">Select Class</h3>
-                </div>
-                <p className="text-[11px] text-slate-400 font-medium mb-4 ml-0.5">Open Lesson As</p>
 
-                {/* CHAPTER SEARCH BAR */}
-                {showHomeSearch && (
-                  <div className="mb-4 animate-in fade-in slide-in-from-top-1 duration-200">
-                    {/* Mode selector */}
-                    <div className="flex bg-slate-100 p-1 gap-1 rounded-xl mb-2">
-                      <button
-                        onClick={() => setHomeSearchMode('search')}
-                        className={`flex-1 py-2 text-xs font-black rounded-lg transition-all flex items-center justify-center gap-1.5 ${homeSearchMode === 'search' ? 'bg-white shadow text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
-                      >
-                        <Search size={12} /> Search
-                      </button>
-                      <button
-                        onClick={() => setHomeSearchMode('compare')}
-                        className={`flex-1 py-2 text-xs font-black rounded-lg transition-all flex items-center justify-center gap-1.5 ${homeSearchMode === 'compare' ? 'bg-white shadow text-violet-600' : 'text-slate-500 hover:text-slate-700'}`}
-                      >
-                        <GitCompare size={12} /> Compare
-                        <span className="text-[8px] font-black bg-violet-500 text-white px-1 py-0.5 rounded-full leading-none">BETA</span>
-                      </button>
-                    </div>
-                    <div className="relative mb-2">
-                      <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-400 pointer-events-none" />
-                      <input
-                        autoFocus
-                        type="text"
-                        value={homeSearchQuery}
-                        onChange={e => setHomeSearchQuery(e.target.value)}
-                        placeholder={homeSearchMode === 'compare' ? "Topic likhein — sab books mein compare karein..." : "Search chapters or subjects..."}
-                        className="w-full pl-12 pr-8 py-2.5 text-xs font-semibold bg-blue-50 border border-blue-200 rounded-xl text-slate-700 placeholder-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-300 transition-all"
-                      />
-                      {homeSearchQuery && (
-                        <button
-                          onClick={() => setHomeSearchQuery('')}
-                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-blue-400 hover:text-blue-600"
-                        >
-                          <X size={14} />
-                        </button>
-                      )}
-                    </div>
-                    {/* Compare mode — Browse All Topics shortcut (when no query yet) */}
-                    {homeSearchMode === 'compare' && !homeSearchQuery.trim() && (
-                      <button
-                        onClick={() => setShowTopicDirectory(true)}
-                        className="w-full flex items-center gap-3 bg-gradient-to-r from-violet-600 to-indigo-600 text-white px-4 py-3 rounded-xl text-sm font-black active:scale-95 transition-all shadow-lg mb-2"
-                      >
-                        <List size={18} />
-                        📋 Saare Compare Topics Dekho
-                        <span className="ml-auto text-violet-200 text-xs font-bold">
-                          {(() => {
-                            let count = 0;
-                            const seen = new Set<string>();
-                            ((settings?.lucentNotes || []) as any[]).forEach((e: any) =>
-                              (e.pages || []).forEach((pg: any) => {
-                                if (pg.topicName?.trim() && !seen.has(pg.topicName.trim().toLowerCase())) {
-                                  seen.add(pg.topicName.trim().toLowerCase()); count++;
-                                }
-                              })
-                            );
-                            ((settings?.homework || []) as any[]).forEach((hw: any) => {
-                              if (hw.topicName?.trim() && !seen.has(hw.topicName.trim().toLowerCase())) {
-                                seen.add(hw.topicName.trim().toLowerCase()); count++;
-                              }
-                            });
-                            return count > 0 ? `${count} topics →` : '→';
-                          })()}
-                        </span>
-                      </button>
-                    )}
-                    {/* Compare mode — show Compare All button */}
-                    {homeSearchMode === 'compare' && homeSearchQuery.trim() && (
-                      <div className="mb-2">
-                        {(chapterNoteHitsLoading) ? (
-                          <div className="flex items-center gap-2 bg-violet-50 border border-violet-200 rounded-xl px-3 py-2.5">
-                            <div className="w-4 h-4 border-2 border-violet-300 border-t-violet-600 rounded-full animate-spin shrink-0" />
-                            <span className="text-xs text-violet-600 font-bold">Sab books mein dhundh raha hai...</span>
-                          </div>
-                        ) : (() => {
-                              const contentHits = [...chapterNoteHits, ...hwBookHits, ...lucentCompareHits];
-                              const seenKeys = new Set<string>();
-                              const topicHits: NoteSearchResult[] = [];
-                              [...contentHits, ...titleBasedHits, ...chapterTitleHits].forEach(h => {
-                                if (!seenKeys.has(h.storageKey)) { seenKeys.add(h.storageKey); topicHits.push(h); }
-                              });
-                              // Count unique books (by bookName/subjectName), not individual pages
-                              const uniqueContentBooks = new Set(contentHits.map(h => h.bookName || h.subjectName)).size;
-                              const uniqueTopicBooks = new Set(topicHits.map(h => h.bookName || h.subjectName)).size;
-                              if (topicHits.length === 0) return (
-                                <p className="text-center text-xs text-slate-400 font-bold py-2">Koi result nahi mila. Koi aur topic likhein.</p>
-                              );
-                              return (
-                                <div className="flex flex-col gap-2">
-                                  {uniqueContentBooks >= 2 && (
-                                    <button
-                                      onClick={() => {
-                                        const q = homeSearchQuery;
-                                        setCompareHits(contentHits);
-                                        setCompareQuery(q);
-                                        setShowCompareView(true);
-                                        setShowHomeSearch(false);
-                                        setHomeSearchQuery('');
-                                        setHomeSearchMode('search');
-                                        saveCompareAnalytic(q, uniqueContentBooks).catch(() => {});
-                                      }}
-                                      className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white px-4 py-3 rounded-xl text-sm font-black active:scale-95 transition-all shadow-lg"
-                                    >
-                                      <GitCompare size={18} />
-                                      ⚖️ Points se Compare — {uniqueContentBooks} Book{uniqueContentBooks !== 1 ? 's' : ''} · Common &amp; Extra Points
-                                    </button>
-                                  )}
-                                  {uniqueTopicBooks >= 2 && (
-                                    <button
-                                      onClick={() => {
-                                        const q = homeSearchQuery;
-                                        setCompareHits(topicHits);
-                                        setCompareQuery(q);
-                                        setShowCompareView(true);
-                                        setShowHomeSearch(false);
-                                        setHomeSearchQuery('');
-                                        setHomeSearchMode('search');
-                                        saveCompareAnalytic(`topic:${q}`, uniqueTopicBooks).catch(() => {});
-                                      }}
-                                      className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-4 py-3 rounded-xl text-sm font-black active:scale-95 transition-all shadow-lg"
-                                    >
-                                      <GitCompare size={18} />
-                                      📚 Topic se Compare — {uniqueTopicBooks} Book{uniqueTopicBooks !== 1 ? 's' : ''} · Pure Notes
-                                    </button>
-                                  )}
-                                </div>
-                              );
-                            })()}
-                      </div>
-                    )}
-                    {homeSearchMode === 'search' && homeSearchQuery.trim() && (() => {
-                      const q = homeSearchQuery.trim().toLowerCase();
-                      const stripHtml = (s: string) => (s || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-                      // 1) Match recent chapters (resume-able)
-                      const recentResults = recentChapters.filter(e =>
-                        e.chapter?.title?.toLowerCase().includes(q) ||
-                        e.subject?.name?.toLowerCase().includes(q)
-                      ).slice(0, 5);
-                      // 2) Match ALL subjects across selectable classes (broad subject search)
-                      const board = activeSessionBoard || user.board || 'CBSE';
-                      const stream = user.stream || 'Science';
-                      const classesToScan = ['6','7','8','9','10','11','12','COMPETITION'];
-                      const hidden = settings?.hiddenSubjects || [];
-                      const subjectMatches: Array<{ id: string; name: string; subj: any; cls: string }> = [];
-                      const seen = new Set<string>();
-                      classesToScan.forEach(cls => {
-                        try {
-                          const subs = getSubjectsList(cls, stream, board).filter(s => !hidden.includes(s.id));
-                          subs.forEach(s => {
-                            if (s.name?.toLowerCase().includes(q)) {
-                              const key = `${cls}_${s.id}`;
-                              if (!seen.has(key)) {
-                                seen.add(key);
-                                subjectMatches.push({ id: s.id, name: s.name, subj: s, cls });
-                              }
-                            }
-                          });
-                        } catch {}
-                      });
-                      const subjectResults = subjectMatches.slice(0, 8);
-                      // 3) Match starred notes content
-                      const starResults = starredNotes
-                        .filter(n => n.topicText?.toLowerCase().includes(q))
-                        .slice(0, 5);
-                      // 4) Match inside admin page-wise notes (lucentNotes) — grouped by bookName
-                      type LucentHit = { entry: LucentNoteEntry; pageIndex: number; pageNo: string; snippet: string };
-                      const lucentHitsAll: LucentHit[] = [];
-                      const lucentSeenKeys = new Set<string>();
-                      ((settings?.lucentNotes || []) as LucentNoteEntry[]).forEach(entry => {
-                        (entry.pages || []).forEach((pg, pi) => {
-                          // Deduplicate by lessonTitle+pageNo — same lesson in multiple entries shows only once
-                          const dedupeKey = `${(entry.lessonTitle || '').toLowerCase()}_${pg.pageNo}`;
-                          if (lucentSeenKeys.has(dedupeKey)) return;
-                          const text = stripHtml(pg.content || '').toLowerCase();
-                          const titleHit = entry.lessonTitle?.toLowerCase().includes(q);
-                          if (text.includes(q) || titleHit) {
-                            lucentSeenKeys.add(dedupeKey);
-                            const idx = text.indexOf(q);
-                            const start = Math.max(0, idx - 30);
-                            const snippet = idx >= 0
-                              ? stripHtml(pg.content).substring(start, start + 120)
-                              : stripHtml(pg.content).substring(0, 120);
-                            lucentHitsAll.push({ entry, pageIndex: pi, pageNo: pg.pageNo, snippet });
-                          }
-                        });
-                      });
-                      // Group by book name, cap each book at 4 results
-                      type LucentBookGroup = { bookName: string; hits: LucentHit[] };
-                      const lucentByBook: Record<string, LucentBookGroup> = {};
-                      lucentHitsAll.forEach(h => {
-                        const bk = h.entry.bookName?.trim() || 'Lucent';
-                        if (!lucentByBook[bk]) lucentByBook[bk] = { bookName: bk, hits: [] };
-                        if (lucentByBook[bk].hits.length < 4) lucentByBook[bk].hits.push(h);
-                      });
-                      const lucentBookGroups = Object.values(lucentByBook).slice(0, 6);
-                      // kept for totalCount
-                      const lucentResults = lucentHitsAll.slice(0, 8);
-                      // 5) Match inside any cached Class 6-12 / Competition chapter
-                      //    notes (Concept / Retention / Teaching Strategy / deep
-                      //    dives). Computed asynchronously by the debounced effect
-                      //    above and stored in `chapterNoteHits`.
-                      const noteResults = chapterNoteHits;
-                      const mcqResults = chapterMcqHits;
-                      const isSearching = chapterNoteHitsLoading || chapterMcqHitsLoading;
-                      // Group hwBookHits by book for per-book display sections
-                      const hwBooksGrouped: Record<string, { meta: typeof HW_BOOK_META[string]; hits: typeof hwBookHits }> = {};
-                      hwBookHits.forEach(hit => {
-                        const bk = hit.bookName || hit.subjectName;
-                        if (!hwBooksGrouped[bk]) {
-                          const bookId = Object.keys(HW_BOOK_META).find(k => HW_BOOK_META[k].label === bk) || bk;
-                          hwBooksGrouped[bk] = { meta: HW_BOOK_META[bookId] || { label: bk, emoji: '📖', color: 'bg-slate-100', border: 'border-slate-200', chip: 'bg-slate-100', chipText: 'text-slate-700' }, hits: [] };
-                        }
-                        hwBooksGrouped[bk].hits.push(hit);
-                      });
-                      const totalCount = recentResults.length + subjectResults.length + starResults.length + lucentResults.length + chapterNoteHits.length + mcqResults.length + hwBookHits.length;
-                      if (totalCount === 0) {
-                        if (isSearching) {
-                          return <p className="text-center text-xs text-slate-400 font-bold py-3">Notes aur MCQ mein dhundh raha hai…</p>;
-                        }
-                        return <p className="text-center text-xs text-slate-400 font-bold py-3">Kuch nahi mila. Notes ya MCQ mein jo word ho woh type karein.</p>;
-                      }
-                      return (
-                        <>
-                        <div className="space-y-2.5 max-h-72 overflow-y-auto pr-0.5">
-                          {subjectResults.length > 0 && (
-                            <div className="space-y-1.5">
-                              <p className="text-[10px] font-black uppercase tracking-wider text-blue-500 px-1">Subjects</p>
-                              {subjectResults.map(s => (
-                                <button
-                                  key={`sub_${s.cls}_${s.id}`}
-                                  onClick={() => {
-                                    setActiveSessionClass(s.cls as any);
-                                    setSelectedSubject(s.subj);
-                                    setContentViewStep('CHAPTERS');
-                                    onTabChange('COURSES');
-                                    setShowHomeSearch(false);
-                                    setHomeSearchQuery('');
-                                  }}
-                                  className="w-full flex items-center gap-3 bg-white border border-blue-100 hover:border-blue-300 rounded-xl px-3 py-2.5 text-left transition-all active:scale-[0.98] shadow-sm"
-                                >
-                                  <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
-                                    <Book size={14} />
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-xs font-black text-slate-800 truncate">{s.name}</p>
-                                    <p className="text-[10px] font-bold text-slate-400 truncate">Class {s.cls} · {board}</p>
-                                  </div>
-                                  <ChevronRight size={14} className="text-blue-400 shrink-0" />
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                          {(() => {
-                            const schoolNoteHits = chapterNoteHits.filter(h => h.classLevel !== 'COMPETITION');
-                            const competitionNoteHits = chapterNoteHits.filter(h => h.classLevel === 'COMPETITION');
-                            return (
-                              <>
-                              {schoolNoteHits.length > 0 && (
-                                <div className="space-y-1.5">
-                                  <div className="flex items-center justify-between px-1">
-                                    <p className="text-[10px] font-black uppercase tracking-wider text-violet-500 flex items-center gap-1">
-                                      Notes
-                                      <span className="text-[9px] font-bold text-slate-400">· Class 6-12</span>
-                                    </p>
-                                    {schoolNoteHits.length > 1 && compareMaxBooks !== 1 && (
-                                      <button
-                                        onClick={() => {
-                                          const limit = compareMaxBooks === 0 ? schoolNoteHits.length : compareMaxBooks;
-                                          const snapshot = schoolNoteHits.slice(0, limit);
-                                          const q = homeSearchQuery;
-                                          setCompareHits(snapshot);
-                                          setCompareQuery(q);
-                                          setShowCompareView(true);
-                                          setShowHomeSearch(false);
-                                          setHomeSearchQuery('');
-                                          const uBooks = new Set(snapshot.map((h: NoteSearchResult) => h.bookName || h.subjectName)).size;
-                                          saveCompareAnalytic(q, uBooks).catch(() => {});
-                                        }}
-                                        className="flex items-center gap-1 bg-violet-600 text-white px-2.5 py-1 rounded-lg text-[10px] font-black active:scale-95 transition-all shadow-sm"
-                                      >
-                                        {(() => { const limit = compareMaxBooks === 0 ? schoolNoteHits.length : compareMaxBooks; const snapshot = schoolNoteHits.slice(0, limit); const uBooks = new Set(snapshot.map((h: NoteSearchResult) => h.bookName || h.subjectName)).size; return `⚖️ Compare ${uBooks} Book${uBooks !== 1 ? 's' : ''}`; })()}
-                                      </button>
-                                    )}
-                                  </div>
-                                  {schoolNoteHits.map((h, i) => (
-                                    <button
-                                      key={`note_${h.storageKey}_${i}`}
-                                      onClick={() => {
-                                        openChapterFromNoteHit(h);
-                                        setShowHomeSearch(false);
-                                        setHomeSearchQuery('');
-                                      }}
-                                      className="w-full flex items-start gap-3 bg-white border border-violet-100 hover:border-violet-300 rounded-xl px-3 py-2.5 text-left transition-all active:scale-[0.98] shadow-sm"
-                                    >
-                                      <div className="w-8 h-8 rounded-lg bg-violet-100 text-violet-600 flex items-center justify-center shrink-0">
-                                        <BookOpen size={14} />
-                                      </div>
-                                      <div className="flex-1 min-w-0">
-                                        <p className="text-xs font-black text-slate-800 truncate">{h.noteTitle || h.subjectName}</p>
-                                        <p className="text-[10px] font-bold text-violet-500 truncate">
-                                          Class {h.classLevel} · {h.subjectName.replace(/-/g, ' ')} · {h.board}
-                                        </p>
-                                        <p className="text-[10px] text-slate-500 line-clamp-2 mt-0.5">{h.noteContent}</p>
-                                      </div>
-                                      <ChevronRight size={14} className="text-violet-400 shrink-0 mt-1" />
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
-                              {competitionNoteHits.length > 0 && (
-                                <div className="space-y-1.5">
-                                  <div className="flex items-center justify-between px-1">
-                                    <p className="text-[10px] font-black uppercase tracking-wider text-emerald-600 flex items-center gap-1">
-                                      Notes
-                                      <span className="text-[9px] font-bold text-slate-400">· Competition Books</span>
-                                    </p>
-                                    {competitionNoteHits.length > 1 && compareMaxBooks !== 1 && (
-                                      <button
-                                        onClick={() => {
-                                          const limit = compareMaxBooks === 0 ? competitionNoteHits.length : compareMaxBooks;
-                                          const snapshot = competitionNoteHits.slice(0, limit);
-                                          const q = homeSearchQuery;
-                                          setCompareHits(snapshot);
-                                          setCompareQuery(q);
-                                          setShowCompareView(true);
-                                          setShowHomeSearch(false);
-                                          setHomeSearchQuery('');
-                                          const uBooks = new Set(snapshot.map((h: NoteSearchResult) => h.bookName || h.subjectName)).size;
-                                          saveCompareAnalytic(q, uBooks).catch(() => {});
-                                        }}
-                                        className="flex items-center gap-1 bg-emerald-600 text-white px-2.5 py-1 rounded-lg text-[10px] font-black active:scale-95 transition-all shadow-sm"
-                                      >
-                                        {(() => { const limit = compareMaxBooks === 0 ? competitionNoteHits.length : compareMaxBooks; const snapshot = competitionNoteHits.slice(0, limit); const uBooks = new Set(snapshot.map((h: NoteSearchResult) => h.bookName || h.subjectName)).size; return `⚖️ Compare ${uBooks} Book${uBooks !== 1 ? 's' : ''}`; })()}
-                                      </button>
-                                    )}
-                                  </div>
-                                  {competitionNoteHits.map((h, i) => (
-                                    <button
-                                      key={`cnote_${h.storageKey}_${i}`}
-                                      onClick={() => {
-                                        openChapterFromNoteHit(h);
-                                        setShowHomeSearch(false);
-                                        setHomeSearchQuery('');
-                                      }}
-                                      className="w-full flex items-start gap-3 bg-white border border-emerald-100 hover:border-emerald-300 rounded-xl px-3 py-2.5 text-left transition-all active:scale-[0.98] shadow-sm"
-                                    >
-                                      <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
-                                        <BookOpen size={14} />
-                                      </div>
-                                      <div className="flex-1 min-w-0">
-                                        <p className="text-xs font-black text-slate-800 truncate">{h.noteTitle || h.subjectName}</p>
-                                        <p className="text-[10px] font-bold text-emerald-600 truncate">
-                                          {h.bookName || h.subjectName.replace(/-/g, ' ')} · Competition · {h.board}
-                                        </p>
-                                        <p className="text-[10px] text-slate-500 line-clamp-2 mt-0.5">{h.noteContent}</p>
-                                      </div>
-                                      <ChevronRight size={14} className="text-emerald-400 shrink-0 mt-1" />
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
-                              </>
-                            );
-                          })()}
-                          {mcqResults.length > 0 && (
-                            <div className="space-y-1.5">
-                              <div className="flex items-center justify-between px-1">
-                                <p className="text-[10px] font-black uppercase tracking-wider text-orange-500 flex items-center gap-1">
-                                  MCQ
-                                  <span className="text-[9px] font-bold text-slate-400">· Class 6-12 + Competition</span>
-                                </p>
-                                <button
-                                  onClick={() => { setMcqSearchInitialQuery(homeSearchQuery); setShowMcqSearchView(true); setShowHomeSearch(false); setHomeSearchQuery(''); }}
-                                  className="flex items-center gap-1 bg-orange-600 text-white px-2.5 py-1 rounded-lg text-[10px] font-black active:scale-95 transition-all shadow-sm"
-                                >
-                                  🔍 Search All MCQs
-                                </button>
-                              </div>
-                              {mcqResults.map((h, i) => (
-                                <button
-                                  key={`mcq_${h.storageKey}_${i}`}
-                                  onClick={() => {
-                                    openChapterFromMcqHit(h);
-                                    setShowHomeSearch(false);
-                                    setHomeSearchQuery('');
-                                  }}
-                                  className="w-full flex items-start gap-3 bg-white border border-orange-100 hover:border-orange-300 rounded-xl px-3 py-2.5 text-left transition-all active:scale-[0.98] shadow-sm"
-                                >
-                                  <div className="w-8 h-8 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center shrink-0 font-black text-[11px]">
-                                    MCQ
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-xs font-black text-slate-800 line-clamp-2">{h.question}</p>
-                                    <p className="text-[10px] font-bold text-orange-500 mt-0.5 truncate">
-                                      {h.classLevel === 'COMPETITION' ? 'Competition' : `Class ${h.classLevel}`} · {h.subjectName.replace(/-/g, ' ')} · {h.board}
-                                    </p>
-                                    {h.options.length > 0 && (
-                                      <p className="text-[10px] text-slate-400 truncate mt-0.5">
-                                        {h.options.slice(0, 2).map((o, oi) => `${String.fromCharCode(65+oi)}) ${o}`).join('  ')}
-                                      </p>
-                                    )}
-                                  </div>
-                                  <ChevronRight size={14} className="text-orange-400 shrink-0 mt-1" />
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                          {recentResults.length > 0 && (
-                            <div className="space-y-1.5">
-                              <p className="text-[10px] font-black uppercase tracking-wider text-emerald-500 px-1">Recent Chapters</p>
-                              {recentResults.map(entry => (
-                                <button
-                                  key={entry.id}
-                                  onClick={() => { openRecentChapter(entry); setShowHomeSearch(false); setHomeSearchQuery(''); }}
-                                  className="w-full flex items-center gap-3 bg-white border border-emerald-100 hover:border-emerald-300 rounded-xl px-3 py-2.5 text-left transition-all active:scale-[0.98] shadow-sm"
-                                >
-                                  <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
-                                    <BookOpen size={14} />
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-xs font-black text-slate-800 truncate">{entry.chapter?.title}</p>
-                                    <p className="text-[10px] font-bold text-slate-400 truncate">{entry.subject?.name} · {entry.classLevel} · {entry.board}</p>
-                                  </div>
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                          {starResults.length > 0 && (
-                            <div className="space-y-1.5">
-                              <p className="text-[10px] font-black uppercase tracking-wider text-amber-500 px-1">Important Notes</p>
-                              {starResults.map(n => (
-                                <button
-                                  key={n.id}
-                                  onClick={() => { setShowStarredPage(true); setProfileStarSearch(homeSearchQuery); setShowHomeSearch(false); setHomeSearchQuery(''); }}
-                                  className="w-full flex items-start gap-3 bg-white border border-amber-100 hover:border-amber-300 rounded-xl px-3 py-2.5 text-left transition-all active:scale-[0.98] shadow-sm"
-                                >
-                                  <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center shrink-0">
-                                    <Star size={14} fill="currentColor" />
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-xs font-bold text-slate-800 line-clamp-2">{n.topicText}</p>
-                                  </div>
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                          {lucentBookGroups.map(({ bookName, hits }) => {
-                            const LUCENT_BOOK_COLORS: Record<string, { label: string; emoji: string; border: string; chipText: string; iconBg: string; iconText: string }> = {
-                              'Lucent':                { label: 'Lucent GK', emoji: '📘', border: 'border-indigo-100', chipText: 'text-indigo-600', iconBg: 'bg-indigo-100', iconText: 'text-indigo-600' },
-                              'Speedy Science':        { label: 'Speedy Science', emoji: '🔬', border: 'border-blue-100', chipText: 'text-blue-600', iconBg: 'bg-blue-100', iconText: 'text-blue-600' },
-                              'Speedy Social Science': { label: 'Speedy Social Sci', emoji: '🌏', border: 'border-orange-100', chipText: 'text-orange-600', iconBg: 'bg-orange-100', iconText: 'text-orange-600' },
-                              'Sar Sangrah':           { label: 'Sar Sangrah', emoji: '📕', border: 'border-rose-100', chipText: 'text-rose-600', iconBg: 'bg-rose-100', iconText: 'text-rose-600' },
-                            };
-                            const theme = LUCENT_BOOK_COLORS[bookName] || { label: bookName, emoji: '📗', border: 'border-emerald-100', chipText: 'text-emerald-600', iconBg: 'bg-emerald-100', iconText: 'text-emerald-600' };
-                            return (
-                              <div key={`lbk_${bookName}`} className="space-y-1.5">
-                                <p className={`text-[10px] font-black uppercase tracking-wider px-1 ${theme.chipText}`}>{theme.emoji} {theme.label} (Page-wise)</p>
-                                {hits.map((h, i) => (
-                                  <button
-                                    key={`lh_${h.entry.id}_${h.pageIndex}_${i}`}
-                                    onClick={() => {
-                                      tryOpenLucentNote(h.entry, h.pageIndex);
-                                      setPendingReadQuery(homeSearchQuery.trim());
-                                      setShowHomeSearch(false);
-                                      setHomeSearchQuery('');
-                                    }}
-                                    className={`w-full flex items-start gap-3 bg-white border ${theme.border} hover:opacity-80 rounded-xl px-3 py-2.5 text-left transition-all active:scale-[0.98] shadow-sm`}
-                                  >
-                                    <div className={`w-8 h-8 rounded-lg ${theme.iconBg} ${theme.iconText} flex items-center justify-center shrink-0 text-base`}>
-                                      {theme.emoji}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                      <p className="text-xs font-black text-slate-800 truncate">{h.entry.lessonTitle}</p>
-                                      <p className={`text-[10px] font-bold ${theme.chipText}`}>Page {h.pageNo} · {h.entry.subject}</p>
-                                      <p className="text-[10px] text-slate-500 line-clamp-2 mt-0.5">…{h.snippet}…</p>
-                                    </div>
-                                    <ChevronRight size={14} className="text-slate-300 shrink-0 mt-1" />
-                                  </button>
-                                ))}
-                              </div>
-                            );
-                          })}
-                          {/* Per-book sections: Sar Sangrah, Speedy Science, Speedy SST, custom books */}
-                          {Object.entries(hwBooksGrouped).map(([bookName, { meta, hits: bHits }]) => (
-                            <div key={`hwbook_${bookName}`} className="space-y-1.5">
-                              <p className="text-[10px] font-black uppercase tracking-wider px-1" style={{ color: 'inherit' }}>
-                                <span className={`${meta.chipText}`}>{meta.emoji} {meta.label}</span>
-                              </p>
-                              {bHits.slice(0, 6).map((h, i) => {
-                                // find the raw HomeworkItem to open
-                                const hwItem = (settings?.homework || []).find((hw: any) => hw.id === h.chapterId);
-                                return (
-                                  <button
-                                    key={`hwbk_${h.chapterId}_${i}`}
-                                    onClick={() => {
-                                      if (hwItem) {
-                                        openRecentHw({ id: hwItem.id, hw: hwItem, targetSubject: hwItem.targetSubject, title: hwItem.title } as any);
-                                        setPendingReadQuery(homeSearchQuery.trim());
-                                        setShowHomeSearch(false);
-                                        setHomeSearchQuery('');
-                                      }
-                                    }}
-                                    className={`w-full flex items-start gap-3 bg-white border ${meta.border} hover:opacity-80 rounded-xl px-3 py-2.5 text-left transition-all active:scale-[0.98] shadow-sm`}
-                                  >
-                                    <div className={`w-8 h-8 rounded-lg ${meta.color} flex items-center justify-center shrink-0 text-base`}>
-                                      {meta.emoji}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                      <p className="text-xs font-black text-slate-800 truncate">{h.noteTitle}</p>
-                                      {h.pageNo && <p className={`text-[10px] font-bold ${meta.chipText}`}>Page {h.pageNo} · {meta.label}</p>}
-                                      <p className="text-[10px] text-slate-500 line-clamp-2 mt-0.5">…{h.noteContent}…</p>
-                                    </div>
-                                    <ChevronRight size={14} className="text-slate-300 shrink-0 mt-1" />
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          ))}
-                        </div>
-
-
-                        {/* COMPARE SHORTCUTS at bottom of search results */}
-                        {homeSearchQuery.trim() && (() => {
-                          const contentHitsShortcut = [...noteResults, ...hwBookHits, ...lucentCompareHits];
-                          const seenSC = new Set<string>();
-                          const topicHitsShortcut: NoteSearchResult[] = [];
-                          [...contentHitsShortcut, ...titleBasedHits, ...chapterTitleHits].forEach(h => {
-                            if (!seenSC.has(h.storageKey)) { seenSC.add(h.storageKey); topicHitsShortcut.push(h); }
-                          });
-                          // Unique book counts — show books, not individual pages
-                          const uBooksShortcutContent = new Set(contentHitsShortcut.map(h => h.bookName || h.subjectName)).size;
-                          const uBooksShortcutTopic = new Set(topicHitsShortcut.map(h => h.bookName || h.subjectName)).size;
-                          if (topicHitsShortcut.length === 0) return null;
-                          return (
-                            <div className="mt-3 pt-3 border-t border-slate-100 flex flex-col gap-2">
-                              {uBooksShortcutContent >= 2 && (
-                                <button
-                                  onClick={() => setHomeSearchMode('compare')}
-                                  className="w-full flex items-center justify-center gap-2 bg-slate-100 text-slate-600 px-3 py-2 rounded-xl text-xs font-black active:scale-95 transition-all hover:bg-violet-50 hover:text-violet-700"
-                                >
-                                  <GitCompare size={14} />
-                                  ⚖️ Points se Compare — {uBooksShortcutContent} book{uBooksShortcutContent !== 1 ? 's' : ''} · Common &amp; Extra Points
-                                </button>
-                              )}
-                              {uBooksShortcutTopic >= 2 && (
-                                <button
-                                  onClick={() => {
-                                    const q = homeSearchQuery;
-                                    setCompareHits(topicHitsShortcut);
-                                    setCompareQuery(q);
-                                    setShowCompareView(true);
-                                    setShowHomeSearch(false);
-                                    setHomeSearchQuery('');
-                                    setHomeSearchMode('search');
-                                    saveCompareAnalytic(`topic:${q}`, uBooksShortcutTopic).catch(() => {});
-                                  }}
-                                  className="w-full flex items-center justify-center gap-2 bg-emerald-50 text-emerald-700 px-3 py-2 rounded-xl text-xs font-black active:scale-95 transition-all hover:bg-emerald-100 border border-emerald-200"
-                                >
-                                  <GitCompare size={14} />
-                                  📚 Topic se Compare — {uBooksShortcutTopic} book{uBooksShortcutTopic !== 1 ? 's' : ''} · Pure Notes
-                                </button>
-                              )}
-                            </div>
-                          );
-                        })()}
-                        </>
-                      );
-                    })()}
-                  </div>
-                )}
-
-
-                {/* CONTENT TYPE PREFERENCE */}
-                {isHomeSectionVisible('home_content_type_pref', settings) && (
-                <div className="mb-4">
-                  <div className="grid grid-cols-4 gap-2">
-                    {[
-                      { id: "ALL",   label: "All",   icon: <List size={20} /> },
-                      { id: "PDF",   label: "Notes", icon: <FileText size={20} /> },
-                      { id: "AUDIO", label: "Audio", icon: <Headphones size={20} /> },
-                      { id: "VIDEO", label: "Video", icon: <Video size={20} /> },
-                    ].map((opt) => {
-                      const active = contentTypePref === (opt.id as any);
-                      return (
-                        <button
-                          key={opt.id}
-                          onClick={() => { hapticLight(); setContentTypePref(opt.id as any); }}
-                          className={`flex flex-col items-center justify-center gap-1.5 py-3.5 rounded-2xl text-[11px] font-bold transition-all border-2 ${
-                            active
-                              ? "bg-white text-blue-600 border-blue-200 shadow-sm"
-                              : "bg-white text-slate-500 border-slate-200"
-                          }`}
-                        >
-                          <span className={active ? "text-blue-600" : "text-slate-400"}>{opt.icon}</span>
-                          <span>{opt.label}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-                )}
-
-                {/* CLASS NAVIGATION — grouped class picker */}
-                {isHomeSectionVisible('home_class_picker', settings) && (() => {
-                  type ClassTheme = {
-                    label: string;
-                    accent: string;
-                    chip: string;
-                    border: string;
-                    hoverBorder: string;
-                    hoverBg: string;
-                    hoverText: string;
-                    text: string;
-                    iconBg: string;
-                    iconText: string;
-                  };
-                  const themes: Record<"junior" | "secondary" | "senior", ClassTheme> = {
-                    junior: {
-                      label: "Junior • Foundation",
-                      accent: "from-emerald-400 to-teal-500",
-                      chip: "bg-emerald-100 text-emerald-700 border-emerald-200",
-                      border: "border-emerald-200",
-                      hoverBorder: "hover:border-emerald-400",
-                      hoverBg: "bg-gradient-to-br from-emerald-50 via-green-50 to-teal-50",
-                      hoverText: "hover:text-emerald-800",
-                      text: "text-emerald-700",
-                      iconBg: "bg-emerald-100",
-                      iconText: "text-emerald-600",
-                    },
-                    secondary: {
-                      label: "Secondary • Building Concepts",
-                      accent: "from-blue-500 to-indigo-600",
-                      chip: "bg-blue-100 text-blue-700 border-blue-200",
-                      border: "border-blue-200",
-                      hoverBorder: "hover:border-blue-400",
-                      hoverBg: "bg-gradient-to-br from-blue-50 via-sky-50 to-cyan-50",
-                      hoverText: "hover:text-blue-800",
-                      text: "text-blue-700",
-                      iconBg: "bg-blue-100",
-                      iconText: "text-blue-600",
-                    },
-                    senior: {
-                      label: "Senior • Boards & Beyond",
-                      accent: "from-purple-500 to-fuchsia-600",
-                      chip: "bg-purple-100 text-purple-700 border-purple-200",
-                      border: "border-purple-200",
-                      hoverBorder: "hover:border-purple-400",
-                      hoverBg: "bg-gradient-to-br from-purple-50 via-violet-50 to-fuchsia-50",
-                      hoverText: "hover:text-purple-800",
-                      text: "text-purple-700",
-                      iconBg: "bg-purple-100",
-                      iconText: "text-purple-600",
-                    },
-                  };
-                  const groups: Array<{
-                    key: keyof typeof themes;
-                    classes: string[];
-                  }> = [
-                    { key: "junior", classes: ["6", "7", "8"] },
-                    { key: "secondary", classes: ["9", "10"] },
-                    { key: "senior", classes: ["11", "12"] },
-                  ];
-                  const isBoardYear = (c: string) => c === "8" || c === "10" || c === "12";
-                  const showBoardBadge = (c: string) => c === "10" || c === "12";
-
-                  const goToClass = (c: string) => {
-                    setActiveSessionClass(c);
-                    setActiveSessionBoard(
-                      activeSessionBoard || user.board || "CBSE",
-                    );
-                    setContentViewStep("SUBJECTS");
-                    setInitialParentSubject(null);
-                    onTabChange("COURSES");
-                  };
-
-                  const currentBoard = activeSessionBoard || user.board || "CBSE";
-
-                  const getClassStats = (classLevel: string) => {
-                    const getChapCount = (subs: any[]) => {
-                      let count = 0;
-                      subs.forEach(sub => {
-                        const key = `${currentBoard}-${classLevel}-${sub.name}`;
-                        let chapters = STATIC_SYLLABUS[key] || [];
-                        if (chapters.length === 0) {
-                          const defaultSub = Object.values(DEFAULT_SUBJECTS).find((s: any) => s.id === sub.id) as any;
-                          if (defaultSub) {
-                            chapters = STATIC_SYLLABUS[`${currentBoard}-${classLevel}-${defaultSub.name}`] || [];
-                          }
-                        }
-                        count += chapters.length;
-                      });
-                      return count;
-                    };
-
-                    if (classLevel === '11' || classLevel === '12') {
-                      const sciSubs = getSubjectsList(classLevel, 'Science', currentBoard);
-                      const comSubs = getSubjectsList(classLevel, 'Commerce', currentBoard);
-                      const artsSubs = getSubjectsList(classLevel, 'Arts', currentBoard);
-                      const allIds = new Set([...sciSubs, ...comSubs, ...artsSubs].map((s: any) => s.id));
-                      const subjectCount = allIds.size;
-                      const chapterCount = getChapCount(sciSubs);
-                      return { subjectCount, chapterCount };
-                    }
-
-                    const subjects = getSubjectsList(classLevel, null, currentBoard);
-                    return { subjectCount: subjects.length, chapterCount: getChapCount(subjects) };
-                  };
-
+            {/* ── CONTENT TYPE FILTER (compact) ── */}
+            <div className="flex justify-center mb-3">
+              <div className="flex items-center gap-1 p-1 rounded-full bg-slate-100">
+                {([
+                  { label: 'All',   val: 'ALL'   },
+                  { label: 'Notes', val: 'PDF'   },
+                  { label: 'MCQ',   val: 'MCQ'   },
+                  { label: 'Video', val: 'VIDEO' },
+                ] as {label:string;val:string}[]).map(f => {
+                  const isActive2 = contentTypePref === f.val || (f.val === 'MCQ' && contentTypePref === 'MCQ');
                   return (
-                    <div className="space-y-4">
-
-                      {/* ── COMPETITION BUTTON ── */}
-                      <button
-                        onClick={() => { hapticStrong(); goToClass('COMPETITION'); }}
-                        className="w-full relative overflow-hidden rounded-2xl text-left active:scale-[0.97] transition-all duration-150"
-                        style={{
-                          background: 'linear-gradient(135deg, #ea580c 0%, #dc2626 100%)',
-                          boxShadow: '0 4px 20px rgba(234,88,12,0.4)'
-                        }}
-                      >
-                        <div className="flex items-center gap-4 px-5 py-5">
-                          <span className="text-4xl leading-none shrink-0">🏆</span>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[9px] font-black uppercase tracking-[0.15em] text-orange-200 mb-1">Competitive Exams</p>
-                            <h3 className="text-[22px] font-black text-white leading-tight">Competition</h3>
-                            <p className="text-[10px] font-semibold text-orange-100 mt-0.5">SSC · UPSC · Railway · Banking</p>
-                          </div>
-                          <div className="shrink-0 w-10 h-10 rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center">
-                            <ChevronRight size={18} className="text-white" />
-                          </div>
-                        </div>
-                        <div className="h-[3px] bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-400" />
-                      </button>
-
-                      {/* ── CLASS 6-12 GROUPS ── */}
-                      {groups.map((g) => {
-                        const t = themes[g.key];
-                        const isTwoCol = g.classes.length === 2;
-                        const dotColor = g.key === 'junior' ? '#10b981' : g.key === 'secondary' ? '#3b82f6' : '#9333ea';
-                        return (
-                          <div key={g.key}>
-                            {/* Section header — dot + label */}
-                            <div className="flex items-center gap-2 mb-2.5 mt-1">
-                              <span className="w-2.5 h-2.5 rounded-full shrink-0 shadow-sm" style={{ background: dotColor }} />
-                              <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{t.label}</span>
-                              <span className="flex-1 h-px bg-slate-100" />
-                            </div>
-                            <div className={`grid ${isTwoCol ? "grid-cols-2" : "grid-cols-3"} gap-2.5`}>
-                              {g.classes.map((c) => {
-                                const { subjectCount } = getClassStats(c);
-                                const isBoard10 = c === '10';
-                                const isBoard12 = c === '12';
-
-                                const cardBg = g.key === 'junior'
-                                  ? 'from-emerald-50 to-teal-50'
-                                  : g.key === 'secondary'
-                                  ? (isBoard10 ? 'from-amber-50 to-yellow-50' : 'from-cyan-50 to-sky-50')
-                                  : (isBoard12 ? 'from-violet-50 to-purple-50' : 'from-indigo-50 to-blue-50');
-
-                                const borderColor = g.key === 'junior'
-                                  ? '#6ee7b7'
-                                  : g.key === 'secondary'
-                                  ? (isBoard10 ? '#fbbf24' : '#93c5fd')
-                                  : (isBoard12 ? '#c084fc' : '#a5b4fc');
-
-                                const numColor = g.key === 'junior'
-                                  ? 'text-emerald-600'
-                                  : g.key === 'secondary'
-                                  ? (isBoard10 ? 'text-amber-600' : 'text-cyan-700')
-                                  : (isBoard12 ? 'text-purple-600' : 'text-indigo-600');
-
-                                const subColor = g.key === 'junior'
-                                  ? 'text-emerald-500'
-                                  : g.key === 'secondary'
-                                  ? (isBoard10 ? 'text-amber-500' : 'text-sky-500')
-                                  : (isBoard12 ? 'text-purple-500' : 'text-indigo-500');
-
-                                const badgeBg = isBoard10
-                                  ? 'bg-amber-100 text-amber-700 border-amber-300'
-                                  : isBoard12
-                                  ? 'bg-purple-100 text-purple-700 border-purple-300'
-                                  : '';
-
-                                const classEmoji: Record<string, string> = {
-                                  '6': '📘', '7': '🖊️', '8': '🌐',
-                                  '9': '📚', '11': '🚀',
-                                };
-
-                                return (
-                                  <button
-                                    key={c}
-                                    onClick={() => { hapticStrong(); goToClass(c); }}
-                                    className={`group relative w-full rounded-2xl text-left overflow-hidden active:scale-[0.97] transition-all duration-150 bg-gradient-to-br ${cardBg}`}
-                                    style={{ border: `2px solid ${borderColor}` }}
-                                  >
-                                    {/* BOARD badge OR emoji icon top-right */}
-                                    {(isBoard10 || isBoard12) ? (
-                                      <span className={`absolute top-2 right-2 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full border text-[7px] font-black uppercase tracking-wider ${badgeBg}`}>
-                                        <Crown size={7} /> Board
-                                      </span>
-                                    ) : classEmoji[c] ? (
-                                      <span className="absolute top-2 right-2 text-base leading-none opacity-70 select-none">{classEmoji[c]}</span>
-                                    ) : null}
-
-                                    <div className="px-3 pt-3 pb-3">
-                                      <p className="text-[8px] font-bold uppercase tracking-widest text-slate-400 mb-0.5">Class</p>
-                                      <span className={`text-[36px] font-black leading-none tracking-tighter block mb-1.5 ${numColor}`}>{c}</span>
-                                      <p className={`text-[10px] font-bold ${subColor} mb-1`}>{subjectCount} Subjects</p>
-                                      <div className={`flex items-center gap-0.5 ${subColor} opacity-70`}>
-                                        <span className="text-[9px] font-bold">Tap to open</span>
-                                        <ChevronRight size={9} />
-                                      </div>
-                                    </div>
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        );
-                      })}
-
-
-                    </div>
+                    <button
+                      key={f.val}
+                      onClick={() => { hapticStrong(); setContentTypePref(f.val as any); }}
+                      className="px-3 py-1 rounded-full text-[11px] font-black transition-all"
+                      style={isActive2
+                        ? { background: (() => { const ia = user.isPremium && user.subscriptionEndDate && new Date(user.subscriptionEndDate) > new Date(); const lv = user.subscriptionLevel||''; return ia&&(lv==='ULTRA'||lv==='PRO')?'#1E2A4A':ia?'#1D4ED8':'#38BDF8'; })(), color: '#fff' }
+                        : { background: 'transparent', color: '#64748b' }}
+                    >
+                      {f.label}
+                    </button>
                   );
-                })()}
+                })}
               </div>
-
             </div>
 
-
-
-            {/* ── QUICK ACTION CARDS — paginated 3 at a time ── */}
+            {/* ── CLASS 6-12 GRID + QUICK ACTIONS (themed to top-bar color) ── */}
             {(() => {
-              const qCards = [
-                { label: 'Reading',     sub: 'Continue where left',  page: 'READING_PAGE',      bgCircle: 'bg-blue-100',   icon: '📖', arrow: 'text-blue-500'   },
-                { label: 'Flashcards',  sub: 'Session history',      page: 'FLASHCARDS_PAGE',   bgCircle: 'bg-purple-100', icon: '🃏', arrow: 'text-purple-500' },
-                { label: 'Offline',     sub: 'Saved content',        page: 'OFFLINE_PAGE',      bgCircle: 'bg-emerald-100',icon: '💾', arrow: 'text-emerald-500'},
-                { label: 'Login',       sub: 'Session log',          page: 'LOGIN_HISTORY_PAGE',bgCircle: 'bg-blue-100',   icon: '👤', arrow: 'text-blue-500'   },
-                { label: 'Credits',     sub: 'Earn & spend log',     page: 'CREDITS_PAGE',      bgCircle: 'bg-amber-100',  icon: '💰', arrow: 'text-amber-500'  },
-                { label: 'My Mistakes', sub: `${mistakeCount} galtiyan`, page: 'MY_MISTAKES_PAGE', bgCircle: 'bg-rose-100',icon: '❌', arrow: 'text-rose-500'  },
-              ] as {label:string;sub:string;page:string;bgCircle:string;icon:string;arrow:string}[];
-              const totalPages = Math.ceil(qCards.length / 3);
-              const visible = qCards.slice(quickCardPage * 3, quickCardPage * 3 + 3);
+              const _board = activeSessionBoard || user.board || 'CBSE';
+              const _stream = user.stream || 'Science';
+              const isActive = user.isPremium && user.subscriptionEndDate && new Date(user.subscriptionEndDate) > new Date();
+              const level = user.subscriptionLevel || '';
+              const tbGrad = isActive && (level === 'ULTRA' || level === 'PRO')
+                ? 'linear-gradient(135deg, #0F172A 0%, #1E2A4A 50%, #1A2F5E 100%)'
+                : isActive
+                  ? 'linear-gradient(135deg, #1E3A8A 0%, #1D4ED8 50%, #1E40AF 100%)'
+                  : 'linear-gradient(135deg, #38BDF8 0%, #5B8FF9 55%, #6366F1 100%)';
+              const tbGradDark = isActive && (level === 'ULTRA' || level === 'PRO')
+                ? 'linear-gradient(135deg, #080D1A 0%, #0F172A 50%, #0D1B33 100%)'
+                : isActive
+                  ? 'linear-gradient(135deg, #172554 0%, #1e3a8a 50%, #1e3a8a 100%)'
+                  : 'linear-gradient(135deg, #0ea5e9 0%, #3b82f6 55%, #4f46e5 100%)';
+
+              const goToClassHome = (c: string) => {
+                hapticStrong();
+                setSyllabusMode('SCHOOL');
+                setActiveSessionClass(c as any);
+                setActiveSessionBoard(_board);
+                setContentViewStep('SUBJECTS');
+                setInitialParentSubject(null);
+                onTabChange('COURSES');
+              };
+
+              const classEmojis: Record<string, string> = { '6':'📖','7':'🧪','8':'🌍','9':'📚','10':'🏆','11':'🚀','12':'🎓' };
+              const boardClasses = ['10','12'];
+              const rows = [['6','7','8','9'], ['10','11','12']];
+
+              const tbBorderColor = isActive && (level === 'ULTRA' || level === 'PRO')
+                ? '#1E2A4A'
+                : isActive
+                  ? '#1D4ED8'
+                  : '#38BDF8';
+
+              const ClassBtn = ({ c }: { c: string }) => {
+                const subjectCount = getSubjectsList(c, _stream, _board).length;
+                const isBoard = boardClasses.includes(c);
+                return (
+                  <button
+                    key={c}
+                    onClick={() => goToClassHome(c)}
+                    className="relative flex flex-col p-2.5 rounded-xl active:scale-95 transition-all text-left bg-white shadow-sm"
+                    style={{ border: `2px solid ${tbBorderColor}` }}
+                  >
+                    {isBoard ? (
+                      <span className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded-full text-[7px] font-black bg-amber-400 text-amber-900 leading-none">👑</span>
+                    ) : (
+                      <span className="absolute top-1.5 right-1.5 text-sm leading-none select-none opacity-60">{classEmojis[c]}</span>
+                    )}
+                    <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-0.5">CLASS</p>
+                    <p className="text-2xl font-black leading-none mb-1" style={{ color: tbBorderColor }}>{c}</p>
+                    <p className="text-[9px] font-bold text-slate-500 leading-tight">{subjectCount} Subj.</p>
+                  </button>
+                );
+              };
+
               return (
-                <div className="mt-2">
-                  <div className="grid grid-cols-3 gap-2">
-                    {visible.map(item => (
+                <div className="space-y-5 mb-2">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="flex-1 h-px bg-slate-100" />
+                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Select Your Class</span>
+                      <span className="flex-1 h-px bg-slate-100" />
+                    </div>
+                    <div className="grid grid-cols-4 gap-2">
+                      {rows[0].map(c => <ClassBtn key={c} c={c} />)}
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      {rows[1].map(c => <ClassBtn key={c} c={c} />)}
+                    </div>
+                  </div>
+
+                  {/* ── COMPETITIVE · GOVT. EXAMS ── */}
+                  {isHomeSectionVisible('home_govt_exams', settings) && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className="flex-1 h-px bg-slate-100" />
+                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Competitive · Govt. Exams</span>
+                        <span className="flex-1 h-px bg-slate-100" />
+                      </div>
                       <button
-                        key={item.page}
-                        onClick={() => { hapticStrong(); onTabChange(item.page as any); }}
-                        className="flex flex-col items-start gap-2 p-3 rounded-2xl bg-white border border-slate-100 shadow-sm active:scale-95 transition-all"
+                        onClick={() => { hapticStrong(); setSyllabusMode('COMPETITION'); setActiveSessionClass('COMPETITION'); setActiveSessionBoard(_board); setContentViewStep('SUBJECTS'); setInitialParentSubject(null); onTabChange('COURSES'); }}
+                        className="w-full relative overflow-hidden rounded-2xl text-left active:scale-[0.99] transition-all shadow-sm bg-white"
+                        style={{ border: `2px solid ${tbBorderColor}` }}
                       >
-                        <div className="flex items-center justify-between w-full">
-                          <div className={`w-10 h-10 rounded-2xl ${item.bgCircle} flex items-center justify-center text-xl shrink-0`}>
-                            {item.icon}
+                        <div className="flex items-center justify-between px-4 py-4">
+                          <div className="flex-1 min-w-0 pr-2">
+                            <p className="text-[10px] font-black uppercase tracking-wider mb-1" style={{ color: tbBorderColor }}>Competitive Mode</p>
+                            <h3 className="text-[24px] font-black leading-tight mb-1 text-slate-800">Govt. Exams</h3>
+                            <div className="flex items-center gap-1.5 mb-3 flex-wrap">
+                              <span className="text-[11px] font-bold text-slate-700">7 Books</span>
+                              <span className="text-slate-300 text-xs">·</span>
+                              <span className="text-[11px] text-slate-500">SSC</span>
+                              <span className="text-slate-300 text-xs">·</span>
+                              <span className="text-[11px] text-slate-500">Railway</span>
+                              <span className="text-slate-300 text-xs">·</span>
+                              <span className="text-[11px] text-slate-500">UPSC</span>
+                            </div>
+                            <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-black text-white" style={{ background: tbBorderColor }}>
+                              Tap to open →
+                            </span>
                           </div>
-                          <ChevronRight size={14} className={item.arrow} />
-                        </div>
-                        <div>
-                          <div className="text-[11px] font-black text-slate-800 leading-tight">{item.label}</div>
-                          <div className="text-[9px] text-slate-500 font-medium leading-tight mt-0.5">{item.sub}</div>
+                          <div className="text-[56px] leading-none shrink-0 select-none">🏛️</div>
                         </div>
                       </button>
-                    ))}
-                  </div>
-                  {/* Prev / dots / Next */}
-                  <div className="flex items-center justify-between mt-2 px-0.5">
-                    <button
-                      onClick={() => setQuickCardPage(p => Math.max(0, p - 1))}
-                      disabled={quickCardPage === 0}
-                      className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white border border-slate-200 shadow-sm text-[11px] font-bold text-slate-500 active:scale-95 transition-all disabled:opacity-30 disabled:pointer-events-none"
-                    >
-                      <ChevronLeft size={13} /> Back
-                    </button>
-                    <div className="flex items-center gap-1.5">
-                      {Array.from({ length: totalPages }).map((_, i) => (
-                        <button key={i} onClick={() => setQuickCardPage(i)}
-                          className={`w-1.5 h-1.5 rounded-full transition-all ${i === quickCardPage ? 'bg-slate-600 w-3' : 'bg-slate-300'}`}
-                        />
+                    </div>
+                  )}
+
+                  {/* ── QUICK ACTION CARDS 3×2 ── */}
+                  <div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="flex-1 h-px bg-slate-100" />
+                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Quick Access</span>
+                      <span className="flex-1 h-px bg-slate-100" />
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      {([
+                        { label: 'Reading',     sub: 'Continue where left', page: 'READING_PAGE',       icon: '📖' },
+                        { label: 'Flashcards',  sub: 'Session history',     page: 'FLASHCARDS_PAGE',    icon: '🃏' },
+                        { label: 'Offline',     sub: 'Saved content',       page: 'OFFLINE_PAGE',       icon: '💾' },
+                        { label: 'Login',       sub: 'Session log',         page: 'LOGIN_HISTORY_PAGE', icon: '👤' },
+                        { label: 'Credits',     sub: 'Earn & spend log',    page: 'CREDITS_PAGE',       icon: '💰' },
+                        { label: 'My Mistakes', sub: `${mistakeCount} galtiyan`, page: 'MY_MISTAKES_PAGE', icon: '❌' },
+                      ] as {label:string;sub:string;page:string;icon:string}[]).map(item => (
+                        <button
+                          key={item.page}
+                          onClick={() => { hapticStrong(); onTabChange(item.page as any); }}
+                          className="flex flex-col items-start gap-2 p-3 rounded-2xl active:scale-95 transition-all shadow-sm bg-white"
+                          style={{ border: `2px solid ${tbBorderColor}` }}
+                        >
+                          <div className="flex items-center justify-between w-full">
+                            <div className="w-10 h-10 rounded-2xl flex items-center justify-center text-xl shrink-0" style={{ background: `${tbBorderColor}18` }}>
+                              {item.icon}
+                            </div>
+                            <ChevronRight size={14} style={{ color: tbBorderColor }} />
+                          </div>
+                          <div>
+                            <div className="text-[11px] font-black text-slate-800 leading-tight">{item.label}</div>
+                            <div className="text-[9px] text-slate-400 font-medium leading-tight mt-0.5">{item.sub}</div>
+                          </div>
+                        </button>
                       ))}
                     </div>
-                    <button
-                      onClick={() => setQuickCardPage(p => Math.min(totalPages - 1, p + 1))}
-                      disabled={quickCardPage === totalPages - 1}
-                      className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white border border-slate-200 shadow-sm text-[11px] font-bold text-slate-500 active:scale-95 transition-all disabled:opacity-30 disabled:pointer-events-none"
-                    >
-                      Next <ChevronRight size={13} />
-                    </button>
                   </div>
                 </div>
               );
             })()}
 
-            {/* ── MY MISTAKES — dedicated home section ── */}
-            <div className="mt-2">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-base leading-none">🔴</span>
-                <span className="text-[12px] font-black uppercase tracking-widest text-slate-800">My Mistakes</span>
-                <span className="flex-1 h-px bg-slate-100" />
-                {mistakeCount > 0 && (
-                  <span className="text-[9px] font-bold text-white bg-rose-500 rounded-full px-2 py-0.5 leading-none">{mistakeCount}</span>
-                )}
-              </div>
-
-              {mistakeCount > 0 ? (
-                <button
-                  onClick={() => {
-                    hapticStrong();
-                    getMistakeBank().then(m => { setHomeMistakes(m); setShowMistakePractice(true); });
-                  }}
-                  className="group relative w-full rounded-2xl bg-gradient-to-br from-rose-50 via-pink-50 to-orange-50 border-2 border-rose-200 text-left hover:border-rose-400 hover:scale-[1.01] active:scale-[1.02] transition-all duration-150 shadow-sm overflow-hidden"
-                >
-                  <span className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-rose-500 via-pink-500 to-orange-500 rounded-t-2xl" />
-                  <div className="px-4 pt-4 pb-3 flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-rose-500 to-orange-500 flex items-center justify-center shrink-0 text-2xl shadow-md group-hover:scale-105 transition-transform">
-                      ❌
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <p className="text-sm font-black text-rose-700 leading-tight">Practice Karo</p>
-                        <span className="bg-rose-500 text-white text-[9px] font-black rounded-full px-1.5 py-0.5 leading-none">{mistakeCount} galtiyan</span>
-                      </div>
-                      <p className="text-[10px] text-rose-500/80">Galat jawab wale MCQs — dubara try karo</p>
-                    </div>
-                    <div className="shrink-0">
-                      <span className="text-[11px] font-black text-rose-600 bg-rose-100 rounded-xl px-2.5 py-1.5 border border-rose-200 group-hover:bg-rose-200 transition-colors">▶ Start</span>
-                    </div>
-                  </div>
-                  <div className="h-1 bg-gradient-to-r from-rose-500 via-pink-500 to-orange-500 opacity-25 group-hover:opacity-50 transition-opacity" />
-                </button>
-              ) : (
-                <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-emerald-50 border-2 border-emerald-200">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0 text-xl">🎉</div>
-                  <div>
-                    <p className="text-sm font-black text-emerald-700">Koi galti nahi!</p>
-                    <p className="text-[10px] text-emerald-600/80">Galat MCQ solve karo — yahan track hoga</p>
-                  </div>
-                </div>
-              )}
-            </div>
 
           </DashboardSectionWrapper>
           </div>
@@ -8465,14 +7692,6 @@ export const StudentDashboard: React.FC<Props> = ({
               })()}
 
               <div className="p-5 relative z-[2]">
-                {/* Settings icon — top right corner of profile card */}
-                <button
-                  onClick={() => setShowProfileSettings(v => !v)}
-                  className={`absolute top-4 z-10 w-8 h-8 rounded-xl flex items-center justify-center transition-all active:scale-90 ${(user.subscriptionLevel === 'ULTRA' && user.isPremium) ? 'right-12' : 'right-4'} ${showProfileSettings ? 'bg-slate-600/60 ring-1 ring-slate-500/40' : 'bg-white/8 hover:bg-white/15'}`}
-                >
-                  <Settings size={14} className={`transition-transform duration-300 ${showProfileSettings ? 'rotate-90 text-white' : 'text-slate-400'}`} />
-                </button>
-
                 {/* Avatar row */}
                 {(() => {
                   const _aScore = (user.role === 'ADMIN' || user.role === 'SUB_ADMIN') ? 9999999 : (user.totalScore || 0);
@@ -8691,48 +7910,6 @@ export const StudentDashboard: React.FC<Props> = ({
               </div>
             </div>
 
-            {/* ── Settings Panel — slides down from profile card icon ── */}
-            {showProfileSettings && (
-              <div className="bg-[#0f0f0f] rounded-2xl border border-slate-700/60 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
-                <div className="px-4 py-2.5 border-b border-slate-800/60 flex items-center gap-2">
-                  <Settings size={12} className="text-slate-500" />
-                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Settings</span>
-                </div>
-                {/* App Guide */}
-                <button onClick={() => setShowUserGuide(true)}
-                  className="w-full px-4 py-3.5 flex items-center gap-3 hover:bg-white/4 active:bg-white/6 transition-colors border-b border-slate-800/40">
-                  <div className="w-9 h-9 rounded-xl bg-indigo-500/15 flex items-center justify-center shrink-0">
-                    <span className="text-base">📖</span>
-                  </div>
-                  <div className="flex-1 text-left min-w-0">
-                    <p className="text-sm font-bold text-white">App Guide</p>
-                    <p className="text-[11px] text-slate-500">Har feature ka guide padhein</p>
-                  </div>
-                  <ChevronRight size={14} className="text-slate-600 shrink-0" />
-                </button>
-                {/* Reset Settings */}
-                <button onClick={() => {
-                  const keysToRemove: string[] = [];
-                  for (let i = 0; i < localStorage.length; i++) {
-                    const key = localStorage.key(i);
-                    if (key && key.startsWith(`nst_credit_skip_${user.id}_`)) keysToRemove.push(key);
-                  }
-                  keysToRemove.forEach(k => localStorage.removeItem(k));
-                  showAlert('Settings reset ho gayi! Credit popup dobara dikhega.', 'SUCCESS');
-                }}
-                  className="w-full px-4 py-3.5 flex items-center gap-3 hover:bg-white/4 active:bg-white/6 transition-colors">
-                  <div className="w-9 h-9 rounded-xl bg-orange-500/15 flex items-center justify-center shrink-0">
-                    <RotateCcw size={14} className="text-orange-400" />
-                  </div>
-                  <div className="flex-1 text-left min-w-0">
-                    <p className="text-sm font-bold text-white">Reset Settings</p>
-                    <p className="text-[11px] text-slate-500">Sab settings default pe reset karo</p>
-                  </div>
-                  <ChevronRight size={14} className="text-slate-600 shrink-0" />
-                </button>
-              </div>
-            )}
-
             {/* ── CARD 2: Actions ── */}
             <div className="bg-[#0f0f0f] rounded-2xl border border-slate-800 overflow-hidden">
               {/* Admin Panel */}
@@ -8750,6 +7927,79 @@ export const StudentDashboard: React.FC<Props> = ({
                 </button>
               )}
 
+              {/* History */}
+              {/* Settings button — opens sub-panel with App Guide, Activity History, Reset Settings */}
+              <button onClick={() => setShowProfileSettings(v => !v)}
+                className="w-full px-4 py-3.5 flex items-center gap-3 hover:bg-white/4 active:bg-white/6 transition-colors border-b border-slate-800/80">
+                <div className="w-9 h-9 rounded-xl bg-slate-500/15 flex items-center justify-center shrink-0">
+                  <Settings size={16} className="text-slate-400" />
+                </div>
+                <div className="flex-1 text-left min-w-0">
+                  <p className="text-sm font-bold text-white">Settings</p>
+                  <p className="text-[11px] text-slate-500">Guide, History, Reset</p>
+                </div>
+                <ChevronRight size={14} className={`text-slate-600 shrink-0 transition-transform duration-200 ${showProfileSettings ? 'rotate-90' : ''}`} />
+              </button>
+
+              {/* Settings sub-panel — expands inline */}
+              {showProfileSettings && (() => {
+                const histAccess = getFeatureAccess('HISTORY_PAGE');
+                const histLocked = !histAccess.hasAccess;
+                return (
+                  <div className="border-b border-slate-800/80 bg-white/[0.02]">
+                    {/* App Guide */}
+                    <button onClick={() => setShowUserGuide(true)}
+                      className="w-full px-6 py-3 flex items-center gap-3 hover:bg-white/4 active:bg-white/6 transition-colors border-b border-slate-800/40">
+                      <div className="w-8 h-8 rounded-lg bg-indigo-500/15 flex items-center justify-center shrink-0">
+                        <span className="text-sm">📖</span>
+                      </div>
+                      <div className="flex-1 text-left min-w-0">
+                        <p className="text-sm font-bold text-white">App Guide</p>
+                        <p className="text-[10px] text-slate-500">Har feature ka guide padhein</p>
+                      </div>
+                      <ChevronRight size={13} className="text-slate-600 shrink-0" />
+                    </button>
+
+                    {/* Activity History */}
+                    {!histAccess.isHidden && (
+                      <button onClick={() => { if (histLocked) { showAlert('🔒 Locked by Admin.', 'ERROR'); return; } onTabChange('HISTORY'); setShowProfileSettings(false); }}
+                        className="w-full px-6 py-3 flex items-center gap-3 hover:bg-white/4 active:bg-white/6 transition-colors border-b border-slate-800/40">
+                        <div className="w-8 h-8 rounded-lg bg-rose-500/15 flex items-center justify-center shrink-0">
+                          <History size={14} className="text-rose-400" />
+                        </div>
+                        <div className="flex-1 text-left min-w-0">
+                          <p className="text-sm font-bold text-white flex items-center gap-2">
+                            Activity History {histLocked && <Lock size={10} className="text-red-400" />}
+                          </p>
+                          <p className="text-[10px] text-slate-500">Tests, sessions & past activity</p>
+                        </div>
+                        <ChevronRight size={13} className="text-slate-600 shrink-0" />
+                      </button>
+                    )}
+
+                    {/* Reset Settings */}
+                    <button onClick={() => {
+                      const keysToRemove: string[] = [];
+                      for (let i = 0; i < localStorage.length; i++) {
+                        const key = localStorage.key(i);
+                        if (key && key.startsWith(`nst_credit_skip_${user.id}_`)) keysToRemove.push(key);
+                      }
+                      keysToRemove.forEach(k => localStorage.removeItem(k));
+                      showAlert('Settings reset ho gayi! Credit popup dobara dikhega.', 'SUCCESS');
+                    }}
+                      className="w-full px-6 py-3 flex items-center gap-3 hover:bg-white/4 active:bg-white/6 transition-colors">
+                      <div className="w-8 h-8 rounded-lg bg-orange-500/15 flex items-center justify-center shrink-0">
+                        <RotateCcw size={14} className="text-orange-400" />
+                      </div>
+                      <div className="flex-1 text-left min-w-0">
+                        <p className="text-sm font-bold text-white">Reset Settings</p>
+                        <p className="text-[10px] text-slate-500">Sab settings default pe reset karo</p>
+                      </div>
+                      <ChevronRight size={13} className="text-slate-600 shrink-0" />
+                    </button>
+                  </div>
+                );
+              })()}
 
               {/* Teacher Store — only visible for actual teachers */}
               {user.role === 'TEACHER' && (
@@ -9004,13 +8254,13 @@ export const StudentDashboard: React.FC<Props> = ({
         })() }}
       >
         {/* Main Header Row */}
-        <div className="flex items-center justify-between w-full px-3 pt-2 pb-2">
+        <div className="flex items-center justify-between w-full px-3 pt-2 pb-1.5">
           {/* LEFT: hamburger + logo + app name */}
           <div
             className="flex items-center gap-2 shrink-0 cursor-pointer"
             onClick={() => setShowSidebar(true)}
           >
-            <button className="p-1.5 rounded-lg transition-colors hover:bg-white/20 -ml-1 shrink-0">
+            <button className="p-1 rounded-lg transition-colors hover:bg-white/20 -ml-1 shrink-0">
               <Menu size={20} className="text-white" />
             </button>
             {user.photoURL && user.avatarChoice === 'gmail' ? (
@@ -9023,7 +8273,7 @@ export const StudentDashboard: React.FC<Props> = ({
               </div>
             )}
             <div className="flex items-center gap-1 min-w-0">
-              <span className="font-black text-[18px] leading-tight tracking-tight uppercase whitespace-nowrap text-white">
+              <span className="font-black text-[19px] leading-tight tracking-tight uppercase whitespace-nowrap text-white">
                 {settings?.appShortName || settings?.appName || "IIC"}
               </span>
               <BadgeCheck size={16} className="text-blue-200 shrink-0" fill="rgba(191,219,254,0.35)" />
@@ -9036,10 +8286,10 @@ export const StudentDashboard: React.FC<Props> = ({
             {/* Streak pill */}
             <button
               onClick={() => setShowStreakPopup(true)}
-              className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-black shrink-0 active:scale-90 transition-all ${user.streak > 0 ? 'bg-orange-500 text-white shadow shadow-orange-500/50' : 'bg-white/15 text-white/60 border border-white/20'}`}
+              className={`inline-flex items-center gap-0.5 px-2 py-1 rounded-full text-[11px] font-black shrink-0 active:scale-90 transition-all ${user.streak > 0 ? 'bg-orange-500 text-white shadow shadow-orange-500/50' : 'bg-white/15 text-white/60 border border-white/20'}`}
               title={`Login streak: ${user.streak} day${user.streak === 1 ? '' : 's'}`}
             >
-              <span className="text-[11px] leading-none">🔥</span>
+              <span className="text-[13px] leading-none">🔥</span>
               <span>{user.streak}d</span>
             </button>
 
@@ -9222,29 +8472,23 @@ export const StudentDashboard: React.FC<Props> = ({
         </div>
 
         {/* SECOND LINE: greeting + Level / Credits / Subscription pills */}
-        <div className="flex items-center justify-between w-full mt-0 pt-0.5 px-4 pb-0.5 border-t border-white/10">
+        <div className="flex items-center justify-between w-full mt-0.5 pt-1 px-4 pb-1.5 border-t border-white/10">
 
-          {/* Left: single-line greeting + next arrow */}
+          {/* Left: two-line greeting */}
           {(() => {
             const fullName = user.name || "Student";
             const isLong = fullName.length > 10;
             const overflowPx = isLong ? Math.min(90, (fullName.length - 10) * 7) : 0;
             return (
-              <div className="flex items-center gap-1.5 shrink-0 min-w-0">
-                <div className="overflow-hidden" style={isLong ? { maskImage: 'linear-gradient(to right, black 72%, transparent 100%)', maxWidth: '150px' } : {}}>
+              <div className="flex flex-col shrink-0 min-w-0">
+                <div className="overflow-hidden" style={isLong ? { maskImage: 'linear-gradient(to right, black 72%, transparent 100%)', maxWidth: '168px' } : {}}>
                   <span
-                    className={`text-[12px] font-black text-white leading-tight whitespace-nowrap inline-block${isLong ? ' nst-name-scroll' : ''}`}
+                    className={`text-[13px] font-black text-white leading-tight whitespace-nowrap inline-block${isLong ? ' nst-name-scroll' : ''}`}
                     style={isLong ? { '--nst-scroll': `-${overflowPx}px` } as React.CSSProperties : {}}
                   >
                     Hey, {fullName} 👋
                   </span>
                 </div>
-                <button
-                  onClick={() => onTabChange('PROFILE')}
-                  className="shrink-0 w-5 h-5 rounded-full bg-white/15 flex items-center justify-center active:scale-90 transition-all"
-                >
-                  <ChevronRight size={11} className="text-white" />
-                </button>
               </div>
             );
           })()}
@@ -9310,38 +8554,6 @@ export const StudentDashboard: React.FC<Props> = ({
               </div>
             )}
 
-            {/* Subscription / expiry pill */}
-            {(() => {
-              const isUltra = user.isPremium && user.subscriptionLevel === 'ULTRA';
-              const isBasic = user.isPremium && user.subscriptionLevel === 'BASIC';
-              const tierLabel = isUltra ? '⚡ ULTRA' : isBasic ? '★ BASIC' : '🌱 FREE';
-              const tierBg = isUltra
-                ? 'bg-amber-400/25 border-amber-300/50 text-amber-100 shadow-[0_0_8px_rgba(251,191,36,0.3)]'
-                : isBasic
-                  ? 'bg-sky-300/20 border-sky-300/40 text-sky-100'
-                  : 'bg-white/20 border-white/35 text-white';
-              let expiryText = '';
-              if (user.isPremium && user.subscriptionEndDate && user.subscriptionTier !== 'LIFETIME') {
-                const diff = new Date(user.subscriptionEndDate).getTime() - Date.now();
-                if (diff <= 0) expiryText = '⚠️ Expired';
-                else {
-                  const d = Math.floor(diff / (1000 * 60 * 60 * 24));
-                  expiryText = d === 0 ? '⏳ Today' : `📅 ${d}d`;
-                }
-              } else if (user.subscriptionTier === 'LIFETIME') {
-                expiryText = '∞ Life';
-              }
-              return (
-                <span
-                  onClick={() => onTabChange('STORE')}
-                  className={`inline-flex items-center justify-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black border whitespace-nowrap shrink-0 cursor-pointer active:scale-95 shadow-sm ${tierBg}`}
-                  style={{ minWidth: '56px' }}
-                  title="Subscription"
-                >
-                  {tierLabel}{expiryText ? <span className="opacity-70 font-semibold">· {expiryText}</span> : null}
-                </span>
-              );
-            })()}
           </div>
         </div>
       </div>
