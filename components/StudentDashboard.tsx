@@ -7729,89 +7729,74 @@ export const StudentDashboard: React.FC<Props> = ({
                       {syllabusMode === 'SCHOOL' && groups.map((g) => {
                         const t = themes[g.key];
                         const isTwoCol = g.classes.length === 2;
+                        const dotColor = g.key === 'junior' ? '#10b981' : g.key === 'secondary' ? '#3b82f6' : '#9333ea';
                         return (
                           <div key={g.key}>
-                            {/* Section label pill */}
-                            <div className="flex items-center gap-2 mb-2.5">
-                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest text-white bg-gradient-to-r ${t.accent} shadow-sm`}>
-                                {t.label}
-                              </span>
+                            {/* Section header — dot + label */}
+                            <div className="flex items-center gap-2 mb-2.5 mt-1">
+                              <span className="w-2.5 h-2.5 rounded-full shrink-0 shadow-sm" style={{ background: dotColor }} />
+                              <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{t.label}</span>
                               <span className="flex-1 h-px bg-slate-100" />
                             </div>
                             <div className={`grid ${isTwoCol ? "grid-cols-2" : "grid-cols-3"} gap-2.5`}>
                               {g.classes.map((c) => {
                                 const { subjectCount } = getClassStats(c);
-                                const classIcon: Record<string, string> = { '6': '📖', '7': '🧪', '8': '🌍', '9': '📚', '10': '🏆', '11': '🚀', '12': '🎓' };
-                                const icon = classIcon[c] || '📘';
-                                const liveStats = classContentStats[`${currentBoard}_${c}`];
                                 const isBoard10 = c === '10';
                                 const isBoard12 = c === '12';
-                                const isSpecial = isBoard10 || isBoard12;
 
-                                const cardStyle = isBoard10
-                                  ? { background: 'linear-gradient(145deg,#fffbeb,#fef3c7)', border: '2px solid #f59e0b', boxShadow: '0 4px 20px rgba(245,158,11,0.2)' }
+                                const cardBg = g.key === 'junior'
+                                  ? 'from-emerald-50 to-teal-50'
+                                  : g.key === 'secondary'
+                                  ? (isBoard10 ? 'from-amber-50 to-yellow-50' : 'from-cyan-50 to-sky-50')
+                                  : (isBoard12 ? 'from-violet-50 to-purple-50' : 'from-indigo-50 to-blue-50');
+
+                                const borderColor = g.key === 'junior'
+                                  ? '#6ee7b7'
+                                  : g.key === 'secondary'
+                                  ? (isBoard10 ? '#fbbf24' : '#93c5fd')
+                                  : (isBoard12 ? '#c084fc' : '#a5b4fc');
+
+                                const numColor = g.key === 'junior'
+                                  ? 'text-emerald-600'
+                                  : g.key === 'secondary'
+                                  ? (isBoard10 ? 'text-amber-600' : 'text-cyan-700')
+                                  : (isBoard12 ? 'text-purple-600' : 'text-indigo-600');
+
+                                const subColor = g.key === 'junior'
+                                  ? 'text-emerald-500'
+                                  : g.key === 'secondary'
+                                  ? (isBoard10 ? 'text-amber-500' : 'text-sky-500')
+                                  : (isBoard12 ? 'text-purple-500' : 'text-indigo-500');
+
+                                const badgeBg = isBoard10
+                                  ? 'bg-amber-100 text-amber-700 border-amber-300'
                                   : isBoard12
-                                  ? { background: 'linear-gradient(145deg,#faf5ff,#ede9fe)', border: '2px solid #9333ea', boxShadow: '0 4px 20px rgba(147,51,234,0.2)' }
-                                  : {};
-
-                                const numColor = isBoard10 ? 'text-amber-600' : isBoard12 ? 'text-purple-600' : t.text;
-                                const accentBar = isBoard10 ? 'from-amber-400 to-yellow-400' : isBoard12 ? 'from-purple-500 to-fuchsia-500' : t.accent;
+                                  ? 'bg-purple-100 text-purple-700 border-purple-300'
+                                  : '';
 
                                 return (
                                   <button
                                     key={c}
                                     onClick={() => { hapticStrong(); goToClass(c); }}
-                                    className={`group relative w-full rounded-2xl text-left overflow-hidden active:scale-[0.97] transition-all duration-150 ${!isSpecial ? `${t.hoverBg} border-2 ${t.border} ${t.hoverBorder} hover:shadow-md` : ''}`}
-                                    style={isSpecial ? cardStyle : {}}
+                                    className={`group relative w-full rounded-2xl text-left overflow-hidden active:scale-[0.97] transition-all duration-150 bg-gradient-to-br ${cardBg}`}
+                                    style={{ border: `2px solid ${borderColor}` }}
                                   >
-                                    {/* Top accent strip */}
-                                    <span className={`absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r ${accentBar}`} />
-
-                                    {/* Board badge or icon */}
-                                    {isBoard10 && (
-                                      <span className="absolute top-2 right-2 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-300 text-[7px] font-black uppercase tracking-wider">
+                                    {/* BOARD badge top-right */}
+                                    {(isBoard10 || isBoard12) && (
+                                      <span className={`absolute top-2 right-2 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full border text-[7px] font-black uppercase tracking-wider ${badgeBg}`}>
                                         <Crown size={7} /> Board
                                       </span>
                                     )}
-                                    {isBoard12 && (
-                                      <span className="absolute top-2 right-2 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 border border-purple-300 text-[7px] font-black uppercase tracking-wider">
-                                        <Crown size={7} /> Board
-                                      </span>
-                                    )}
-                                    {!isSpecial && (
-                                      <span className="absolute top-2.5 right-2.5 text-sm leading-none opacity-50">{icon}</span>
-                                    )}
 
-                                    <div className="px-3 pt-4 pb-3">
-                                      <p className="text-[8px] font-bold uppercase tracking-widest opacity-50 mb-0.5" style={{ color: isBoard10 ? '#92400e' : isBoard12 ? '#6b21a8' : undefined }}>Class</p>
-                                      <div className="flex items-end gap-1.5 mb-2">
-                                        <span className={`text-[34px] font-black leading-none tracking-tighter ${numColor}`}>{c}</span>
-                                        {isSpecial && <span className="text-lg pb-0.5 opacity-40">{icon}</span>}
-                                      </div>
-
-                                      {/* Content pills row */}
-                                      <div className="flex flex-wrap gap-1">
-                                        <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-full ${isBoard10 ? 'bg-amber-100 text-amber-700' : isBoard12 ? 'bg-purple-100 text-purple-700' : `${t.chip}`}`}>
-                                          {subjectCount} Subj
-                                        </span>
-                                        {liveStats && liveStats.notes > 0 && (
-                                          <span className="text-[8px] font-black px-1.5 py-0.5 rounded-full bg-indigo-50 text-indigo-600">📝{liveStats.notes}</span>
-                                        )}
-                                        {liveStats && liveStats.mcq > 0 && (
-                                          <span className="text-[8px] font-black px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-600">❓{liveStats.mcq}</span>
-                                        )}
-                                        {liveStats && liveStats.video > 0 && (
-                                          <span className="text-[8px] font-black px-1.5 py-0.5 rounded-full bg-green-50 text-green-600">▶{liveStats.video}</span>
-                                        )}
-                                      </div>
-
-                                      <div className={`mt-2 flex items-center gap-0.5 ${numColor} opacity-60`}>
-                                        <span className="text-[9px] font-bold">Open</span>
-                                        <ChevronRight size={10} />
+                                    <div className="px-3 pt-3 pb-3">
+                                      <p className="text-[8px] font-bold uppercase tracking-widest text-slate-400 mb-0.5">Class</p>
+                                      <span className={`text-[36px] font-black leading-none tracking-tighter block mb-1.5 ${numColor}`}>{c}</span>
+                                      <p className={`text-[10px] font-bold ${subColor} mb-1`}>{subjectCount} Subjects</p>
+                                      <div className={`flex items-center gap-0.5 ${subColor} opacity-70`}>
+                                        <span className="text-[9px] font-bold">Tap to open</span>
+                                        <ChevronRight size={9} />
                                       </div>
                                     </div>
-
-                                    <div className={`h-[2px] bg-gradient-to-r ${accentBar} opacity-25 group-hover:opacity-60 transition-opacity`} />
                                   </button>
                                 );
                               })}
@@ -9189,111 +9174,105 @@ export const StudentDashboard: React.FC<Props> = ({
       {/* NEW GLOBAL TOP BAR */}
       <div
         id="top-banner-container"
-        className={`relative sticky top-0 z-[100] w-full flex flex-col transition-all duration-300 ease-in-out bg-white ${isFullscreenMode ? "hidden" : ""} ${(isTopBarHidden || isLandscapeUiHidden || activeTab === 'STORE' || activeTab === 'CUSTOM_PAGE') ? "-translate-y-full !h-0 overflow-hidden opacity-0 pointer-events-none" : "translate-y-0 opacity-100"}`}
+        className={`sticky top-0 z-[100] w-full flex flex-col transition-all duration-300 ease-in-out ${isFullscreenMode ? "hidden" : ""} ${(isTopBarHidden || isLandscapeUiHidden || activeTab === 'STORE' || activeTab === 'CUSTOM_PAGE') ? "-translate-y-full !h-0 overflow-hidden opacity-0 pointer-events-none" : "translate-y-0 opacity-100"}`}
+        style={{ background: (() => {
+          const isActive = user.isPremium && user.subscriptionEndDate && new Date(user.subscriptionEndDate) > new Date();
+          const level = user.subscriptionLevel || '';
+          if (isActive && (level === 'ULTRA' || level === 'PRO')) return 'linear-gradient(135deg, #0F172A 0%, #1E2A4A 50%, #1A2F5E 100%)';
+          if (isActive) return 'linear-gradient(135deg, #1E3A8A 0%, #1D4ED8 50%, #1E40AF 100%)';
+          return 'linear-gradient(135deg, #38BDF8 0%, #5B8FF9 55%, #6366F1 100%)';
+        })() }}
       >
         {/* Main Header Row */}
-        <div className="flex items-center justify-between w-full px-4 py-2.5 bg-white">
+        <div className="flex items-center justify-between w-full px-3 pt-2 pb-1.5">
+          {/* LEFT: hamburger + logo + app name */}
           <div
-            className="flex items-center gap-2 shrink-0 cursor-pointer z-10"
+            className="flex items-center gap-2 shrink-0 cursor-pointer"
             onClick={() => setShowSidebar(true)}
           >
-            <button className="p-1 rounded-full transition-colors hover:bg-white/20 -ml-1 shrink-0">
+            <button className="p-1 rounded-lg transition-colors hover:bg-white/20 -ml-1 shrink-0">
               <Menu size={20} className="text-white" />
             </button>
             {user.photoURL && user.avatarChoice === 'gmail' ? (
-              <img
-                src={user.photoURL}
-                alt="Profile"
-                className="w-8 h-8 rounded-full object-cover border-2 border-white/50 shrink-0 shadow-sm"
-              />
+              <img src={user.photoURL} alt="Profile" className="w-8 h-8 rounded-full object-cover border-2 border-white shrink-0 shadow" />
             ) : settings?.appLogo ? (
-              <img
-                src={settings.appLogo}
-                alt="Logo"
-                className="w-8 h-8 rounded-full object-cover border-2 border-white/30 shrink-0"
-              />
+              <img src={settings.appLogo} alt="Logo" className="w-8 h-8 rounded-full object-cover border-2 border-white shrink-0 shadow" />
             ) : (
-              <div className="w-8 h-8 rounded-full flex items-center justify-center bg-white/20 text-white shrink-0">
+              <div className="w-8 h-8 rounded-full flex items-center justify-center bg-white/20 border-2 border-white text-white shrink-0 shadow">
                 <BrainCircuit size={16} />
               </div>
             )}
             <div className="flex items-center gap-1 min-w-0">
-              <span className="font-black text-xl leading-tight tracking-tight uppercase whitespace-nowrap truncate">
+              <span className="font-black text-[19px] leading-tight tracking-tight uppercase whitespace-nowrap text-white">
                 {settings?.appShortName || settings?.appName || "IIC"}
               </span>
-              <BadgeCheck size={16} className="text-blue-300 shrink-0" fill="rgba(96,165,250,0.25)" />
+              <BadgeCheck size={16} className="text-blue-200 shrink-0" fill="rgba(191,219,254,0.35)" />
             </div>
           </div>
 
-          {/* RIGHT SIDE: Fixed action icons + Credits (no scroll) */}
-          <div className="flex items-center gap-1 flex-1 min-w-0 ml-1 z-10 justify-end">
+          {/* RIGHT: streak + search + mail + dots */}
+          <div className="flex items-center gap-1 shrink-0">
 
-              {/* Streak button — tap to open streak popup */}
+            {/* Streak pill */}
+            <button
+              onClick={() => setShowStreakPopup(true)}
+              className={`inline-flex items-center gap-0.5 px-2 py-1 rounded-full text-[11px] font-black shrink-0 active:scale-90 transition-all ${user.streak > 0 ? 'bg-orange-500 text-white shadow shadow-orange-500/50' : 'bg-white/15 text-white/60 border border-white/20'}`}
+              title={`Login streak: ${user.streak} day${user.streak === 1 ? '' : 's'}`}
+            >
+              <span className="text-[13px] leading-none">🔥</span>
+              <span>{user.streak}d</span>
+            </button>
+
+            {/* Search */}
+            {isHomeSectionVisible('home_search_button', settings) && (
               <button
-                onClick={() => setShowStreakPopup(true)}
-                className={`inline-flex items-center gap-0.5 px-2 py-1 rounded-full text-[11px] font-black shrink-0 active:scale-90 transition-all border ${user.streak > 0 ? 'bg-orange-500/20 border-orange-400/60 text-amber-300' : 'bg-white/10 border-white/20 text-white/50'}`}
-                title={`Login streak: ${user.streak} day${user.streak === 1 ? '' : 's'}`}
+                onClick={() => { setShowHomeSearch(s => !s); setHomeSearchQuery(''); if (activeTab !== 'HOME') onTabChange('HOME'); }}
+                className={`keep-light-badge p-1.5 rounded-xl transition-all shrink-0 active:scale-95 shadow ${showHomeSearch ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+                title="Search"
               >
-                <span className="text-[13px] leading-none">🔥</span>
-                <span>{user.streak}d</span>
+                <Search size={16} />
               </button>
+            )}
 
-              {/* Search icon — opens home search from top bar */}
-              {isHomeSectionVisible('home_search_button', settings) && (
+            {/* Mail */}
+            {(() => {
+              const pendingRewards = (user.inbox || []).filter(m => (m.type === 'REWARD' || m.type === 'GIFT') && !m.isClaimed && (!m.expiresAt || new Date(m.expiresAt).getTime() > Date.now())).length;
+              const totalCount = unreadCount + unreadNotifCount + _newContentCount + pendingRewards;
+              return (
                 <button
-                  onClick={() => { setShowHomeSearch(s => !s); setHomeSearchQuery(''); if (activeTab !== 'HOME') onTabChange('HOME'); }}
-                  className={`keep-light-badge p-2 rounded-xl transition-all shrink-0 shadow-sm active:scale-95 ${showHomeSearch ? 'bg-indigo-600 text-white shadow-indigo-400/40' : 'bg-white text-slate-700 hover:bg-slate-50'}`}
-                  title="Search"
+                  onClick={() => { setInboxTab('UPDATES'); setShowInbox(true); }}
+                  className="keep-light-badge p-1.5 rounded-xl transition-colors relative bg-white text-slate-600 hover:bg-slate-50 shrink-0 active:scale-95 shadow"
+                  title="Mail & Notifications"
                 >
-                  <Search size={16} />
+                  <Mail size={16} />
+                  {totalCount > 0 && (
+                    <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-0.5 bg-red-500 rounded-full text-[9px] text-white font-black flex items-center justify-center">
+                      {totalCount > 9 ? '9+' : totalCount}
+                    </span>
+                  )}
                 </button>
-              )}
+              );
+            })()}
 
-              {/* Lightning ⚡ — removed from top bar, accessible via 3-dot menu */}
-
-              {/* Mail / Inbox button — always visible */}
-              {(() => {
-                const pendingRewards = (user.inbox || []).filter(m => (m.type === 'REWARD' || m.type === 'GIFT') && !m.isClaimed && (!m.expiresAt || new Date(m.expiresAt).getTime() > Date.now())).length;
-                const totalCount = unreadCount + unreadNotifCount + _newContentCount + pendingRewards;
-                return (
-                  <button
-                    onClick={() => {
-                      setInboxTab('UPDATES');
-                      setShowInbox(true);
-                    }}
-                    className="keep-light-badge p-2 rounded-xl transition-colors relative bg-white hover:bg-slate-50 text-slate-700 shadow-sm shrink-0 active:scale-95"
-                    title="Mail & Notifications"
-                  >
-                    <Mail size={16} />
-                    {totalCount > 0 && (
-                      <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-0.5 bg-red-500 rounded-full text-[9px] text-white font-black flex items-center justify-center animate-bounce">
-                        {totalCount > 9 ? '9+' : totalCount}
-                      </span>
-                    )}
-                  </button>
-                );
-              })()}
-
-
-              {/* 3-DOT MENU BUTTON — in first line, after Mail */}
-              <div className="relative shrink-0">
-                <button
-                  onClick={() => setShowDotsMenu(v => !v)}
-                  className="keep-light-badge p-2 rounded-xl transition-all bg-white text-slate-700 shadow-sm hover:bg-slate-50 active:scale-95"
-                  title="More options"
-                >
-                  <MoreVertical size={16} />
-                </button>
+            {/* 3-dot menu */}
+            <div className="relative shrink-0">
+              <button
+                onClick={() => setShowDotsMenu(v => !v)}
+                className="keep-light-badge p-1.5 rounded-xl transition-all bg-white text-slate-600 hover:bg-slate-50 active:scale-95 shadow"
+                title="More options"
+              >
+                <MoreVertical size={16} />
+              </button>
                 {showDotsMenu && (
                   <>
                     {/* Backdrop — tap anywhere outside to close */}
                     <div
-                      className="fixed inset-0 z-[9998] bg-black/30 backdrop-blur-[2px] animate-in fade-in duration-150"
+                      className="fixed inset-0 z-[99998] bg-black/30 backdrop-blur-[2px] animate-in fade-in duration-150"
                       onClick={() => setShowDotsMenu(false)}
                       onTouchStart={() => setShowDotsMenu(false)}
                     />
                     {/* Dropdown panel */}
-                    <div className="fixed top-[56px] right-2 w-64 bg-white rounded-2xl shadow-2xl border border-slate-100 z-[9999] animate-in fade-in zoom-in-95 duration-150 overflow-hidden max-h-[calc(100dvh-70px)] overflow-y-auto">
+                    <div className="fixed top-[105px] right-2 w-64 bg-white rounded-2xl shadow-2xl border border-slate-100 z-[99999] animate-in fade-in zoom-in-95 duration-150 overflow-hidden max-h-[calc(100dvh-115px)] overflow-y-auto">
                       {/* Close button row */}
                       <div className="flex items-center justify-between px-4 pt-3 pb-1">
                         <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Menu</span>
@@ -9423,7 +9402,7 @@ export const StudentDashboard: React.FC<Props> = ({
         </div>
 
         {/* SECOND LINE: greeting + Level / Credits / Subscription pills */}
-        <div className="flex items-center justify-between w-full mt-1 pt-1 border-t border-white/10">
+        <div className="flex items-center justify-between w-full mt-0.5 pt-1 px-4 pb-1.5 border-t border-white/10">
 
           {/* Left: two-line greeting */}
           {(() => {
