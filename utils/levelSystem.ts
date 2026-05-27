@@ -12,20 +12,24 @@ export interface LevelInfo {
 }
 
 export const LEVEL_INFO: LevelInfo[] = [
-  { level: 1,  minScore: 0,       label: 'Beginner',    emoji: '🌱', color: '#94a3b8', gradient: 'from-slate-400 to-slate-500',                glowColor: 'rgba(148,163,184,0.35)', discount: 0,  animationIntensity: 0 },
-  { level: 2,  minScore: 200,     label: 'Apprentice',  emoji: '🌿', color: '#6ee7b7', gradient: 'from-emerald-300 to-teal-400',               glowColor: 'rgba(110,231,183,0.35)', discount: 0,  animationIntensity: 0 },
-  { level: 3,  minScore: 500,     label: 'Explorer',    emoji: '🔍', color: '#38bdf8', gradient: 'from-sky-400 to-cyan-500',                   glowColor: 'rgba(56,189,248,0.4)',   discount: 2,  animationIntensity: 1 },
-  { level: 4,  minScore: 1000,    label: 'Scholar',     emoji: '✨', color: '#06b6d4', gradient: 'from-cyan-400 to-sky-500',                   glowColor: 'rgba(6,182,212,0.45)',   discount: 3,  animationIntensity: 1, nameColor: '#06b6d4' },
-  { level: 5,  minScore: 5000,    label: 'Expert',      emoji: '⚡', color: '#3b82f6', gradient: 'from-blue-400 to-indigo-500',                glowColor: 'rgba(59,130,246,0.5)',   discount: 5,  animationIntensity: 2 },
-  { level: 6,  minScore: 10000,   label: 'Veteran',     emoji: '🔥', color: '#f97316', gradient: 'from-orange-400 to-red-500',                 glowColor: 'rgba(249,115,22,0.55)',  discount: 8,  animationIntensity: 2 },
-  { level: 7,  minScore: 20000,   label: 'Master',      emoji: '💫', color: '#a855f7', gradient: 'from-violet-400 to-purple-600',              glowColor: 'rgba(168,85,247,0.6)',   discount: 10, animationIntensity: 2, nameColor: '#a855f7' },
-  { level: 8,  minScore: 50000,   label: 'GrandMaster', emoji: '💎', color: '#f59e0b', gradient: 'from-amber-400 to-yellow-500',               glowColor: 'rgba(245,158,11,0.65)',  discount: 13, animationIntensity: 3, nameColor: '#f59e0b' },
-  { level: 9,  minScore: 250000,  label: 'Titan',       emoji: '🌟', color: '#eab308', gradient: 'from-yellow-400 to-amber-500',               glowColor: 'rgba(234,179,8,0.75)',   discount: 17, animationIntensity: 3, nameColor: '#eab308' },
-  { level: 10, minScore: 1250000, label: 'Mythic',      emoji: '👑', color: '#f59e0b', gradient: 'from-amber-400 to-orange-400',               glowColor: 'rgba(245,158,11,0.8)',   discount: 20, animationIntensity: 3, nameColor: '#f59e0b' },
-  { level: 11, minScore: 6250000, label: 'Supreme',     emoji: '🏆', color: '#10b981', gradient: 'from-emerald-400 via-cyan-400 to-violet-500', glowColor: 'rgba(16,185,129,0.9)',  discount: 20, animationIntensity: 4, nameColor: '#10b981' },
+  { level: 1,  minScore: 0,         label: 'Beginner',    emoji: '🌱', color: '#94a3b8', gradient: 'from-slate-400 to-slate-500',                  glowColor: 'rgba(148,163,184,0.35)', discount: 0,  animationIntensity: 0 },
+  { level: 2,  minScore: 200,       label: 'Apprentice',  emoji: '🌿', color: '#6ee7b7', gradient: 'from-emerald-300 to-teal-400',                 glowColor: 'rgba(110,231,183,0.35)', discount: 0,  animationIntensity: 0 },
+  { level: 3,  minScore: 500,       label: 'Explorer',    emoji: '🔍', color: '#38bdf8', gradient: 'from-sky-400 to-cyan-500',                     glowColor: 'rgba(56,189,248,0.4)',   discount: 2,  animationIntensity: 1 },
+  { level: 4,  minScore: 1000,      label: 'Scholar',     emoji: '✨', color: '#06b6d4', gradient: 'from-cyan-400 to-sky-500',                     glowColor: 'rgba(6,182,212,0.45)',   discount: 3,  animationIntensity: 1, nameColor: '#06b6d4' },
+  { level: 5,  minScore: 5000,      label: 'Expert',      emoji: '⚡', color: '#3b82f6', gradient: 'from-blue-400 to-indigo-500',                  glowColor: 'rgba(59,130,246,0.5)',   discount: 5,  animationIntensity: 2 },
+  { level: 6,  minScore: 10000,     label: 'Veteran',     emoji: '🔥', color: '#f97316', gradient: 'from-orange-400 to-red-500',                   glowColor: 'rgba(249,115,22,0.55)',  discount: 8,  animationIntensity: 2 },
+  { level: 7,  minScore: 20000,     label: 'Master',      emoji: '💫', color: '#a855f7', gradient: 'from-violet-400 to-purple-600',                glowColor: 'rgba(168,85,247,0.6)',   discount: 10, animationIntensity: 2, nameColor: '#a855f7' },
+  { level: 8,  minScore: 50000,     label: 'GrandMaster', emoji: '💎', color: '#f59e0b', gradient: 'from-amber-400 to-yellow-500',                 glowColor: 'rgba(245,158,11,0.65)',  discount: 13, animationIntensity: 3, nameColor: '#f59e0b' },
+  { level: 9,  minScore: 100000,    label: 'Titan',       emoji: '🌟', color: '#eab308', gradient: 'from-yellow-400 to-amber-500',                 glowColor: 'rgba(234,179,8,0.75)',   discount: 17, animationIntensity: 3, nameColor: '#eab308' },
+  { level: 10, minScore: 500000,    label: 'Mythic',      emoji: '👑', color: '#f59e0b', gradient: 'from-amber-400 to-orange-400',                 glowColor: 'rgba(245,158,11,0.8)',   discount: 20, animationIntensity: 3, nameColor: '#f59e0b' },
+  { level: 11, minScore: 2500000,   label: 'Supreme',     emoji: '🏆', color: '#10b981', gradient: 'from-emerald-400 via-cyan-400 to-violet-500',  glowColor: 'rgba(16,185,129,0.9)',  discount: 20, animationIntensity: 4, nameColor: '#10b981' },
+  { level: 12, minScore: 5000000,   label: 'Legend',      emoji: '🔮', color: '#8b5cf6', gradient: 'from-violet-400 via-purple-500 to-pink-500',   glowColor: 'rgba(139,92,246,0.9)',  discount: 22, animationIntensity: 4, nameColor: '#8b5cf6' },
+  { level: 13, minScore: 10000000,  label: 'Immortal',    emoji: '⚜️', color: '#ec4899', gradient: 'from-pink-400 via-rose-500 to-red-500',        glowColor: 'rgba(236,72,153,0.9)',  discount: 25, animationIntensity: 4, nameColor: '#ec4899' },
+  { level: 14, minScore: 20000000,  label: 'Divine',      emoji: '🌠', color: '#f43f5e', gradient: 'from-rose-400 via-red-500 to-orange-500',      glowColor: 'rgba(244,63,94,0.95)',  discount: 28, animationIntensity: 4, nameColor: '#f43f5e' },
+  { level: 15, minScore: 50000000,  label: 'Absolute',    emoji: '💠', color: '#ffffff', gradient: 'from-white via-cyan-200 to-violet-400',         glowColor: 'rgba(255,255,255,1.0)', discount: 30, animationIntensity: 4, nameColor: '#ffffff' },
 ];
 
-export const MAX_LEVEL = 11;
+export const MAX_LEVEL = 15;
 export const LEVEL_THRESHOLDS = LEVEL_INFO.map(l => l.minScore);
 
 // ── Per-tier limit structure ─────────────────────────────────────────────────
@@ -71,8 +75,8 @@ export interface LevelDailyLimits {
 // Flashcard: base Free=10, Basic=15, Ultra=20;  +10 per level (all tiers)
 // bonusLoginCredits: 0,5,10,15,20,30,40,50,65,80,100
 
-const _BONUS_LOGIN = [0, 5, 10, 15, 20, 30, 40, 50, 65, 80, 100];
-const _CREDIT_WRITE_MAX = [100, 100, 100, 100, 100, 110, 120, 130, 140, 145, 150];
+const _BONUS_LOGIN = [0, 5, 10, 15, 20, 30, 40, 50, 65, 80, 100, 120, 150, 185, 220];
+const _CREDIT_WRITE_MAX = [100, 100, 100, 100, 100, 110, 120, 130, 140, 145, 150, 155, 160, 165, 170];
 
 const buildTable = (): Record<number, LevelDailyLimits> => {
   const tbl: Record<number, LevelDailyLimits> = {};
@@ -205,17 +209,22 @@ export const getLevelLimitBonus = (level: number): LevelLimitBonus => {
   };
 };
 
-export const getLevelInfo = (score: number): LevelInfo => {
+export const getLevelInfo = (
+  score: number,
+  settings?: { levelScoreOverride?: Record<string, number> } | null
+): LevelInfo => {
   let info = LEVEL_INFO[0];
+  const overrides = settings?.levelScoreOverride;
   for (const l of LEVEL_INFO) {
-    if (score >= l.minScore) info = l;
+    const threshold = overrides?.[String(l.level)] ?? l.minScore;
+    if (score >= threshold) info = { ...l, minScore: threshold };
     else break;
   }
   return info;
 };
 
-export const getLevelFromScore = (score: number): number => getLevelInfo(score).level;
-export const getScoreDiscountFromScore = (score: number): number => getLevelInfo(score).discount;
+export const getLevelFromScore = (score: number, settings?: { levelScoreOverride?: Record<string, number> } | null): number => getLevelInfo(score, settings).level;
+export const getScoreDiscountFromScore = (score: number, settings?: { levelScoreOverride?: Record<string, number> } | null): number => getLevelInfo(score, settings).discount;
 
 export const getScoreForLevel = (level: number): number => {
   const idx = Math.max(0, Math.min(level - 1, MAX_LEVEL - 1));

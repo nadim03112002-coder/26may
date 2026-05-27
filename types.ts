@@ -673,6 +673,10 @@ export interface SystemSettings {
   themeColor?: string;
   darkThemeColor?: string;
   lightThemeColor?: string;
+  ultraThemeColor?: string;
+  basicThemeColor?: string;
+  freeThemeColor?: string;
+  levelScoreOverride?: Record<string, number>;
   isGlobalFreeMode?: boolean; // NEW: Global Free Mode
   watermarkOpacity?: number; // 0.0 to 1.0
   watermarkSize?: number; // px
