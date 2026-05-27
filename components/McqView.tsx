@@ -702,13 +702,12 @@ export const McqView: React.FC<Props> = ({
               })
               .filter((x): x is NonNullable<typeof x> => x !== null);
           if (wrongPayload.length > 0) addMistakes(wrongPayload);
-          // Remove correctly-answered mistakes from the bank.
-          submittedQuestions.forEach((q, idx) => {
+          // Remove correctly-answered mistakes from the bank (queued after addMistakes).
+          const correctQuestions = submittedQuestions.filter((q, idx) => {
               const selected = remappedAnswers[idx] !== undefined ? remappedAnswers[idx] : -1;
-              if (selected !== -1 && selected === q.correctAnswer) {
-                  removeMistakeByQuestion(q.question, q.correctAnswer);
-              }
+              return selected !== -1 && selected === q.correctAnswer;
           });
+          correctQuestions.forEach(q => removeMistakeByQuestion(q.question, q.correctAnswer));
       } catch (err) { console.warn('mistakeBank update failed:', err); }
 
       // Performance Label based on marks (Excllent, Good, Average, Bad)
@@ -1155,25 +1154,24 @@ export const McqView: React.FC<Props> = ({
               };
               const handleSubmit = () => {
                   setListSubmitted(true);
-                  // Auto-save wrong answers to My Mistake bank
-                  norm.forEach((q, i) => {
-                      if (listAnswers[i] !== undefined && listAnswers[i] !== q.correctAnswer) {
-                          try {
-                              addMistakes([{
-                                  question: q.question,
-                                  options: q.options || [],
-                                  correctAnswer: q.correctAnswer,
-                                  explanation: q.explanation,
-                                  topic: q.topic,
-                                  chapterTitle: chapter.title,
-                                  subjectName: subject.name,
-                                  classLevel: classLevel,
-                                  board: board,
-                                  source: 'MCQ',
-                              }]);
-                          } catch {}
-                      }
-                  });
+                  // Auto-save wrong answers to My Mistake bank (batch all at once to avoid race conditions)
+                  try {
+                      const wrongItems = norm
+                          .filter((q, i) => listAnswers[i] !== undefined && listAnswers[i] !== q.correctAnswer)
+                          .map(q => ({
+                              question: q.question,
+                              options: q.options || [],
+                              correctAnswer: q.correctAnswer,
+                              explanation: q.explanation,
+                              topic: q.topic,
+                              chapterTitle: chapter.title,
+                              subjectName: subject.name,
+                              classLevel: classLevel,
+                              board: board,
+                              source: 'MCQ',
+                          }));
+                      if (wrongItems.length > 0) addMistakes(wrongItems);
+                  } catch {}
               };
               return (
                   <div className="bg-slate-50 min-h-screen pb-24 animate-in fade-in slide-in-from-right-8">

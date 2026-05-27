@@ -180,17 +180,21 @@ export const ClassSelection: React.FC<Props> = ({ selectedBoard, allowedClasses,
             let isLocked = allowedClasses && allowedClasses.length > 0 && !allowedClasses.includes(cls);
             if (cls === 'COMPETITION' && !allowedModes.includes('COMPETITION')) isLocked = true;
             const st = getClassStyle(cls, !!isLocked);
+            const num = cls === 'COMPETITION' ? 0 : parseInt(cls as string, 10);
+            const isFeatured = num === 10 || num === 12;
 
             return (
               <button
                 key={cls}
                 onClick={() => !isLocked && onSelect(cls)}
                 disabled={!!isLocked}
-                className={`group relative overflow-hidden rounded-2xl border-2 shadow-sm transition-all duration-300 text-left ${st.card} ${st.glow}`}
+                className={`group relative overflow-hidden border-2 shadow-sm transition-all duration-300 text-left
+                  ${isFeatured ? 'col-span-2 rounded-3xl' : 'rounded-2xl'}
+                  ${st.card} ${st.glow}`}
               >
-                {/* Top accent strip — FeatureMatrix style */}
+                {/* Top accent strip */}
                 {!isLocked && (
-                  <div className={`h-1 w-full ${st.accent} absolute top-0 left-0`} />
+                  <div className={`${isFeatured ? 'h-1.5' : 'h-1'} w-full ${st.accent} absolute top-0 left-0`} />
                 )}
 
                 {/* Lock overlay */}
@@ -203,43 +207,78 @@ export const ClassSelection: React.FC<Props> = ({ selectedBoard, allowedClasses,
                   </div>
                 )}
 
-                <div className="relative z-10 p-5 pt-6">
-                  {/* Icon */}
-                  <div className={`w-11 h-11 rounded-xl flex items-center justify-center mb-3 transition-all duration-300 ${st.iconWrap}`}>
-                    {cls === 'COMPETITION'
-                      ? <Trophy size={22} />
-                      : parseInt(cls as string) >= 11
-                        ? <Zap size={22} />
-                        : parseInt(cls as string) >= 9
+                {isFeatured ? (
+                  /* ── Featured horizontal layout for Class 10 & 12 ── */
+                  <div className="relative z-10 flex items-center gap-5 px-6 py-5 pt-6">
+                    {/* Icon */}
+                    <div className={`shrink-0 w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-md ${st.iconWrap}`}>
+                      <GraduationCap size={30} />
+                    </div>
+                    {/* Text */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                        <h3 className={`text-3xl font-black leading-none ${st.label}`}>
+                          Class {cls}
+                        </h3>
+                        {!isLocked && selectedBoard && selectedBoard !== 'COMPETITION' && (
+                          <span className={`inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full border ${
+                            selectedBoard === 'CBSE'
+                              ? 'bg-blue-600 text-white border-blue-700'
+                              : 'bg-orange-500 text-white border-orange-600'
+                          }`}>
+                            {selectedBoard === 'CBSE' ? <Landmark size={9} /> : <Building2 size={9} />}
+                            {selectedBoard} Board
+                          </span>
+                        )}
+                      </div>
+                      <p className={`text-sm font-bold transition-colors ${st.sub}`}>
+                        {isLocked ? 'Unavailable' : num === 10 ? 'Secondary Exam →' : 'Senior Secondary Exam →'}
+                      </p>
+                    </div>
+                    {/* Arrow hint */}
+                    {!isLocked && (
+                      <div className={`shrink-0 w-9 h-9 rounded-full flex items-center justify-center ${st.iconWrap} opacity-60 group-hover:opacity-100 transition-opacity`}>
+                        <span className="text-base font-black">→</span>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  /* ── Regular vertical layout for other classes ── */
+                  <div className="relative z-10 p-5 pt-6">
+                    {/* Icon */}
+                    <div className={`w-11 h-11 rounded-xl flex items-center justify-center mb-3 transition-all duration-300 ${st.iconWrap}`}>
+                      {cls === 'COMPETITION'
+                        ? <Trophy size={22} />
+                        : num >= 9
                           ? <GraduationCap size={22} />
                           : <BookOpen size={22} />
-                    }
-                  </div>
-
-                  {/* Class label */}
-                  <h3 className={`text-xl font-black mb-0.5 ${st.label}`}>
-                    {cls === 'COMPETITION' ? 'Competition' : `Class ${cls}`}
-                  </h3>
-
-                  {/* Subtitle */}
-                  <p className={`text-[11px] font-bold transition-colors ${st.sub}`}>
-                    {isLocked ? 'Unavailable'
-                      : cls === 'COMPETITION' ? 'Competitive Exams →'
-                      : parseInt(cls as string) >= 11 ? 'Senior Secondary →'
-                      : parseInt(cls as string) >= 9 ? 'Secondary →'
-                      : 'Middle School →'
-                    }
-                  </p>
-
-                  {/* Competition extra badge */}
-                  {cls === 'COMPETITION' && !isLocked && (
-                    <div className="mt-2">
-                      <span className="inline-flex items-center gap-1 bg-purple-600 text-white text-[9px] font-black px-2 py-0.5 rounded-full">
-                        <Sparkles size={8} /> Elite
-                      </span>
+                      }
                     </div>
-                  )}
-                </div>
+
+                    {/* Class label */}
+                    <h3 className={`text-xl font-black mb-0.5 ${st.label}`}>
+                      {cls === 'COMPETITION' ? 'Competition' : `Class ${cls}`}
+                    </h3>
+
+                    {/* Subtitle */}
+                    <p className={`text-[11px] font-bold transition-colors ${st.sub}`}>
+                      {isLocked ? 'Unavailable'
+                        : cls === 'COMPETITION' ? 'Competitive Exams →'
+                        : num >= 9 ? 'Secondary →'
+                        : 'Middle School →'
+                      }
+                    </p>
+
+                    {/* Competition extra badge */}
+                    {cls === 'COMPETITION' && !isLocked && (
+                      <div className="mt-2">
+                        <span className="inline-flex items-center gap-1 bg-purple-600 text-white text-[9px] font-black px-2 py-0.5 rounded-full">
+                          <Sparkles size={8} /> Elite
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </button>
             );
         })}
