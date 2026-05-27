@@ -156,6 +156,7 @@ import {
   BarChart2,
   BadgeCheck,
   Copy,
+  Sun,
 } from "lucide-react";
 import { speakText, stopSpeech, stripHtml } from "../utils/textToSpeech";
 import { getMistakeBankSync, getMistakeBank, addMistakes, removeMistakeByQuestion, MistakeEntry } from "../utils/mistakeBank";
@@ -547,7 +548,7 @@ export const StudentDashboard: React.FC<Props> = ({
 
   // ── Level-based limit bonus ─────────────────────────────────────────────
   const _userLevelInfo  = getLevelInfo(user.totalScore || 0);
-  const _userLevel      = (user.role === 'ADMIN' || user.role === 'SUB_ADMIN') ? 8 : _userLevelInfo.level;
+  const _userLevel      = (user.role === 'ADMIN' || user.role === 'SUB_ADMIN') ? 15 : _userLevelInfo.level;
   const _lvlBonus       = getLevelLimitBonus(_userLevel);
 
   // Free quota (0 free views — credit-only, but track key for limit enforcement)
@@ -1566,6 +1567,7 @@ export const StudentDashboard: React.FC<Props> = ({
   const [showCreditsMini, setShowCreditsMini] = useState(false);
   const [storeSubTab, setStoreSubTab] = useState<'STORE' | 'CREDITS'>('STORE');
   const [inboxTab, setInboxTab] = useState<'MESSAGES' | 'UPDATES' | 'REWARDS' | 'HISTORY' | 'RULES'>('UPDATES');
+  const [profileWhite, setProfileWhite] = useState(() => localStorage.getItem(`nst_pw_${user.id}`) === '1');
   const [rewardSubTab, setRewardSubTab] = useState<'EARNED' | 'RULES' | 'HISTORY'>('EARNED');
   const [rewardHistorySeenCount, setRewardHistorySeenCount] = useState<number>(() => {
     const saved = localStorage.getItem(`nst_reward_hist_seen_${user?.id || ''}`);
@@ -7585,12 +7587,20 @@ export const StudentDashboard: React.FC<Props> = ({
         ? Math.floor((Date.now() - new Date(user.createdAt).getTime()) / (1000 * 60 * 60 * 24))
         : 0;
       const _pTotalCredits = (user.credits ?? 0) + (user.bonusCredits ?? 0);
+      const _pw       = profileWhite;
+      const _pBg      = _pw ? '#f0f4f8' : tierTheme.profileBg;
+      const _pCard    = _pw ? '#ffffff' : tierTheme.profileCardBg;
+      const _pCardSt  = _pw ? '#f1f5f9' : tierTheme.profileCardBg;
+      const _pSep     = `1px solid ${_pw ? 'rgba(0,0,0,0.07)' : 'rgba(255,255,255,0.06)'}`;
+      const _pBdrMain = _pw ? '1px solid rgba(0,0,0,0.07)' : `1px solid ${tierTheme.primary}2e`;
+      const _pBdrSoft = _pw ? '1px solid rgba(0,0,0,0.07)' : `1px solid ${tierTheme.primary}18`;
+      const _pHovCls  = _pw ? 'hover:bg-black/5 active:bg-black/8' : 'hover:bg-white/5 active:bg-white/8';
 
       return (
-        <div className="animate-in fade-in zoom-in duration-300 pb-28 min-h-screen" style={{ background: tierTheme.profileBg }}>
+        <div className="animate-in fade-in zoom-in duration-300 pb-28 min-h-screen" data-pw={_pw ? "1" : "0"} style={{ background: _pBg }}>
 
           {/* ── CARD 1: Identity ── */}
-          <div className="rounded-none overflow-hidden mb-2.5" style={{ background: tierTheme.profileCardBg, border: `1px solid ${tierTheme.primary}2e` }}>
+          <div className="rounded-none overflow-hidden mb-2.5" style={{ background: _pCard, border: _pBdrMain }}>
 
             {/* ── Banner / Header area ── */}
             <div className="relative px-4 pt-5 pb-4 flex flex-col items-center text-center"
@@ -7644,7 +7654,7 @@ export const StudentDashboard: React.FC<Props> = ({
 
               {/* Join date */}
               {_pJoinDate && (
-                <p className="text-[10px] text-slate-400 font-semibold mb-2">{_pJoinDate}</p>
+                <p className="text-[10px] text-white/60 font-semibold mb-2">{_pJoinDate}</p>
               )}
 
               {/* Avatar toggle */}
@@ -7734,7 +7744,7 @@ export const StudentDashboard: React.FC<Props> = ({
           {/* ── STATS ROW ── */}
           <div className="px-3 grid grid-cols-3 gap-2 mb-2.5">
             {/* Credits */}
-            <div className="rounded-xl py-3 px-2 text-center" style={{ background: tierTheme.profileCardBg, border: `1px solid ${tierTheme.primary}40` }}>
+            <div className="rounded-xl py-3 px-2 text-center" style={{ background: _pCardSt, border: `1px solid ${tierTheme.primary}40` }}>
               <div className="flex items-center justify-center gap-1 mb-0.5">
                 <span className="text-base font-black tabular-nums" style={{ color: tierTheme.primary }}>{(user.credits ?? 0).toLocaleString('en-IN')}</span>
                 <Trophy size={11} style={{ color: tierTheme.primary }} />
@@ -7742,17 +7752,17 @@ export const StudentDashboard: React.FC<Props> = ({
               {(user.bonusCredits ?? 0) > 0 && (
                 <div className="text-[8px] font-black tabular-nums" style={{ color: `${tierTheme.primary}99` }}>{user.bonusCredits?.toLocaleString('en-IN')}</div>
               )}
-              <div className="text-[9px] font-bold text-slate-300 uppercase tracking-wide mt-0.5">Credits</div>
+              <div className="text-[9px] font-bold text-white/70 uppercase tracking-wide mt-0.5">Credits</div>
             </div>
             {/* Streak */}
-            <div onClick={() => setShowStreakPopup(true)} className="rounded-xl py-3 px-2 text-center cursor-pointer active:scale-95 transition-transform" style={{ background: tierTheme.profileCardBg, border: `1px solid ${tierTheme.primary}40` }}>
+            <div onClick={() => setShowStreakPopup(true)} className="rounded-xl py-3 px-2 text-center cursor-pointer active:scale-95 transition-transform" style={{ background: _pCardSt, border: `1px solid ${tierTheme.primary}40` }}>
               <div className="text-base font-black tabular-nums mb-0.5" style={{ color: tierTheme.primary }}>{user.streak > 0 ? user.streak : '0'}</div>
-              <div className="text-[9px] font-bold text-slate-300 uppercase tracking-wide">Streak</div>
+              <div className="text-[9px] font-bold text-white/70 uppercase tracking-wide">Streak</div>
             </div>
             {/* Days */}
-            <div className="rounded-xl py-3 px-2 text-center" style={{ background: tierTheme.profileCardBg, border: `1px solid ${tierTheme.primary}40` }}>
+            <div className="rounded-xl py-3 px-2 text-center" style={{ background: _pCardSt, border: `1px solid ${tierTheme.primary}40` }}>
               <div className="text-base font-black tabular-nums mb-0.5" style={{ color: tierTheme.primary }}>{_pDaysOnApp}</div>
-              <div className="text-[9px] font-bold text-slate-300 uppercase tracking-wide flex items-center justify-center gap-0.5">Days <span>🔥</span></div>
+              <div className="text-[9px] font-bold text-white/70 uppercase tracking-wide flex items-center justify-center gap-0.5">Days <span>🔥</span></div>
             </div>
           </div>
 
@@ -7767,9 +7777,9 @@ export const StudentDashboard: React.FC<Props> = ({
             const isUrgent = dDays <= 3;
             const cdAccent = isUrgent ? '#ef4444' : tierTheme.primary;
             return (
-              <div className="rounded-none p-4 mb-2.5" style={{ background: tierTheme.profileCardBg, border: `1px solid ${isUrgent ? 'rgba(239,68,68,0.30)' : tierTheme.primary + '2e'}` }}>
+              <div className="rounded-none p-4 mb-2.5" style={{ background: _pCard, border: `1px solid ${isUrgent ? 'rgba(239,68,68,0.30)' : tierTheme.primary + '2e'}` }}>
                 <div className="flex items-center justify-between mb-3">
-                  <p className="text-xs font-black text-slate-300 uppercase tracking-wider">Subscription</p>
+                  <p className="text-xs font-black text-white uppercase tracking-wider">Subscription</p>
                   <span className="text-[10px] font-bold" style={{ color: isUrgent ? '#ef4444' : '#94a3b8' }}>
                     {isUrgent && '⚠ '}{new Date(user.subscriptionEndDate!).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' })}
                   </span>
@@ -7792,18 +7802,18 @@ export const StudentDashboard: React.FC<Props> = ({
           })()}
 
           {/* ── ACTIONS MENU ── */}
-          <div className="rounded-none overflow-hidden mb-2.5" style={{ background: tierTheme.profileCardBg, border: `1px solid ${tierTheme.primary}18` }}>
+          <div className="rounded-none overflow-hidden mb-2.5" style={{ background: _pCard, border: _pBdrSoft }}>
 
             {/* Admin Panel */}
             {(user.role === 'ADMIN' || user.role === 'SUB_ADMIN' || isImpersonating) && (
               <button onClick={handleSwitchToAdmin}
                 className="w-full px-4 py-3.5 flex items-center gap-3 hover:bg-white/5 active:bg-white/8 transition-colors"
-                style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                style={{ borderBottom: _pSep }}>
                 <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${tierTheme.primary}20`, border: `1px solid ${tierTheme.primary}40` }}>
                   <Layout size={16} style={{ color: tierTheme.primary }} />
                 </div>
                 <p className="flex-1 text-sm font-bold text-white text-left">Admin Panel</p>
-                <ChevronRight size={14} className="text-slate-600 shrink-0" />
+                <ChevronRight size={14} className="text-white/30 shrink-0" />
               </button>
             )}
 
@@ -7811,12 +7821,12 @@ export const StudentDashboard: React.FC<Props> = ({
             {user.role === 'TEACHER' && (
               <button onClick={() => onTabChange('TEACHER_STORE' as any)}
                 className="w-full px-4 py-3.5 flex items-center gap-3 hover:bg-white/5 active:bg-white/8 transition-colors"
-                style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                style={{ borderBottom: _pSep }}>
                 <div className="w-9 h-9 rounded-xl bg-violet-500/15 border border-violet-500/25 flex items-center justify-center shrink-0">
                   <Layout size={16} className="text-violet-400" />
                 </div>
                 <p className="flex-1 text-sm font-bold text-white text-left">Teacher Store</p>
-                <ChevronRight size={14} className="text-slate-600 shrink-0" />
+                <ChevronRight size={14} className="text-white/30 shrink-0" />
               </button>
             )}
 
@@ -7846,7 +7856,7 @@ export const StudentDashboard: React.FC<Props> = ({
                   }
                 }}
                 className="w-full px-4 py-3.5 flex items-center gap-3 hover:bg-white/5 active:bg-white/8 transition-colors"
-                style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                style={{ borderBottom: _pSep }}>
                 <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-white/8 border border-white/10">
                   <span className="text-base leading-none">🔗</span>
                 </div>
@@ -7854,15 +7864,41 @@ export const StudentDashboard: React.FC<Props> = ({
                   <p className="text-sm font-bold text-white">Link Google Account</p>
                   {user.linkedGoogleEmail
                     ? <p className="text-[10px] text-emerald-400 font-semibold mt-0.5">✓ Linked: {user.linkedGoogleEmail}</p>
-                    : <p className="text-[10px] text-slate-500 mt-0.5">Google se bhi login kar sako ek hi account pe</p>
+                    : <p className="text-[10px] text-white/50 mt-0.5">Google se bhi login kar sako ek hi account pe</p>
                   }
                 </div>
                 {user.linkedGoogleEmail
                   ? <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">Linked</span>
-                  : <ChevronRight size={14} className="text-slate-600 shrink-0" />
+                  : <ChevronRight size={14} className="text-white/30 shrink-0" />
                 }
               </button>
             )}
+
+            {/* White Profile Toggle */}
+            <button
+              onClick={() => {
+                const next = !profileWhite;
+                setProfileWhite(next);
+                localStorage.setItem(`nst_pw_${user.id}`, next ? '1' : '0');
+              }}
+              className={`w-full px-4 py-3.5 flex items-center gap-3 ${_pHovCls} transition-colors`}
+              style={{ borderBottom: _pSep }}>
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                style={{ background: _pw ? 'rgba(251,191,36,0.15)' : `${tierTheme.primary}18`, border: `1px solid ${_pw ? 'rgba(251,191,36,0.35)' : tierTheme.primary + '35'}` }}>
+                <Sun size={16} style={{ color: _pw ? '#f59e0b' : tierTheme.primary }} />
+              </div>
+              <div className="flex-1 text-left">
+                <p className="text-sm font-bold text-white text-left">{_pw ? '🌙 Dark Profile' : '☀️ White Profile'}</p>
+                <p className="text-[10px] mt-0.5" style={{ color: _pw ? '#64748b' : 'rgba(255,255,255,0.45)' }}>
+                  {_pw ? 'Dark mode pe wapas jao' : 'Profile ka background white karo'}
+                </p>
+              </div>
+              <div className="w-11 h-6 rounded-full relative transition-colors shrink-0"
+                style={{ background: profileWhite ? '#f59e0b' : 'rgba(255,255,255,0.2)' }}>
+                <div className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-md transition-transform"
+                  style={{ transform: profileWhite ? 'translateX(20px)' : 'translateX(2px)' }} />
+              </div>
+            </button>
 
             {/* Reset Settings */}
             <button
@@ -7876,29 +7912,29 @@ export const StudentDashboard: React.FC<Props> = ({
                 showAlert('Settings reset ho gayi!', 'SUCCESS');
               }}
               className="w-full px-4 py-3.5 flex items-center gap-3 hover:bg-white/5 active:bg-white/8 transition-colors"
-              style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              style={{ borderBottom: _pSep }}>
               <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${tierTheme.primary}18`, border: `1px solid ${tierTheme.primary}35` }}>
                 <RotateCcw size={16} style={{ color: tierTheme.primary }} />
               </div>
               <p className="flex-1 text-sm font-bold text-white text-left">Reset Settings</p>
-              <ChevronRight size={14} className="text-slate-600 shrink-0" />
+              <ChevronRight size={14} className="text-white/30 shrink-0" />
             </button>
 
             {/* App Guide */}
             <button onClick={() => setShowUserGuide(true)}
               className="w-full px-4 py-3.5 flex items-center gap-3 hover:bg-white/5 active:bg-white/8 transition-colors"
-              style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              style={{ borderBottom: _pSep }}>
               <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.25)' }}>
                 <Smartphone size={16} className="text-blue-400" />
               </div>
               <p className="flex-1 text-sm font-bold text-white text-left">App Guide</p>
-              <ChevronRight size={14} className="text-slate-600 shrink-0" />
+              <ChevronRight size={14} className="text-white/30 shrink-0" />
             </button>
           </div>
 
           {/* ── LOGOUT ── */}
           {(settings?.isLogoutEnabled !== false || user.role === 'ADMIN' || isImpersonating) && (
-            <div className="rounded-none overflow-hidden mb-3" style={{ background: tierTheme.profileCardBg, border: '1px solid rgba(239,68,68,0.15)' }}>
+            <div className="rounded-none overflow-hidden mb-3" style={{ background: _pCard, border: '1px solid rgba(239,68,68,0.15)' }}>
               <button onClick={onLogout}
                 className="w-full px-4 py-3.5 flex items-center gap-3 hover:bg-red-500/8 active:bg-red-500/12 transition-colors">
                 <div className="w-9 h-9 rounded-xl bg-red-500/12 border border-red-500/20 flex items-center justify-center shrink-0">
@@ -7911,7 +7947,7 @@ export const StudentDashboard: React.FC<Props> = ({
           )}
 
           {/* Footer */}
-          <p className="text-center text-[10px] text-slate-700 pb-2">
+          <p className="text-center text-[10px] text-white/40 pb-2">
             v{APP_VERSION} · By {settings?.developerName?.trim() || 'Nadim Anwar'}
           </p>
 
