@@ -29,10 +29,12 @@ import {
   saveDemandRequest,
   saveCompareAnalytic,
   subscribeToContentIndex,
+  auth,
 } from "../firebase";
 import type { ContentTypeStats, ContentIndexMap } from "../firebase";
 import { doc, onSnapshot } from "firebase/firestore";
 import { ref, query, limitToLast, onValue, set } from "firebase/database";
+import { GoogleAuthProvider, signInWithPopup, setPersistence, browserLocalPersistence } from "firebase/auth";
 import {
   getSubjectsList,
   DEFAULT_APP_FEATURES,
@@ -153,6 +155,7 @@ import {
   Trash2,
   BarChart2,
   BadgeCheck,
+  Copy,
 } from "lucide-react";
 import { speakText, stopSpeech, stripHtml } from "../utils/textToSpeech";
 import { getMistakeBankSync, getMistakeBank, addMistakes, removeMistakeByQuestion, MistakeEntry } from "../utils/mistakeBank";
@@ -1514,7 +1517,7 @@ export const StudentDashboard: React.FC<Props> = ({
   const [canClaimReward, setCanClaimReward] = useState(false);
   const [selectedPhoneId, setSelectedPhoneId] = useState<string>("");
   const [showUserGuide, setShowUserGuide] = useState(false);
-  const [showProfileSettings, setShowProfileSettings] = useState(false);
+
   const [showNameChangeModal, setShowNameChangeModal] = useState(false);
   const [newNameInput, setNewNameInput] = useState("");
   const [showSupportModal, setShowSupportModal] = useState(false);
@@ -7561,333 +7564,360 @@ export const StudentDashboard: React.FC<Props> = ({
         </div>
       );
     }
-    if (activeTab === "PROFILE")
+    if (activeTab === "PROFILE") {
+      const _pRawScore = user.totalScore || 0;
+      const _pTotalScore = (user.role === 'ADMIN' || user.role === 'SUB_ADMIN') ? 9999999 : _pRawScore;
+      const _pLvl = getLevelInfo(_pTotalScore);
+
+      const _pProgress = getLevelProgress(_pTotalScore);
+      const _pIsUltra = user.isPremium && user.subscriptionLevel === 'ULTRA';
+      const _pTierLabel = (() => {
+        if (!user.isPremium) return 'Free';
+        const t = user.subscriptionTier;
+        const lvl = user.subscriptionLevel || '';
+        const planName = t === 'WEEKLY' ? 'Weekly' : t === 'MONTHLY' ? 'Monthly' : t === 'YEARLY' ? 'Yearly' : t === 'LIFETIME' ? 'Lifetime' : t === '3_MONTHLY' ? 'Quarterly' : t === 'CUSTOM' ? (user.customSubscriptionName || 'Custom') : 'Premium';
+        return `${lvl} ${planName}`.trim();
+      })();
+      const _pJoinDate = user.createdAt && !isNaN(new Date(user.createdAt).getTime())
+        ? new Date(user.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+        : null;
+      const _pDaysOnApp = user.createdAt && !isNaN(new Date(user.createdAt).getTime())
+        ? Math.floor((Date.now() - new Date(user.createdAt).getTime()) / (1000 * 60 * 60 * 24))
+        : 0;
+      const _pTotalCredits = (user.credits ?? 0) + (user.bonusCredits ?? 0);
+
       return (
-        <div className="animate-in fade-in zoom-in duration-300 pb-24">
-          <div className="pt-3 space-y-2">
+        <div className="animate-in fade-in zoom-in duration-300 pb-28 min-h-screen" style={{ background: '#0d0d0f' }}>
 
-            {/* ── CARD 1: Identity ── */}
-            <div className="overflow-hidden relative mx-4 rounded-2xl border-2 bg-white" style={{
-              borderColor: tierTheme.border
-            }}>
-              {/* Accent top line */}
-              <div className="h-[3px] w-full" style={{ background: tierTheme.pillGrad }} />
+          {/* ── GREETING HEADER ── */}
+          <div className="px-4 pt-5 pb-3 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-0.5">Welcome back</p>
+              <h1 className="text-xl font-black text-white leading-tight">Hey, {(user.name || 'Student').toUpperCase()}</h1>
+            </div>
+          </div>
 
-              {/* Subtle corner glow — no animation */}
-              {user.isPremium && (
-                <div className="absolute inset-0 pointer-events-none z-[1]"
-                  style={{ background: `radial-gradient(ellipse 80% 60% at 50% 0%, ${tierTheme.navGlow} 0%, transparent 70%)` }} />
-              )}
-              {(() => {
-                const _pScore = (user.role === 'ADMIN' || user.role === 'SUB_ADMIN') ? 9999999 : (user.totalScore || 0);
-                const _pLvl = getLevelInfo(_pScore);
-                const _pEffects = getLevelTopBarEffects(_pLvl);
-                return _pEffects.length > 0 ? (
-                  <TopBarEffectsLayer effects={_pEffects} />
-                ) : user.topBarEffectColor ? (
-                  <TopBarEffectsLayer effects={[
-                    { id: 'shimmer-forward', enabled: true, color: user.topBarEffectColor, speed: 1.5 },
-                    { id: 'glow-both', enabled: true, color: user.topBarEffectColor, speed: 1 },
-                  ]} />
-                ) : null;
-              })()}
+          {/* ── CARD 1: Identity ── */}
+          <div className="rounded-none overflow-hidden mb-2.5" style={{ background: '#181820', border: `1px solid ${tierTheme.primary}2e` }}>
+            {/* Themed top accent line */}
+            <div className="h-[3px] w-full" style={{ background: tierTheme.pillGrad }} />
 
-              <div className="p-5 relative z-[2]">
-                {/* Avatar row */}
-                {(() => {
-                  const _aScore = (user.role === 'ADMIN' || user.role === 'SUB_ADMIN') ? 9999999 : (user.totalScore || 0);
-                  const _aLvl = getLevelInfo(_aScore);
-                  const nameColor = _aLvl.level >= 4 ? _aLvl.nameColor || _aLvl.color : undefined;
-                  return (
-                <div className="flex items-start gap-4 mb-4">
-                  {/* Avatar column — image + toggle below */}
-                  <div className="flex flex-col items-center gap-1.5 shrink-0">
-                    <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-black overflow-hidden shadow-lg"
-                      style={{
-                        background: _aLvl.level >= 8 ? `${_aLvl.color}35` : _aLvl.level >= 4 ? `${_aLvl.color}22` : user.subscriptionLevel === 'ULTRA' && user.isPremium ? 'rgba(200,160,32,0.15)' : user.subscriptionLevel === 'BASIC' && user.isPremium ? 'rgba(7,17,31,1)' : 'rgba(200,160,32,0.10)',
-                        border: `${_aLvl.level >= 9 ? 3 : 2}px solid ${_aLvl.level >= 4 ? _aLvl.color + (_aLvl.level >= 9 ? 'cc' : _aLvl.level >= 8 ? '90' : '60') : (user.subscriptionLevel === 'ULTRA' && user.isPremium ? '#c8a02080' : user.isPremium ? '#334155' : '#c8a02050')}`,
-                        boxShadow: _aLvl.level >= 11 ? `0 0 40px ${_aLvl.glowColor}, 0 0 80px ${_aLvl.glowColor}55, inset 0 0 20px ${_aLvl.color}20` : _aLvl.level >= 10 ? `0 0 30px ${_aLvl.glowColor}, 0 0 60px ${_aLvl.glowColor}44` : _aLvl.level >= 9 ? `0 0 24px ${_aLvl.glowColor}, 0 0 48px ${_aLvl.glowColor}33` : _aLvl.level >= 8 ? `0 0 22px ${_aLvl.glowColor}` : _aLvl.level >= 4 ? `0 0 18px ${_aLvl.glowColor}` : 'none',
-                        animation: _aLvl.level >= 10 ? 'topbar-glow-pulse 2s ease-in-out infinite' : 'none',
-                      }}>
-                      {user.photoURL && user.avatarChoice === 'gmail'
-                        ? <img src={user.photoURL} alt="Gmail profile" className="w-full h-full object-cover" />
-                        : settings?.appLogo
-                          ? <img src={settings.appLogo} alt="logo" className="w-full h-full object-cover" />
-                          : <span style={{ color: _aLvl.level >= 4 ? _aLvl.color : undefined }}>{(user.name || 'S').charAt(0)}</span>
-                      }
-                    </div>
+            <div className="p-4">
+              {/* Avatar + Info row */}
+              <div className="flex items-start gap-3 mb-3">
+                {/* Avatar */}
+                <div className="w-[72px] h-[72px] rounded-2xl flex items-center justify-center text-3xl font-black overflow-hidden shrink-0"
+                  style={{
+                    background: _pLvl.level >= 8 ? `${_pLvl.color}30` : _pLvl.level >= 4 ? `${_pLvl.color}20` : `${tierTheme.primary}1e`,
+                    border: `2px solid ${_pLvl.level >= 4 ? _pLvl.color + '70' : tierTheme.primary + '66'}`,
+                    boxShadow: _pLvl.level >= 11 ? `0 0 32px ${_pLvl.glowColor}, 0 0 60px ${_pLvl.glowColor}44` : _pLvl.level >= 9 ? `0 0 20px ${_pLvl.glowColor}` : 'none',
+                    animation: _pLvl.level >= 10 ? 'topbar-glow-pulse 2s ease-in-out infinite' : 'none',
+                  }}>
+                  {user.photoURL && user.avatarChoice === 'gmail'
+                    ? <img src={user.photoURL} alt="Gmail profile" className="w-full h-full object-cover" />
+                    : settings?.appLogo
+                      ? <img src={settings.appLogo} alt="logo" className="w-full h-full object-cover" />
+                      : <span style={{ color: _pLvl.level >= 4 ? _pLvl.color : tierTheme.primary }}>{(user.name || 'S').charAt(0).toUpperCase()}</span>
+                  }
+                </div>
 
-                    {/* Avatar source toggle — only for Google users with photoURL */}
-                    {user.photoURL && (
-                      <div className="flex gap-1">
-                        <button
-                          onClick={async () => {
-                            const updated = { ...user, avatarChoice: 'gmail' as const };
-                            handleUserUpdate(updated);
-                            await saveUserToLive(updated);
-                          }}
-                          className={`px-1.5 py-0.5 rounded-full text-[8px] font-black border transition-all active:scale-95 ${user.avatarChoice === 'gmail' ? 'bg-blue-500 text-white border-blue-400' : 'bg-white/8 text-slate-500 border-white/15'}`}
-                        >📷 Gmail</button>
-                        <button
-                          onClick={async () => {
-                            const updated = { ...user, avatarChoice: 'app' as const };
-                            handleUserUpdate(updated);
-                            await saveUserToLive(updated);
-                          }}
-                          className={`px-1.5 py-0.5 rounded-full text-[8px] font-black border transition-all active:scale-95 ${user.avatarChoice !== 'gmail' ? 'bg-slate-600 text-white border-slate-500' : 'bg-white/8 text-slate-500 border-white/15'}`}
-                        >🏫 App</button>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h2 className="text-lg font-black truncate leading-tight"
-                        style={{ color: nameColor || '#1e293b' }}>
-                        {user.name}
-                      </h2>
-                      <button
-                        onClick={() => { setNewNameInput(user.name); setShowNameChangeModal(true); }}
-                        className="shrink-0 w-6 h-6 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors"
-                      >
-                        <Edit size={11} className="text-slate-500" />
-                      </button>
-                    </div>
-                    {/* Settings mini-panel — inline below name */}
-                    {showProfileSettings && (
-                      <div className="mt-2 mb-1 rounded-xl overflow-hidden" style={{ background: 'rgba(200,160,32,0.07)', border: '1px solid rgba(200,160,32,0.20)' }}>
-                        <button onClick={() => { setShowUserGuide(true); setShowProfileSettings(false); }}
-                          className="w-full px-3 py-2 flex items-center gap-2 hover:bg-[#c8a02010] transition-colors" style={{ borderBottom: '1px solid rgba(200,160,32,0.12)' }}>
-                          <span className="text-xs">📖</span>
-                          <p className="text-xs font-bold text-slate-800">App Guide</p>
-                          <ChevronRight size={11} className="text-slate-400 ml-auto" />
-                        </button>
-                        <button onClick={() => {
-                          const keysToRemove: string[] = [];
-                          for (let i = 0; i < localStorage.length; i++) {
-                            const key = localStorage.key(i);
-                            if (key && key.startsWith(`nst_credit_skip_${user.id}_`)) keysToRemove.push(key);
-                          }
-                          keysToRemove.forEach(k => localStorage.removeItem(k));
-                          showAlert('Settings reset ho gayi!', 'SUCCESS');
-                          setShowProfileSettings(false);
-                        }}
-                          className="w-full px-3 py-2 flex items-center gap-2 hover:bg-[#c8a02010] transition-colors">
-                          <RotateCcw size={11} className="text-[#c8a020]" />
-                          <p className="text-xs font-bold text-slate-800">Reset Settings</p>
-                          <ChevronRight size={11} className="text-slate-400 ml-auto" />
-                        </button>
-                      </div>
-                    )}
-                    {/* Tier badge */}
-                    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${
-                      user.subscriptionLevel === 'ULTRA' && user.isPremium
-                        ? 'bg-[#c8a02018] border-[#c8a02055] text-[#c8a020]'
-                        : user.subscriptionLevel === 'BASIC' && user.isPremium
-                          ? 'bg-sky-500/20 border-sky-500/40 text-sky-300'
-                          : 'bg-[#c8a02010] border-[#c8a02030] text-[#c8a020]'
-                    }`}>
-                      {user.isPremium ? (() => {
-                        const t = user.subscriptionTier;
-                        const lvl = user.subscriptionLevel || '';
-                        const label = t === 'WEEKLY' ? 'Weekly' : t === 'MONTHLY' ? 'Monthly' : t === 'YEARLY' ? 'Yearly' : t === 'LIFETIME' ? '∞ Lifetime' : t === '3_MONTHLY' ? 'Quarterly' : t === 'CUSTOM' ? (user.customSubscriptionName || 'Custom') : 'Premium';
-                        return <>{user.subscriptionLevel === 'ULTRA' ? '⚡' : '★'} {lvl} {label}</>;
-                      })() : <><span>🌱</span> Free</>}
-                    </span>
-                    {/* Expiry compact */}
-                    {user.isPremium && user.subscriptionEndDate && user.subscriptionTier !== 'LIFETIME' && (() => {
-                      const endMs = new Date(user.subscriptionEndDate).getTime();
-                      const daysLeft = Math.max(0, Math.floor((endMs - _profileNow) / (1000 * 60 * 60 * 24)));
-                      const isUrgent = daysLeft <= 3;
-                      return (
-                        <p className={`text-[10px] font-bold mt-1 ${isUrgent ? 'text-red-400' : daysLeft <= 7 ? 'text-orange-400' : 'text-slate-500'}`}>
-                          📅 {new Date(user.subscriptionEndDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                        </p>
-                      );
-                    })()}
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {user.subscriptionLevel === 'ULTRA' && user.isPremium && (
-                      <span className="text-2xl">👑</span>
-                    )}
+                {/* Name + Tier + Date */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <h2 className="text-base font-black text-white truncate leading-tight"
+                      style={{ color: _pLvl.level >= 4 ? (_pLvl.nameColor || _pLvl.color) : '#ffffff' }}>
+                      {(user.name || 'Student').toUpperCase()}
+                    </h2>
                     <button
-                      onClick={() => setShowProfileSettings(v => !v)}
-                      className="w-8 h-8 rounded-xl hover:bg-slate-100 flex items-center justify-center transition-colors"
-                      style={{ background: showProfileSettings ? 'rgba(200,160,32,0.18)' : 'rgba(0,0,0,0.05)' }}
+                      onClick={() => { setNewNameInput(user.name); setShowNameChangeModal(true); }}
+                      className="shrink-0 w-5 h-5 rounded-md flex items-center justify-center transition-colors"
+                      style={{ background: 'rgba(255,255,255,0.08)' }}
                     >
-                      <Settings size={17} className={showProfileSettings ? 'text-[#c8a020]' : 'text-slate-500'} />
+                      <Edit size={9} className="text-slate-400" />
                     </button>
+                  </div>
+                  {/* Tier badge */}
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider mb-1" style={{
+                    color: tierTheme.primary,
+                    background: `${tierTheme.primary}26`,
+                    border: `1px solid ${tierTheme.primary}59`,
+                  }}>
+                    {tierTheme.emoji} {_pTierLabel}
+                  </span>
+                  {/* Join date */}
+                  {_pJoinDate && (
+                    <p className="text-[10px] text-slate-500 font-semibold">{_pJoinDate}</p>
+                  )}
+                  {/* Avatar toggle — always visible */}
+                  <div className="flex gap-1 mt-1.5">
+                    <button
+                      onClick={async () => {
+                        if (!user.photoURL) return;
+                        const updated = { ...user, avatarChoice: 'gmail' as const };
+                        handleUserUpdate(updated);
+                        await saveUserToLive(updated);
+                      }}
+                      className={`px-2 py-0.5 rounded-full text-[9px] font-black border transition-all active:scale-95 flex items-center gap-1 ${user.avatarChoice === 'gmail' && user.photoURL ? 'bg-blue-500/20 text-blue-300 border-blue-500/40' : 'border-white/10 text-slate-500'} ${!user.photoURL ? 'opacity-40 cursor-not-allowed' : ''}`}
+                      style={{ background: user.avatarChoice === 'gmail' && user.photoURL ? undefined : 'rgba(255,255,255,0.05)' }}
+                    >📧 Gmail</button>
+                    <button
+                      onClick={async () => {
+                        const updated = { ...user, avatarChoice: 'app' as const };
+                        handleUserUpdate(updated);
+                        await saveUserToLive(updated);
+                      }}
+                      className={`px-2 py-0.5 rounded-full text-[9px] font-black border transition-all active:scale-95 flex items-center gap-1 ${!user.photoURL || user.avatarChoice !== 'gmail' ? 'bg-slate-500/20 text-slate-300 border-slate-500/40' : 'border-white/10 text-slate-500'}`}
+                      style={{ background: !user.photoURL || user.avatarChoice !== 'gmail' ? undefined : 'rgba(255,255,255,0.05)' }}
+                    >🏫 App</button>
                   </div>
                 </div>
-                  );
-                })()}
 
-                {/* LEVEL BADGE */}
-                {(() => {
-                  const rawScore = user.totalScore || 0;
-                  const totalScore = (user.role === 'ADMIN' || user.role === 'SUB_ADMIN') ? 9999999 : rawScore;
-                  const lvl = getLevelInfo(totalScore);
-                  const nextLvl = getNextLevelInfo(totalScore);
-                  const progress = getLevelProgress(totalScore);
-                  const isUltra = user.isPremium && user.subscriptionLevel === 'ULTRA';
-                  const isBasic = user.isPremium && user.subscriptionLevel === 'BASIC';
-                  const cardBg = isUltra ? 'rgba(200,160,32,0.09)' : isBasic ? 'rgba(14,36,64,0.5)' : 'rgba(200,160,32,0.07)';
-                  const barColor = isUltra
-                    ? 'linear-gradient(90deg,#7a5c10,#c8a020,#e6c84a)'
-                    : isBasic
-                      ? 'linear-gradient(90deg,#0ea5e9,#38bdf8)'
-                      : 'linear-gradient(90deg,#7a5c10,#c8a020,#e6c84a)';
-                  const borderColor = isUltra ? 'rgba(200,160,32,0.30)' : isBasic ? 'rgba(56,189,248,0.3)' : 'rgba(200,160,32,0.18)';
-                  const accentColor = isUltra ? '#c8a020' : isBasic ? '#38bdf8' : '#c8a020';
-                  return (
-                    <button
-                      onClick={() => setShowScorePanel(true)}
-                      className="w-full mb-4 rounded-2xl overflow-hidden active:scale-[0.98] transition-transform bg-white"
-                      style={{ border: `1.5px solid ${lvl.color}` }}
-                    >
-                      <div className="p-3 flex items-center gap-3">
-                        <div className="w-11 h-11 rounded-xl flex items-center justify-center text-2xl shrink-0"
-                          style={{ background: `${lvl.color}18`, border: `1px solid ${lvl.color}50` }}>
-                          {lvl.emoji}
-                        </div>
-                        <div className="flex-1 min-w-0 text-left">
-                          <div className="flex items-center gap-1.5 mb-0.5">
-                            <span className="text-[11px] font-black text-slate-900">Level {lvl.level} · {lvl.label}</span>
-                            {lvl.discount > 0 && (
-                              <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full"
-                                style={{ background: `${accentColor}22`, color: accentColor, border: `1px solid ${accentColor}50` }}>
-                                {lvl.discount}% OFF
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-[10px] text-slate-500 mb-1.5">
-                            {(user.role === 'ADMIN' || user.role === 'SUB_ADMIN') ? 'Admin · MAX LEVEL 🏆' : `${rawScore} pts${nextLvl ? ` · ${nextLvl.minScore - rawScore} to ${nextLvl.emoji} L${nextLvl.level}` : ' · MAX LEVEL 🏆'}`}
-                          </p>
-                          <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                            <div className="h-full rounded-full transition-all"
-                              style={{ width: `${progress}%`, background: barColor }} />
-                          </div>
-                        </div>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-slate-400 shrink-0"><polyline points="9 18 15 12 9 6"/></svg>
-                      </div>
-                    </button>
-                  );
-                })()}
+                {/* Crown (ULTRA) */}
+                {_pIsUltra && (
+                  <span className="text-2xl shrink-0 self-start">👑</span>
+                )}
+              </div>
 
+              {/* ── LEVEL ROW ── */}
+              <button
+                onClick={() => setShowScorePanel(true)}
+                className="w-full flex items-center gap-4 px-4 py-4 rounded-xl active:scale-[0.98] transition-transform"
+                style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${_pLvl.color}40` }}
+              >
+                <Trophy size={22} style={{ color: tierTheme.primary }} className="shrink-0" />
+                <div className="flex-1 min-w-0 text-left">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className="text-sm font-black text-white">Level {_pLvl.level} · {_pLvl.label}</span>
+                    {(user.role === 'ADMIN' || user.role === 'SUB_ADMIN') && (
+                      <span className="text-[9px] font-bold text-slate-400">(Admin)</span>
+                    )}
+                    {_pLvl.discount > 0 && (
+                      <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full ml-auto"
+                        style={{ background: `${tierTheme.primary}22`, color: tierTheme.primary, border: `1px solid ${tierTheme.primary}50` }}>
+                        {_pLvl.discount}% OFF
+                      </span>
+                    )}
+                  </div>
+                  <div className="h-2.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                    <div className="h-full rounded-full transition-all" style={{ width: `${_pProgress}%`, background: tierTheme.pillGrad }} />
+                  </div>
+                </div>
+                <ChevronRight size={15} className="text-slate-600 shrink-0" />
+              </button>
 
-                {/* Stats row */}
-                <div className="grid grid-cols-3 gap-2 mb-3">
+              {/* ── USER ID + EMAIL ROW ── */}
+              <div className="mt-2.5 flex gap-2">
+                {/* User ID */}
+                <button
+                  onClick={() => { try { navigator.clipboard.writeText(user.id); showAlert('User ID copied!', 'SUCCESS'); } catch {} }}
+                  className="flex-1 flex items-center gap-2 px-2.5 py-2 rounded-xl active:scale-95 transition-transform"
+                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+                >
+                  <span className="text-[9px] font-black text-slate-500 uppercase tracking-wider shrink-0">ID</span>
+                  <span className="text-[10px] font-bold text-slate-400 truncate font-mono">{user.id || '—'}</span>
+                  <Copy size={9} className="text-slate-600 shrink-0 ml-auto" />
+                </button>
+                {/* Email */}
+                {user.email && (
+                  <button
+                    onClick={() => { try { navigator.clipboard.writeText(user.email!); showAlert('Email copied!', 'SUCCESS'); } catch {} }}
+                    className="flex-1 flex items-center gap-2 px-2.5 py-2 rounded-xl active:scale-95 transition-transform"
+                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+                  >
+                    <span className="text-[9px] font-black text-slate-500 uppercase tracking-wider shrink-0">@</span>
+                    <span className="text-[10px] font-bold text-slate-400 truncate">{user.email}</span>
+                    <Copy size={9} className="text-slate-600 shrink-0 ml-auto" />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* ── STATS ROW ── */}
+          <div className="px-3 grid grid-cols-3 gap-2 mb-2.5">
+            {/* Credits */}
+            <div className="rounded-xl py-3 px-2 text-center" style={{ background: '#181820', border: `1px solid ${tierTheme.primary}40` }}>
+              <div className="flex items-center justify-center gap-1 mb-0.5">
+                <span className="text-base font-black tabular-nums" style={{ color: tierTheme.primary }}>{(user.credits ?? 0).toLocaleString('en-IN')}</span>
+                <Trophy size={11} style={{ color: tierTheme.primary }} />
+              </div>
+              {(user.bonusCredits ?? 0) > 0 && (
+                <div className="text-[8px] font-black tabular-nums" style={{ color: `${tierTheme.primary}99` }}>{user.bonusCredits?.toLocaleString('en-IN')}</div>
+              )}
+              <div className="text-[9px] font-bold text-slate-500 uppercase tracking-wide mt-0.5">Credits</div>
+            </div>
+            {/* Streak */}
+            <div onClick={() => setShowStreakPopup(true)} className="rounded-xl py-3 px-2 text-center cursor-pointer active:scale-95 transition-transform" style={{ background: '#181820', border: `1px solid ${tierTheme.primary}40` }}>
+              <div className="text-base font-black tabular-nums mb-0.5" style={{ color: tierTheme.primary }}>{user.streak > 0 ? user.streak : '0'}</div>
+              <div className="text-[9px] font-bold text-slate-500 uppercase tracking-wide">Streak</div>
+            </div>
+            {/* Days */}
+            <div className="rounded-xl py-3 px-2 text-center" style={{ background: '#181820', border: `1px solid ${tierTheme.primary}40` }}>
+              <div className="text-base font-black tabular-nums mb-0.5" style={{ color: tierTheme.primary }}>{_pDaysOnApp}</div>
+              <div className="text-[9px] font-bold text-slate-500 uppercase tracking-wide flex items-center justify-center gap-0.5">Days <span>🔥</span></div>
+            </div>
+          </div>
+
+          {/* ── SUBSCRIPTION COUNTDOWN ── */}
+          {user.isPremium && user.subscriptionEndDate && user.subscriptionTier !== 'LIFETIME' && !isNaN(new Date(user.subscriptionEndDate).getTime()) && (() => {
+            const endMs = new Date(user.subscriptionEndDate).getTime();
+            const diff = Math.max(0, endMs - _profileNow);
+            const dDays = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const dHrs  = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const dMin  = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const dSec  = Math.floor((diff % (1000 * 60)) / 1000);
+            const isUrgent = dDays <= 3;
+            const cdAccent = isUrgent ? '#ef4444' : tierTheme.primary;
+            return (
+              <div className="rounded-none p-4 mb-2.5" style={{ background: '#181820', border: `1px solid ${isUrgent ? 'rgba(239,68,68,0.30)' : tierTheme.primary + '2e'}` }}>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs font-black text-slate-300 uppercase tracking-wider">Subscription</p>
+                  {isUrgent && <span className="text-[9px] font-black text-red-400 animate-pulse">⚠ EXPIRING SOON</span>}
+                </div>
+                <div className="grid grid-cols-4 gap-2">
                   {[
-                    { val: ((user.credits ?? 0) + (user.bonusCredits ?? 0)).toLocaleString('en-IN'), label: (user.bonusCredits ?? 0) > 0 ? `Credits +🎁${user.bonusCredits}` : 'Credits', color: 'text-[#c8a020]', onClick: undefined },
-                    { val: user.streak > 0 ? `🔥 ${user.streak}` : '0', label: 'Streak', color: user.streak > 0 ? 'text-[#c8a020]' : 'text-slate-500', onClick: () => setShowStreakPopup(true) },
-                    { val: user.createdAt && !isNaN(new Date(user.createdAt).getTime()) ? Math.floor((Date.now() - new Date(user.createdAt).getTime()) / (1000 * 60 * 60 * 24)) : 0, label: 'Days', color: 'text-[#c8a020]', onClick: undefined },
-                  ].map(s => (
-                    <div key={s.label} onClick={s.onClick} className={`rounded-xl py-2.5 px-2 text-center border bg-white ${s.onClick ? 'cursor-pointer active:scale-95 transition-transform' : ''}`} style={{ borderColor: (user.subscriptionLevel === 'ULTRA' && user.isPremium) ? '#c8a020' : (user.subscriptionLevel === 'BASIC' && user.isPremium) ? '#0ea5e9' : '#cbd5e1' }}>
-                      <div className={`text-lg font-black leading-tight ${s.color}`}>{s.val}</div>
-                      <div className="text-[9px] font-bold text-slate-500 uppercase tracking-wide mt-0.5">{s.label}{s.onClick ? ' 👆' : ''}</div>
+                    { val: String(dDays).padStart(2, '0'), label: 'Days' },
+                    { val: String(dHrs).padStart(2, '0'), label: 'Hrs' },
+                    { val: String(dMin).padStart(2, '0'), label: 'Min' },
+                    { val: String(dSec).padStart(2, '0'), label: 'Sec' },
+                  ].map(box => (
+                    <div key={box.label} className="rounded-xl py-2 text-center" style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${cdAccent}35` }}>
+                      <div className="text-xl font-black tabular-nums leading-tight" style={{ color: cdAccent }}>{box.val}</div>
+                      <div className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">{box.label}</div>
                     </div>
                   ))}
                 </div>
-
-
-                {/* Live countdown timer — only if premium, non-lifetime */}
-                {user.isPremium && user.subscriptionEndDate && user.subscriptionTier !== 'LIFETIME' && !isNaN(new Date(user.subscriptionEndDate).getTime()) && (() => {
-                  const endMs = new Date(user.subscriptionEndDate).getTime();
-                  const diff = Math.max(0, endMs - _profileNow);
-                  const dDays = Math.floor(diff / (1000 * 60 * 60 * 24));
-                  const dHrs  = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                  const dMin  = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-                  const dSec  = Math.floor((diff % (1000 * 60)) / 1000);
-                  const isUrgent = dDays <= 3;
-                  const accent = isUrgent ? '#ef4444' : '#c8a020';
-                  const tierDays = user.subscriptionTier === 'WEEKLY' ? 7 : user.subscriptionTier === 'MONTHLY' ? 30 : user.subscriptionTier === '3_MONTHLY' ? 90 : user.subscriptionTier === 'YEARLY' ? 365 : 30;
-                  const pct = Math.min(100, Math.round((dDays / tierDays) * 100));
-                  return (
-                    <div className="mb-1">
-                      <div className="flex items-center justify-between mb-2">
-                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Subscription Expires In</p>
-                        {isUrgent && <span className="text-[9px] font-black text-red-400 animate-pulse">⚠ EXPIRING SOON</span>}
-                      </div>
-                      <div className="grid grid-cols-4 gap-1.5 mb-2">
-                        {[
-                          { val: String(dDays).padStart(2, '0'), label: 'Days' },
-                          { val: String(dHrs).padStart(2, '0'), label: 'Hrs' },
-                          { val: String(dMin).padStart(2, '0'), label: 'Min' },
-                          { val: String(dSec).padStart(2, '0'), label: 'Sec' },
-                        ].map(box => (
-                          <div key={box.label} className="rounded-lg py-1.5 text-center bg-white" style={{ border: `1px solid ${(user.subscriptionLevel === 'ULTRA' && user.isPremium) ? '#c8a020' : (user.subscriptionLevel === 'BASIC' && user.isPremium) ? '#0ea5e9' : '#cbd5e1'}` }}>
-                            <div className="text-base font-black tabular-nums leading-tight" style={{ color: accent }}>{box.val}</div>
-                            <div className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">{box.label}</div>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="w-full h-1.5 rounded-full bg-slate-200 overflow-hidden">
-                        <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: accent }} />
-                      </div>
-                    </div>
-                  );
-                })()}
               </div>
-            </div>
+            );
+          })()}
 
-            {/* ── CARD 2: Actions ── */}
-            <div className="bg-[#141009] overflow-hidden" style={{ borderTop: '1px solid rgba(200,160,32,0.22)', borderBottom: '1px solid rgba(200,160,32,0.22)' }}>
-              {/* Admin Panel */}
-              {(user.role === 'ADMIN' || user.role === 'SUB_ADMIN' || isImpersonating) && (
-                <button onClick={handleSwitchToAdmin}
-                  className="w-full px-4 py-3.5 flex items-center gap-3 hover:bg-[#c8a02010] active:bg-[#c8a02018] transition-colors" style={{ borderBottom: '1px solid rgba(200,160,32,0.15)' }}>
-                  <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(200,160,32,0.13)', border: '1px solid rgba(200,160,32,0.28)' }}>
-                    <Layout size={16} className="text-[#c8a020]" />
-                  </div>
-                  <div className="flex-1 text-left min-w-0">
-                    <p className="text-sm font-bold text-white">Admin Panel</p>
-                    <p className="text-[11px] text-slate-500">Manage content, users & settings</p>
-                  </div>
-                  <ChevronRight size={14} className="text-slate-600 shrink-0" />
-                </button>
-              )}
+          {/* ── ACTIONS MENU ── */}
+          <div className="rounded-none overflow-hidden mb-2.5" style={{ background: '#181820', border: '1px solid rgba(255,255,255,0.07)' }}>
 
+            {/* Admin Panel */}
+            {(user.role === 'ADMIN' || user.role === 'SUB_ADMIN' || isImpersonating) && (
+              <button onClick={handleSwitchToAdmin}
+                className="w-full px-4 py-3.5 flex items-center gap-3 hover:bg-white/5 active:bg-white/8 transition-colors"
+                style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${tierTheme.primary}20`, border: `1px solid ${tierTheme.primary}40` }}>
+                  <Layout size={16} style={{ color: tierTheme.primary }} />
+                </div>
+                <p className="flex-1 text-sm font-bold text-white text-left">Admin Panel</p>
+                <ChevronRight size={14} className="text-slate-600 shrink-0" />
+              </button>
+            )}
 
-              {/* Teacher Store — only visible for actual teachers */}
-              {user.role === 'TEACHER' && (
-                <button onClick={() => onTabChange('TEACHER_STORE' as any)}
-                  className="w-full px-4 py-3.5 flex items-center gap-3 hover:bg-white/4 active:bg-white/6 transition-colors border-b border-slate-800/80">
-                  <div className="w-9 h-9 rounded-xl bg-violet-500/15 flex items-center justify-center shrink-0">
-                    <Layout size={16} className="text-violet-400" />
-                  </div>
-                  <div className="flex-1 text-left min-w-0">
-                    <p className="text-sm font-bold text-white">Teacher Store</p>
-                    <p className="text-[11px] text-slate-500">Manage your store & content</p>
-                  </div>
-                  <ChevronRight size={14} className="text-slate-600 shrink-0" />
-                </button>
-              )}
+            {/* Teacher Store */}
+            {user.role === 'TEACHER' && (
+              <button onClick={() => onTabChange('TEACHER_STORE' as any)}
+                className="w-full px-4 py-3.5 flex items-center gap-3 hover:bg-white/5 active:bg-white/8 transition-colors"
+                style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                <div className="w-9 h-9 rounded-xl bg-violet-500/15 border border-violet-500/25 flex items-center justify-center shrink-0">
+                  <Layout size={16} className="text-violet-400" />
+                </div>
+                <p className="flex-1 text-sm font-bold text-white text-left">Teacher Store</p>
+                <ChevronRight size={14} className="text-slate-600 shrink-0" />
+              </button>
+            )}
 
+            {/* ── Link Google Account ── */}
+            {user.provider !== 'google' && (
+              <button
+                onClick={async () => {
+                  try {
+                    const googleProvider = new GoogleAuthProvider();
+                    await setPersistence(auth, browserLocalPersistence);
+                    const result = await signInWithPopup(auth, googleProvider);
+                    const gUser = result.user;
+                    const updated = {
+                      ...user,
+                      linkedGoogleUid: gUser.uid,
+                      linkedGoogleEmail: gUser.email || '',
+                      photoURL: user.photoURL || gUser.photoURL || '',
+                      avatarChoice: (user.avatarChoice === 'gmail' ? 'gmail' : (gUser.photoURL && !user.photoURL ? 'gmail' : user.avatarChoice)) as 'gmail' | 'app',
+                    };
+                    handleUserUpdate(updated);
+                    await saveUserToLive(updated);
+                    showAlert(`✅ Google account linked: ${gUser.email}`, 'SUCCESS');
+                  } catch (err: any) {
+                    if (err?.code !== 'auth/popup-closed-by-user') {
+                      showAlert(err?.message || 'Google linking failed. Try again.', 'ERROR');
+                    }
+                  }
+                }}
+                className="w-full px-4 py-3.5 flex items-center gap-3 hover:bg-white/5 active:bg-white/8 transition-colors"
+                style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-white/8 border border-white/10">
+                  <span className="text-base leading-none">🔗</span>
+                </div>
+                <div className="flex-1 text-left">
+                  <p className="text-sm font-bold text-white">Link Google Account</p>
+                  {user.linkedGoogleEmail
+                    ? <p className="text-[10px] text-emerald-400 font-semibold mt-0.5">✓ Linked: {user.linkedGoogleEmail}</p>
+                    : <p className="text-[10px] text-slate-500 mt-0.5">Google se bhi login kar sako ek hi account pe</p>
+                  }
+                </div>
+                {user.linkedGoogleEmail
+                  ? <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">Linked</span>
+                  : <ChevronRight size={14} className="text-slate-600 shrink-0" />
+                }
+              </button>
+            )}
 
-              {/* Logout */}
-              {(settings?.isLogoutEnabled !== false || user.role === 'ADMIN' || isImpersonating) && (
-                <button onClick={onLogout}
-                  className="w-full px-4 py-3.5 flex items-center gap-3 hover:bg-red-500/8 active:bg-red-500/12 transition-colors">
-                  <div className="w-9 h-9 rounded-xl bg-red-500/15 flex items-center justify-center shrink-0">
-                    <LogOut size={16} className="text-red-400" />
-                  </div>
-                  <div className="flex-1 text-left min-w-0">
-                    <p className="text-sm font-bold text-red-400">Logout</p>
-                    <p className="text-[11px] text-slate-600">Sign out of your account</p>
-                  </div>
-                  <ChevronRight size={14} className="text-red-700 shrink-0" />
-                </button>
-              )}
-            </div>
+            {/* Reset Settings */}
+            <button
+              onClick={() => {
+                const keysToRemove: string[] = [];
+                for (let i = 0; i < localStorage.length; i++) {
+                  const key = localStorage.key(i);
+                  if (key && key.startsWith(`nst_credit_skip_${user.id}_`)) keysToRemove.push(key);
+                }
+                keysToRemove.forEach(k => localStorage.removeItem(k));
+                showAlert('Settings reset ho gayi!', 'SUCCESS');
+              }}
+              className="w-full px-4 py-3.5 flex items-center gap-3 hover:bg-white/5 active:bg-white/8 transition-colors"
+              style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${tierTheme.primary}18`, border: `1px solid ${tierTheme.primary}35` }}>
+                <RotateCcw size={16} style={{ color: tierTheme.primary }} />
+              </div>
+              <p className="flex-1 text-sm font-bold text-white text-left">Reset Settings</p>
+              <ChevronRight size={14} className="text-slate-600 shrink-0" />
+            </button>
 
-            {/* Footer */}
-            <p className="text-center text-[10px] text-slate-700 pb-2">
-              v{APP_VERSION} · By {settings?.developerName?.trim() || 'Nadim Anwar'}
-            </p>
-
+            {/* App Guide */}
+            <button onClick={() => setShowUserGuide(true)}
+              className="w-full px-4 py-3.5 flex items-center gap-3 hover:bg-white/5 active:bg-white/8 transition-colors"
+              style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.25)' }}>
+                <Smartphone size={16} className="text-blue-400" />
+              </div>
+              <p className="flex-1 text-sm font-bold text-white text-left">App Guide</p>
+              <ChevronRight size={14} className="text-slate-600 shrink-0" />
+            </button>
           </div>
+
+          {/* ── LOGOUT ── */}
+          {(settings?.isLogoutEnabled !== false || user.role === 'ADMIN' || isImpersonating) && (
+            <div className="rounded-none overflow-hidden mb-3" style={{ background: '#181820', border: '1px solid rgba(239,68,68,0.15)' }}>
+              <button onClick={onLogout}
+                className="w-full px-4 py-3.5 flex items-center gap-3 hover:bg-red-500/8 active:bg-red-500/12 transition-colors">
+                <div className="w-9 h-9 rounded-xl bg-red-500/12 border border-red-500/20 flex items-center justify-center shrink-0">
+                  <LogOut size={16} className="text-red-400" />
+                </div>
+                <p className="flex-1 text-sm font-bold text-red-400 text-left">Logout</p>
+                <ChevronRight size={14} className="text-red-800 shrink-0" />
+              </button>
+            </div>
+          )}
+
+          {/* Footer */}
+          <p className="text-center text-[10px] text-slate-700 pb-2">
+            v{APP_VERSION} · By {settings?.developerName?.trim() || 'Nadim Anwar'}
+          </p>
+
         </div>
       );
+    }
 
     // Handle Drill-Down Views (Video, PDF, MCQ, AUDIO)
     if (
@@ -8091,7 +8121,7 @@ export const StudentDashboard: React.FC<Props> = ({
       {/* NEW GLOBAL TOP BAR */}
       <div
         id="top-banner-container"
-        className={`sticky top-0 z-[100] w-full flex flex-col transition-all duration-300 ease-in-out ${isFullscreenMode ? "hidden" : ""} ${(isTopBarHidden || isLandscapeUiHidden || activeTab === 'STORE' || activeTab === 'CUSTOM_PAGE') ? "-translate-y-full !h-0 overflow-hidden opacity-0 pointer-events-none" : "translate-y-0 opacity-100"}`}
+        className={`sticky top-0 z-[100] w-full flex flex-col transition-all duration-300 ease-in-out ${isFullscreenMode ? "hidden" : ""} ${(isTopBarHidden || isLandscapeUiHidden || activeTab === 'STORE' || activeTab === 'CUSTOM_PAGE' || activeTab === 'PROFILE') ? "-translate-y-full !h-0 overflow-hidden opacity-0 pointer-events-none" : "translate-y-0 opacity-100"}`}
         style={{ background: tierTheme.topBarGrad }}
       >
         {/* Main Header Row */}
@@ -8198,28 +8228,12 @@ export const StudentDashboard: React.FC<Props> = ({
                       <div className="px-4 pt-2 pb-3 border-b border-slate-100">
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Profile Info</p>
                         <div className="space-y-1.5">
-                          <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-slate-50 border border-slate-100">
-                            <span className="text-xs shrink-0">🆔</span>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">User ID</p>
-                              <p className="text-[11px] font-black text-slate-700 truncate">{user.displayId || (user.id || '').substring(0, 8)}</p>
-                            </div>
-                          </div>
                           {(activeSessionClass || user.classLevel) && (
                             <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-slate-50 border border-slate-100">
                               <span className="text-xs shrink-0">📚</span>
                               <div className="flex-1 min-w-0">
                                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Class</p>
                                 <p className="text-[11px] font-black text-slate-700">Class {activeSessionClass || user.classLevel}</p>
-                              </div>
-                            </div>
-                          )}
-                          {user.email && (
-                            <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-slate-50 border border-slate-100">
-                              <span className="text-xs shrink-0">✉️</span>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Email</p>
-                                <p className="text-[11px] font-black text-slate-700 truncate">{user.email}</p>
                               </div>
                             </div>
                           )}
@@ -11978,7 +11992,9 @@ export const StudentDashboard: React.FC<Props> = ({
               ? ""
               : activeTab === "HOME"
                 ? "px-4 pt-0 pb-20"
-                : "p-4 pb-20"
+                : activeTab === "PROFILE"
+                  ? "p-0"
+                  : "p-4 pb-20"
         }`}
       >
         <div

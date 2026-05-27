@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, Board, ClassLevel, Stream, SystemSettings, RecoveryRequest } from '../types';
 import { ADMIN_EMAIL } from '../constants';
-import { saveUserToLive, auth, getUserByEmail, getUserByMobileOrId, rtdb, getUserData, updateUserUID } from '../firebase';
+import { saveUserToLive, auth, getUserByEmail, getUserByMobileOrId, rtdb, getUserData, updateUserUID, getUserByLinkedGoogleUid } from '../firebase';
 import { ref, set } from "firebase/database";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, setPersistence, browserLocalPersistence, signInAnonymously, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { UserPlus, LogIn, Lock, User as UserIcon, Phone, Mail, ShieldCheck, ArrowRight, School, GraduationCap, Layers, KeyRound, Copy, Check, AlertTriangle, XCircle, MessageCircle, Send, RefreshCcw, ShieldAlert, HelpCircle, Eye, EyeOff } from 'lucide-react';
@@ -127,6 +127,11 @@ export const Auth: React.FC<Props> = ({ onLogin, logActivity, appSettings }) => 
           // Fallback: Try by Email
           if (!appUser && firebaseUser.email) {
               appUser = await getUserByEmail(firebaseUser.email);
+          }
+
+          // Fallback: Try by Linked Google UID (for accounts linked from profile page)
+          if (!appUser) {
+              appUser = await getUserByLinkedGoogleUid(firebaseUser.uid);
           }
 
           if (appUser) {

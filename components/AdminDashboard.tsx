@@ -15126,15 +15126,60 @@ Statement 2"
                       </div>
 
                       {newCodeType === 'THEME_COLOR' ? (
-                          <div className="flex flex-col gap-2">
-                              <div>
-                                  <label className="text-xs font-bold text-pink-700 uppercase block mb-1">🌈 Theme Color</label>
+                          <div className="flex flex-col gap-3">
+                              <label className="text-xs font-bold text-pink-700 uppercase">🌈 Theme Color — 20 Best Educational Themes</label>
+                              {/* 20 preset educational themes grid */}
+                              <div className="grid grid-cols-5 gap-2">
+                                  {[
+                                      { name: 'Royal Blue',     hex: '#2563eb' },
+                                      { name: 'Deep Purple',    hex: '#7c3aed' },
+                                      { name: 'Crimson Red',    hex: '#dc2626' },
+                                      { name: 'Forest Green',   hex: '#16a34a' },
+                                      { name: 'Golden',         hex: '#d97706' },
+                                      { name: 'Ocean Teal',     hex: '#0891b2' },
+                                      { name: 'Rose',           hex: '#e11d48' },
+                                      { name: 'Indigo',         hex: '#4f46e5' },
+                                      { name: 'Saffron',        hex: '#f97316' },
+                                      { name: 'Emerald',        hex: '#059669' },
+                                      { name: 'Sky Blue',       hex: '#0284c7' },
+                                      { name: 'Amber',          hex: '#f59e0b' },
+                                      { name: 'Fuchsia',        hex: '#c026d3' },
+                                      { name: 'Midnight Blue',  hex: '#1e3a8a' },
+                                      { name: 'Hot Pink',       hex: '#db2777' },
+                                      { name: 'Deep Teal',      hex: '#0f766e' },
+                                      { name: 'Violet Blue',    hex: '#6366f1' },
+                                      { name: 'Lime Green',     hex: '#65a30d' },
+                                      { name: 'Steel Blue',     hex: '#3b82f6' },
+                                      { name: 'Deep Maroon',    hex: '#9f1239' },
+                                  ].map(t => (
+                                      <button
+                                          key={t.hex}
+                                          type="button"
+                                          onClick={() => setNewCodeThemeColor(t.hex)}
+                                          title={t.name}
+                                          className="relative flex flex-col items-center gap-1 rounded-xl p-1.5 transition-all active:scale-95 border-2"
+                                          style={{
+                                              borderColor: newCodeThemeColor === t.hex ? t.hex : 'transparent',
+                                              background: newCodeThemeColor === t.hex ? t.hex + '18' : '#f8fafc',
+                                          }}
+                                      >
+                                          <div className="w-8 h-8 rounded-lg shadow-sm" style={{ background: t.hex }} />
+                                          {newCodeThemeColor === t.hex && (
+                                              <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-white border-2 flex items-center justify-center text-[8px]" style={{ borderColor: t.hex, color: t.hex }}>✓</div>
+                                          )}
+                                          <span className="text-[8px] font-bold text-slate-500 text-center leading-tight">{t.name}</span>
+                                      </button>
+                                  ))}
+                              </div>
+                              {/* Custom color */}
+                              <div className="border-t border-pink-100 pt-2">
+                                  <label className="text-[10px] font-bold text-pink-600 uppercase block mb-1.5">🎨 Custom Color</label>
                                   <div className="flex items-center gap-2">
                                       <input
                                           type="color"
                                           value={newCodeThemeColor}
                                           onChange={e => setNewCodeThemeColor(e.target.value)}
-                                          className="w-10 h-10 rounded-lg cursor-pointer border-none"
+                                          className="w-10 h-10 rounded-lg cursor-pointer border-none shrink-0"
                                       />
                                       <input
                                           type="text"
@@ -15145,12 +15190,17 @@ Statement 2"
                                       />
                                   </div>
                               </div>
+                              {/* Duration */}
                               <div>
                                   <label className="text-xs font-bold text-pink-700 uppercase block mb-1">⏱️ Duration (hours)</label>
                                   <input type="number" value={newCodeThemeDurationHours} onChange={e => setNewCodeThemeDurationHours(Number(e.target.value))} className="p-3 rounded-xl border border-pink-200 w-32 font-bold" min="1" />
                               </div>
-                              <div className="p-2 rounded-xl border" style={{ background: newCodeThemeColor + '18', borderColor: newCodeThemeColor + '55' }}>
-                                  <p className="text-[10px] font-bold" style={{ color: newCodeThemeColor }}>Preview: Student ke subscription color (profile card border, buttons, chat) is color se {newCodeThemeDurationHours}h ke liye change ho jayenge.</p>
+                              {/* Live preview */}
+                              <div className="p-3 rounded-xl border flex items-center gap-3" style={{ background: newCodeThemeColor + '12', borderColor: newCodeThemeColor + '55' }}>
+                                  <div className="w-8 h-8 rounded-full shrink-0 shadow" style={{ background: newCodeThemeColor }} />
+                                  <p className="text-[10px] font-bold" style={{ color: newCodeThemeColor }}>
+                                      Preview: Student ka app theme {newCodeThemeDurationHours}h ke liye is color mein change ho jayega — profile card border, buttons, chat badges sab.
+                                  </p>
                               </div>
                           </div>
                       ) : newCodeType === 'TOPBAR_EFFECT_COLOR' ? (

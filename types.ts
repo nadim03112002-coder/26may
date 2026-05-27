@@ -173,6 +173,8 @@ export interface User {
   provider?: 'google' | 'manual';
   photoURL?: string;
   avatarChoice?: 'gmail' | 'app';
+  linkedGoogleUid?: string;
+  linkedGoogleEmail?: string;
   profileCompleted?: boolean;
   
   // Chat & Premium Features

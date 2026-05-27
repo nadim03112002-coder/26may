@@ -307,6 +307,24 @@ export const getUserByEmail = async (email: string) => {
     } catch (e) { console.error(e); return null; }
 };
 
+export const getUserByLinkedGoogleUid = async (googleUid: string) => {
+    try {
+        const q = query(collection(db, "users"), where("linkedGoogleUid", "==", googleUid));
+        const querySnapshot = await getDocs(q);
+        if (!querySnapshot.empty) {
+            const coreData = querySnapshot.docs[0].data();
+            if (coreData && coreData.id) {
+                const bulkySnap = await getDoc(doc(db, "user_data", coreData.id)).catch(() => null);
+                if (bulkySnap && bulkySnap.exists()) {
+                    return { ...coreData, ...bulkySnap.data() };
+                }
+            }
+            return coreData;
+        }
+        return null;
+    } catch (e) { console.error(e); return null; }
+};
+
 export const getUserByMobileOrId = async (input: string) => {
     try {
         // Run parallel queries to speed up lookup
