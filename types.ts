@@ -126,6 +126,7 @@ export interface User {
   topBarEffectColor?: string; // Custom shimmer color gifted via redeem code
   tempThemeColor?: string; // Temporary app-wide subscription color (from THEME_COLOR redeem code)
   tempThemeColorExpiry?: string; // ISO string — when tempThemeColor expires
+  personalThemeColor?: string; // User's own permanently chosen theme color (from ThemeCustomizer)
   themeBadgeColor?: string;
   themeAnimationId?: string;
   themePublishedAt?: string;
