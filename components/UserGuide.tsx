@@ -12,6 +12,36 @@ import {
     TrendingUp, Calendar, Award, Target, Dumbbell,
     ArrowRight, AlignLeft, Gamepad2, Medal
 } from 'lucide-react';
+import { User } from '../types';
+
+/* ── Tier gradient helper ── */
+function getTierGrad(user?: User): { header: string; btn: string; focus: string; ring: string } {
+    const level = (user as any)?.subscriptionLevel || '';
+    const active = user?.isPremium && user?.subscriptionEndDate && new Date(user.subscriptionEndDate) > new Date();
+    if (active && (level === 'ULTRA' || level === 'PRO')) {
+        return {
+            header: 'linear-gradient(135deg,#0F172A 0%,#1E2A4A 50%,#1A2F5E 100%)',
+            btn:    'linear-gradient(135deg,#1e3a8a,#1d4ed8)',
+            focus:  '#60a5fa',
+            ring:   'rgba(96,165,250,0.25)',
+        };
+    }
+    if (active && level === 'BASIC') {
+        return {
+            header: 'linear-gradient(135deg,#1e3a8a 0%,#2563eb 55%,#1d4ed8 100%)',
+            btn:    'linear-gradient(135deg,#2563eb,#3b82f6)',
+            focus:  '#60a5fa',
+            ring:   'rgba(96,165,250,0.25)',
+        };
+    }
+    // Free
+    return {
+        header: 'linear-gradient(135deg,#0284c7 0%,#0ea5e9 55%,#38bdf8 100%)',
+        btn:    'linear-gradient(135deg,#0284c7,#0ea5e9)',
+        focus:  '#38bdf8',
+        ring:   'rgba(56,189,248,0.25)',
+    };
+}
 
 interface HelpItem {
     icon: React.ReactNode;
@@ -576,12 +606,45 @@ const groupHeaderMap: Record<string, string> = {
 
 interface Props {
     onClose: () => void;
+    user?: User;
 }
 
-export const UserGuide: React.FC<Props> = ({ onClose }) => {
+export const UserGuide: React.FC<Props> = ({ onClose, user }) => {
     const [search, setSearch] = useState('');
     const [expanded, setExpanded] = useState<Set<string>>(new Set(['CREDITS', 'NOTES']));
     const [selectedItem, setSelectedItem] = useState<{ sectionId: string; itemIndex: number } | null>(null);
+
+    const tierGrad = getTierGrad(user);
+
+    // Detect dark mode from document classes (UserGuide mounts fresh each time)
+    const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark-mode');
+    const isBlue = typeof document !== 'undefined' && document.documentElement.classList.contains('dark-mode-blue');
+
+    const C = {
+        rootBg:        isDark ? (isBlue ? '#060d1e'  : '#0a0a0f')  : '#f8fafc',
+        cardBg:        isDark ? (isBlue ? '#0b1628'  : '#111118')  : '#ffffff',
+        itemBg:        isDark ? (isBlue ? '#0b1628'  : '#111118')  : '#ffffff',
+        itemSelBg:     isDark ? (isBlue ? '#0f2040'  : '#18181f')  : '#ffffff',
+        divider:       isDark ? (isBlue ? '#1a2a44'  : '#1e1e2a')  : '#f1f5f9',
+        titleColor:    isDark ? (isBlue ? '#e2eeff'  : '#e2e8f0')  : '#1e293b',
+        subtitleColor: isDark ? (isBlue ? '#7b95c4'  : '#94a3b8')  : '#64748b',
+        labelColor:    isDark ? (isBlue ? '#4a6a94'  : '#475569')  : '#94a3b8',
+        descBg:        isDark ? (isBlue ? '#0f2040'  : '#16161e')  : '#ffffff',
+        descBdr:       isDark ? (isBlue ? '#1e3a66'  : '#2a2a3a')  : tierGrad.focus,
+        descText:      isDark ? (isBlue ? '#b8d0f0'  : '#cbd5e1')  : '#334155',
+        tagBg:         isDark ? (isBlue ? '#0f1e38'  : '#1a1a22')  : '#f1f5f9',
+        tagText:       isDark ? (isBlue ? '#7b95c4'  : '#8a9aaa')  : '#64748b',
+        tagBorder:     isDark ? (isBlue ? '#1e3050'  : '#252530')  : '#e2e8f0',
+        footerBg:      isDark ? (isBlue ? '#060d1e'  : '#0a0a0f')  : '#ffffff',
+        footerBorder:  isDark ? (isBlue ? '#1a2a44'  : '#1e1e2a')  : '#e2e8f0',
+        searchBarBg:   isDark ? (isBlue ? '#060d1e'  : '#0a0a0f')  : '#ffffff',
+        searchBarBdr:  isDark ? (isBlue ? '#1a2a44'  : '#1e1e2a')  : '#e2e8f0',
+        searchInputBg: isDark ? (isBlue ? '#0a1428'  : '#111118')  : '#f8fafc',
+        searchInputBdr:isDark ? (isBlue ? '#1a2a44'  : '#1e1e2a')  : '#e2e8f0',
+        searchText:    isDark ? '#e2e8f0' : '#1e293b',
+        noResultIcon:  isDark ? (isBlue ? '#0a1428'  : '#111118')  : '#f1f5f9',
+        noResultBdr:   isDark ? (isBlue ? '#1a2a44'  : '#1e1e2a')  : '#e2e8f0',
+    };
 
     const toggle = (id: string) => {
         setExpanded(prev => {
@@ -607,76 +670,32 @@ export const UserGuide: React.FC<Props> = ({ onClose }) => {
 
     const totalItems = SECTIONS.reduce((acc, s) => acc + s.items.length, 0);
 
-    /* ── premium colour tokens ── */
-    const C = {
-        bg:         '#07090f',
-        surface:    '#0c1120',
-        card:       '#101828',
-        cardHover:  '#131f2f',
-        border:     'rgba(59,130,246,0.14)',
-        borderBright:'rgba(59,130,246,0.32)',
-        accent:     '#3b82f6',
-        accentSoft: 'rgba(59,130,246,0.12)',
-        accentGlow: 'rgba(59,130,246,0.22)',
-        text:       '#f1f5f9',
-        textMuted:  '#64748b',
-        textDim:    '#334155',
-    };
-
     return (
         <div className="fixed inset-0 z-[9998] flex flex-col"
-            style={{ background: C.bg, fontFamily:'system-ui,-apple-system,sans-serif' }}>
+            style={{ fontFamily:'system-ui,-apple-system,sans-serif', background: C.rootBg }}>
 
             {/* ════════════════════════════════
-                HEADER  — cinematic premium
+                HEADER
             ════════════════════════════════ */}
-            <div className="shrink-0 relative overflow-hidden px-5 pt-6 pb-5"
-                style={{
-                    background: 'linear-gradient(160deg,#0a0f1e 0%,#0f1f3d 45%,#0a1428 100%)',
-                    borderBottom: `1px solid ${C.borderBright}`,
-                    boxShadow: '0 1px 0 rgba(59,130,246,0.08)',
-                }}>
-                {/* ambient glows */}
-                <div style={{ position:'absolute', inset:0, pointerEvents:'none' }}>
-                    <div style={{ position:'absolute', top:-30, left:-20, width:200, height:160, borderRadius:'50%',
-                        background:'radial-gradient(circle,rgba(37,99,235,0.22) 0%,transparent 70%)', filter:'blur(1px)' }} />
-                    <div style={{ position:'absolute', bottom:-20, right:-10, width:150, height:120, borderRadius:'50%',
-                        background:'radial-gradient(circle,rgba(99,102,241,0.14) 0%,transparent 70%)' }} />
-                </div>
-                {/* shimmer line at top */}
-                <div style={{ position:'absolute', top:0, left:0, right:0, height:2,
-                    background:'linear-gradient(90deg,transparent 0%,rgba(59,130,246,0.7) 40%,rgba(99,102,241,0.7) 60%,transparent 100%)' }} />
-
+            <div className="shrink-0 relative overflow-hidden px-5 pt-6 pb-5" style={{ background: tierGrad.header }}>
                 <div className="relative z-10 flex items-center gap-4">
-                    {/* icon */}
-                    <div className="shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center"
-                        style={{
-                            background:'linear-gradient(135deg,rgba(37,99,235,0.3) 0%,rgba(99,102,241,0.2) 100%)',
-                            border:'1px solid rgba(99,102,241,0.45)',
-                            boxShadow:'0 0 18px rgba(59,130,246,0.25), inset 0 1px 0 rgba(255,255,255,0.07)',
-                        }}>
-                        <GraduationCap size={23} style={{ color:'#93c5fd' }} />
+                    <div className="shrink-0 w-12 h-12 rounded-2xl bg-white/20 border border-white/30 flex items-center justify-center">
+                        <GraduationCap size={23} className="text-white" />
                     </div>
                     <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                            <h1 className="text-xl font-black tracking-tight" style={{ color:'#f8fafc' }}>App Guide</h1>
-                            <span className="text-[9px] font-black px-2 py-0.5 rounded-full tracking-wider"
-                                style={{ background:'rgba(59,130,246,0.2)', color:'#93c5fd', border:'1px solid rgba(59,130,246,0.4)', letterSpacing:'0.08em' }}>
-                                PREMIUM
+                            <h1 className="text-xl font-black tracking-tight text-white">App Guide</h1>
+                            <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-white/20 text-white border border-white/30 tracking-wider">
+                                FULL
                             </span>
                         </div>
-                        <p className="text-[11px] font-medium mt-0.5" style={{ color:'#475569' }}>
+                        <p className="text-[11px] font-medium mt-0.5 text-blue-100">
                             {totalItems} features · complete reference guide
                         </p>
                     </div>
                     <button onClick={onClose}
-                        className="shrink-0 w-9 h-9 rounded-full flex items-center justify-center active:scale-90 transition-transform"
-                        style={{
-                            background:'rgba(255,255,255,0.05)',
-                            border:'1px solid rgba(255,255,255,0.1)',
-                            boxShadow:'inset 0 1px 0 rgba(255,255,255,0.06)',
-                        }}>
-                        <X size={16} style={{ color:'#94a3b8' }} />
+                        className="shrink-0 w-9 h-9 rounded-full bg-white/15 border border-white/25 flex items-center justify-center active:scale-90 transition-transform">
+                        <X size={16} className="text-white" />
                     </button>
                 </div>
             </div>
@@ -684,31 +703,26 @@ export const UserGuide: React.FC<Props> = ({ onClose }) => {
             {/* ════════════════════════════════
                 SEARCH
             ════════════════════════════════ */}
-            <div className="shrink-0 px-4 py-3"
-                style={{ background: C.surface, borderBottom:`1px solid ${C.border}` }}>
+            <div className="shrink-0 px-4 py-3 border-b" style={{ background: C.searchBarBg, borderColor: C.searchBarBdr }}>
                 <div className="relative">
-                    <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color:'#334155' }} />
+                    <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
                         type="text"
                         placeholder="Search — coins, MCQ, video, streak, AI..."
                         value={search}
                         onChange={e => setSearch(e.target.value)}
                         className="w-full py-2.5 pl-9 pr-9 text-[13px] font-medium rounded-xl focus:outline-none transition-all"
-                        style={{
-                            background: C.card,
-                            border: `1px solid ${q ? C.borderBright : C.border}`,
-                            color: C.text,
-                            boxShadow: q ? `0 0 0 3px rgba(59,130,246,0.08)` : 'none',
-                        }}
+                        style={{ background: C.searchInputBg, border: `1px solid ${C.searchInputBdr}`, color: C.searchText }}
+                        onFocus={e => { e.currentTarget.style.borderColor = tierGrad.focus; e.currentTarget.style.boxShadow = `0 0 0 3px ${tierGrad.ring}`; }}
+                        onBlur={e => { e.currentTarget.style.borderColor = C.searchInputBdr; e.currentTarget.style.boxShadow = ''; }}
                     />
                     {q && (
                         <button onClick={() => setSearch('')}
-                            className="absolute right-3.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black transition-all active:scale-90"
-                            style={{ background:'rgba(255,255,255,0.08)', color:'#64748b' }}>✕</button>
+                            className="absolute right-3.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black bg-slate-200 text-slate-500 transition-all active:scale-90">✕</button>
                     )}
                 </div>
                 {q && (
-                    <p className="text-[10.5px] mt-1.5 px-1 font-medium" style={{ color:'#334155' }}>
+                    <p className="text-[10.5px] mt-1.5 px-1 font-medium text-slate-500">
                         {filteredSections.reduce((a, s) => a + s.items.length, 0)} results — "{search}"
                     </p>
                 )}
@@ -717,131 +731,91 @@ export const UserGuide: React.FC<Props> = ({ onClose }) => {
             {/* ════════════════════════════════
                 CONTENT
             ════════════════════════════════ */}
-            <div className="flex-1 overflow-y-auto px-3 pt-3 pb-24 space-y-2.5">
+            <div className="flex-1 overflow-y-auto px-3 pt-3 pb-24 space-y-2.5" style={{ background: C.rootBg }}>
 
                 {filteredSections.length === 0 && (
                     <div className="text-center py-20">
-                        <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4"
-                            style={{ background:C.card, border:`1px solid ${C.border}` }}>
-                            <Search size={22} style={{ color:C.textDim }} />
+                        <div className="w-14 h-14 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center mx-auto mb-4">
+                            <Search size={22} className="text-slate-400" />
                         </div>
-                        <p className="font-bold text-sm" style={{ color:C.textMuted }}>Koi result nahi mila</p>
-                        <p className="text-xs mt-1" style={{ color:C.textDim }}>Dusra keyword try karo</p>
+                        <p className="font-bold text-sm text-slate-600">Koi result nahi mila</p>
+                        <p className="text-xs mt-1 text-slate-400">Dusra keyword try karo</p>
                     </div>
                 )}
 
                 {filteredSections.map(section => {
                     const isOpen = expanded.has(section.id) || !!q;
                     return (
-                        <div key={section.id} className="rounded-2xl overflow-hidden"
-                            style={{
-                                background: C.card,
-                                border: `1px solid ${isOpen ? C.borderBright : C.border}`,
-                                boxShadow: isOpen ? `0 0 20px rgba(59,130,246,0.07)` : 'none',
-                                transition: 'border-color 0.2s, box-shadow 0.2s',
-                            }}>
+                        <div key={section.id} className="rounded-2xl overflow-hidden shadow-sm" style={{ background: C.cardBg, border: `2px solid ${tierGrad.focus}` }}>
 
                             {/* ── Section header ── */}
                             <button onClick={() => toggle(section.id)}
-                                className="w-full flex items-center gap-3 px-4 py-3.5 text-left active:brightness-110 transition-all"
-                                style={{ background: isOpen
-                                    ? 'linear-gradient(135deg,#0f1f3d 0%,#131d35 100%)'
-                                    : 'transparent' }}>
-                                {/* accent left bar */}
-                                <div style={{ width:3, height:36, borderRadius:2, flexShrink:0,
-                                    background: isOpen
-                                        ? 'linear-gradient(180deg,#3b82f6 0%,#6366f1 100%)'
-                                        : 'rgba(59,130,246,0.25)',
-                                    boxShadow: isOpen ? '0 0 8px rgba(59,130,246,0.5)' : 'none',
-                                    transition:'all 0.2s' }} />
+                                className="w-full flex items-center gap-3 px-4 py-3.5 text-left transition-all"
+                                style={{ background: C.cardBg }}>
                                 {/* icon */}
                                 <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                                    style={{
-                                        background: isOpen ? 'rgba(59,130,246,0.2)' : C.accentSoft,
-                                        border: `1px solid ${isOpen ? C.borderBright : C.border}`,
-                                        color:'#93c5fd',
-                                        transition:'all 0.2s',
-                                    }}>
+                                    style={{ background: tierGrad.ring, color: tierGrad.focus, border: `1px solid ${tierGrad.focus}44` }}>
                                     {section.groupIcon}
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <p className="font-black text-[13px]" style={{ color: isOpen ? '#f1f5f9' : '#cbd5e1' }}>
+                                    <p className="font-black text-[13px]" style={{ color: C.titleColor }}>
                                         {section.groupTitle}
                                     </p>
-                                    <p className="text-[10px] font-medium mt-0.5 truncate" style={{ color:'#334155' }}>
+                                    <p className="text-[10px] font-medium mt-0.5 truncate" style={{ color: C.subtitleColor }}>
                                         {section.groupDesc}
                                     </p>
                                 </div>
                                 <div className="flex items-center gap-2 shrink-0">
                                     <span className="text-[9px] font-black px-2 py-0.5 rounded-full tracking-wide"
-                                        style={{
-                                            background: isOpen ? 'rgba(59,130,246,0.25)' : C.accentSoft,
-                                            color:'#93c5fd',
-                                            border:`1px solid ${C.borderBright}`,
-                                        }}>
+                                        style={{ background: `${tierGrad.focus}18`, color: tierGrad.focus }}>
                                         {section.items.length}
                                     </span>
                                     <div style={{ transition:'transform 0.2s', transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}>
-                                        <ChevronDown size={15} style={{ color: isOpen ? '#3b82f6' : '#334155' }} />
+                                        <ChevronDown size={15} style={{ color: tierGrad.focus }} />
                                     </div>
                                 </div>
                             </button>
 
                             {/* ── Items ── */}
                             {isOpen && (
-                                <div style={{ borderTop:`1px solid ${C.border}` }}>
+                                <div className="border-t" style={{ borderColor: C.divider }}>
                                     {section.items.map((item, idx) => {
                                         const isSelected = selectedItem?.sectionId === section.id && selectedItem.itemIndex === idx;
                                         return (
-                                            <div key={idx} style={{
-                                                borderTop: idx > 0 ? `1px solid rgba(15,24,46,0.9)` : 'none',
-                                                background: isSelected
-                                                    ? 'linear-gradient(135deg,rgba(59,130,246,0.06) 0%,rgba(99,102,241,0.04) 100%)'
-                                                    : 'transparent',
-                                                transition:'background 0.15s',
-                                            }}>
+                                            <div key={idx} className={`${idx > 0 ? 'border-t' : ''} transition-colors`}
+                                                style={{ background: isSelected ? C.itemSelBg : C.itemBg, borderColor: C.divider }}>
                                                 {/* item row */}
                                                 <button
                                                     onClick={() => setSelectedItem(isSelected ? null : { sectionId: section.id, itemIndex: idx })}
-                                                    className="w-full text-left px-4 py-3.5 flex items-start gap-3 active:brightness-110 transition-all">
-                                                    {/* item icon */}
+                                                    className="w-full text-left px-4 py-3.5 flex items-start gap-3 transition-all">
+                                                    {/* item icon — single tier color */}
                                                     <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
-                                                        style={{
-                                                            background: isSelected ? 'rgba(59,130,246,0.2)' : C.accentSoft,
-                                                            border:`1px solid ${isSelected ? C.borderBright : C.border}`,
-                                                            color:'#93c5fd',
-                                                            boxShadow: isSelected ? '0 0 10px rgba(59,130,246,0.18)' : 'none',
-                                                            transition:'all 0.15s',
-                                                        }}>
+                                                        style={{ background: tierGrad.ring, color: tierGrad.focus, border: `1px solid ${tierGrad.focus}44` }}>
                                                         {item.icon}
                                                     </div>
                                                     <div className="flex-1 min-w-0">
                                                         <div className="flex items-center gap-2 flex-wrap">
-                                                            <p className="font-black text-[13px]"
-                                                                style={{ color: isSelected ? '#f8fafc' : '#e2e8f0' }}>
+                                                            <p className="font-black text-[13px]" style={{ color: C.titleColor }}>
                                                                 {item.title}
                                                             </p>
                                                             {item.warning && (
-                                                                <span className="text-[8.5px] font-black px-1.5 py-0.5 rounded-full tracking-wide"
-                                                                    style={{ background:'rgba(239,68,68,0.12)', color:'#fca5a5', border:'1px solid rgba(239,68,68,0.28)', letterSpacing:'0.04em' }}>
+                                                                <span className="text-[8.5px] font-black px-1.5 py-0.5 rounded-full bg-red-50 text-red-600 border border-red-200 tracking-wide">
                                                                     ⚠ LIMIT
                                                                 </span>
                                                             )}
                                                             {item.tip && !item.warning && (
-                                                                <span className="text-[8.5px] font-black px-1.5 py-0.5 rounded-full tracking-wide"
-                                                                    style={{ background:'rgba(34,197,94,0.1)', color:'#86efac', border:'1px solid rgba(34,197,94,0.28)', letterSpacing:'0.04em' }}>
+                                                                <span className="text-[8.5px] font-black px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 tracking-wide">
                                                                     💡 TIP
                                                                 </span>
                                                             )}
                                                         </div>
-                                                        <p className="text-[11px] font-medium mt-0.5" style={{ color:'#475569' }}>
+                                                        <p className="text-[11px] font-medium mt-0.5" style={{ color: C.subtitleColor }}>
                                                             {item.subtitle}
                                                         </p>
                                                         {item.tags && (
                                                             <div className="flex flex-wrap gap-1 mt-1.5">
                                                                 {item.tags.map(tag => (
-                                                                    <span key={tag} className="text-[9px] font-bold px-1.5 py-0.5 rounded-md"
-                                                                        style={{ background:'rgba(15,23,42,0.8)', color:'#334155', border:`1px solid rgba(59,130,246,0.1)` }}>
+                                                                    <span key={tag} className="text-[9px] font-bold px-1.5 py-0.5 rounded-md" style={{ background: C.tagBg, color: C.tagText, border: `1px solid ${C.tagBorder}` }}>
                                                                         {tag}
                                                                     </span>
                                                                 ))}
@@ -849,63 +823,46 @@ export const UserGuide: React.FC<Props> = ({ onClose }) => {
                                                         )}
                                                     </div>
                                                     <div className="shrink-0 mt-1" style={{ transition:'transform 0.15s', transform: isSelected ? 'rotate(0deg)' : 'rotate(-90deg)' }}>
-                                                        <ChevronDown size={14} style={{ color: isSelected ? '#3b82f6' : '#1e293b' }} />
+                                                        <ChevronDown size={14} style={{ color: isSelected ? tierGrad.focus : '#cbd5e1' }} />
                                                     </div>
                                                 </button>
 
                                                 {/* ── Expanded detail ── */}
                                                 {isSelected && (
                                                     <div className="px-4 pb-4 space-y-2.5">
-                                                        {/* shimmer divider */}
-                                                        <div style={{ height:1, background:'linear-gradient(90deg,transparent,rgba(59,130,246,0.35),transparent)', marginBottom:2 }} />
+                                                        <div className="h-px mb-2" style={{ background: C.divider }} />
 
-                                                        {/* description card */}
-                                                        <div className="rounded-xl p-4" style={{
-                                                            background:'linear-gradient(135deg,#0a1428 0%,#0d1a30 100%)',
-                                                            border:`1px solid ${C.borderBright}`,
-                                                            boxShadow:'inset 0 1px 0 rgba(255,255,255,0.03)',
-                                                        }}>
-                                                            <p className="text-[8.5px] font-black uppercase tracking-widest mb-2.5"
-                                                                style={{ color:'rgba(59,130,246,0.5)', letterSpacing:'0.12em' }}>
+                                                        {/* description card — tier colored */}
+                                                        <div className="rounded-xl p-4 border"
+                                                            style={{ background: C.descBg, borderColor: C.descBdr }}>
+                                                            <p className="text-[8.5px] font-black uppercase tracking-widest mb-2.5" style={{ letterSpacing:'0.12em', color: C.labelColor }}>
                                                                 ◆ KYA HAI · KAISE USE KAREIN
                                                             </p>
-                                                            <p className="text-[12.5px] leading-[1.7] font-medium" style={{ color:'#e2e8f0' }}>
+                                                            <p className="text-[12.5px] leading-[1.7] font-medium" style={{ color: C.descText }}>
                                                                 {item.desc}
                                                             </p>
                                                         </div>
 
-                                                        {/* warning / limit */}
+                                                        {/* warning / limit — always red (semantic) */}
                                                         {item.warning && (
-                                                            <div className="rounded-xl p-3.5 flex gap-3" style={{
-                                                                background:'linear-gradient(135deg,rgba(127,29,29,0.3) 0%,rgba(153,27,27,0.15) 100%)',
-                                                                border:'1px solid rgba(239,68,68,0.3)',
-                                                                boxShadow:'inset 0 1px 0 rgba(239,68,68,0.05)',
-                                                            }}>
-                                                                <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-                                                                    style={{ background:'rgba(239,68,68,0.15)', border:'1px solid rgba(239,68,68,0.3)', fontSize:13 }}>⚠️</div>
+                                                            <div className="rounded-xl p-3.5 flex gap-3 bg-red-50 border border-red-200">
+                                                                <div className="w-7 h-7 rounded-lg bg-red-100 border border-red-200 flex items-center justify-center shrink-0 text-[13px]">⚠️</div>
                                                                 <div>
-                                                                    <p className="text-[8.5px] font-black uppercase tracking-widest mb-1.5"
-                                                                        style={{ color:'#fca5a5', letterSpacing:'0.1em' }}>LIMIT · DHYAN DO</p>
-                                                                    <p className="text-[11.5px] font-medium leading-relaxed" style={{ color:'#fecaca' }}>
+                                                                    <p className="text-[8.5px] font-black uppercase tracking-widest mb-1.5 text-red-500" style={{ letterSpacing:'0.1em' }}>LIMIT · DHYAN DO</p>
+                                                                    <p className="text-[11.5px] font-medium leading-relaxed text-red-700">
                                                                         {item.warning}
                                                                     </p>
                                                                 </div>
                                                             </div>
                                                         )}
 
-                                                        {/* tip / bonus */}
+                                                        {/* tip / bonus — always green (semantic) */}
                                                         {item.tip && (
-                                                            <div className="rounded-xl p-3.5 flex gap-3" style={{
-                                                                background:'linear-gradient(135deg,rgba(20,83,45,0.35) 0%,rgba(21,128,61,0.15) 100%)',
-                                                                border:'1px solid rgba(34,197,94,0.28)',
-                                                                boxShadow:'inset 0 1px 0 rgba(34,197,94,0.04)',
-                                                            }}>
-                                                                <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-                                                                    style={{ background:'rgba(34,197,94,0.12)', border:'1px solid rgba(34,197,94,0.3)', fontSize:13 }}>💡</div>
+                                                            <div className="rounded-xl p-3.5 flex gap-3 bg-emerald-50 border border-emerald-200">
+                                                                <div className="w-7 h-7 rounded-lg bg-emerald-100 border border-emerald-200 flex items-center justify-center shrink-0 text-[13px]">💡</div>
                                                                 <div>
-                                                                    <p className="text-[8.5px] font-black uppercase tracking-widest mb-1.5"
-                                                                        style={{ color:'#86efac', letterSpacing:'0.1em' }}>BONUS TIP</p>
-                                                                    <p className="text-[11.5px] font-medium leading-relaxed" style={{ color:'#bbf7d0' }}>
+                                                                    <p className="text-[8.5px] font-black uppercase tracking-widest mb-1.5 text-emerald-600" style={{ letterSpacing:'0.1em' }}>BONUS TIP</p>
+                                                                    <p className="text-[11.5px] font-medium leading-relaxed text-emerald-700">
                                                                         {item.tip}
                                                                     </p>
                                                                 </div>
@@ -923,13 +880,10 @@ export const UserGuide: React.FC<Props> = ({ onClose }) => {
                 })}
 
                 {/* footer */}
-                <div className="rounded-2xl p-4 text-center" style={{
-                    background: C.card,
-                    border: `1px solid ${C.border}`,
-                }}>
-                    <p className="text-[11px] font-medium" style={{ color: C.textDim }}>
-                        💬 <span style={{ color:'#cbd5e1', fontWeight:700 }}>Aur koi sawaal ho?</span>{' '}
-                        <span style={{ color:'#334155' }}>Chat → Support mein admin ko message karo.</span>
+                <div className="rounded-2xl p-4 text-center" style={{ background: C.cardBg, border: `1px solid ${C.footerBorder}` }}>
+                    <p className="text-[11px] font-medium" style={{ color: C.subtitleColor }}>
+                        💬 <span className="font-bold" style={{ color: C.titleColor }}>Aur koi sawaal ho?</span>{' '}
+                        Chat → Support mein admin ko message karo.
                     </p>
                 </div>
             </div>
@@ -937,18 +891,10 @@ export const UserGuide: React.FC<Props> = ({ onClose }) => {
             {/* ════════════════════════════════
                 CLOSE BUTTON
             ════════════════════════════════ */}
-            <div className="shrink-0 px-4 py-3.5" style={{
-                background: C.surface,
-                borderTop:`1px solid ${C.border}`,
-                boxShadow:'0 -1px 0 rgba(59,130,246,0.06)',
-            }}>
+            <div className="shrink-0 px-4 py-3.5 border-t" style={{ background: C.footerBg, borderColor: C.footerBorder }}>
                 <button onClick={onClose}
-                    className="w-full py-3.5 rounded-2xl font-black text-sm tracking-wide text-white active:scale-[0.98] transition-all"
-                    style={{
-                        background:'linear-gradient(135deg,#1d4ed8 0%,#2563eb 50%,#1e40af 100%)',
-                        boxShadow:'0 4px 24px rgba(37,99,235,0.45), inset 0 1px 0 rgba(255,255,255,0.12)',
-                        letterSpacing:'0.04em',
-                    }}>
+                    className="w-full py-3.5 rounded-2xl font-black text-sm tracking-wide text-white active:scale-[0.98] transition-all shadow-md"
+                    style={{ background: tierGrad.btn }}>
                     ✕  Guide Banda Karo
                 </button>
             </div>

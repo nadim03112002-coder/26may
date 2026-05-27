@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { User, CreditPackage, SystemSettings } from '../types';
-import { Sparkles, Check, MessageSquare, Lock, Ticket, ShieldCheck, Star, ChevronRight, Flame, BadgeCheck } from 'lucide-react';
+import {
+  Sparkles, Check, MessageSquare, Lock, Ticket, ShieldCheck, Star,
+  ChevronRight, Flame, BadgeCheck, History, TrendingDown,
+  Calendar, Clock, Crown, DollarSign, ArrowLeft, Zap, Gift, Coins
+} from 'lucide-react';
 import { getLevelInfo, getNextLevelInfo, getLevelProgress, getScoreDiscountFromScore } from '../utils/levelSystem';
 
 interface Props {
@@ -20,9 +24,112 @@ const DEFAULT_PACKAGES: CreditPackage[] = [
   { id: 'pkg-7', name: '10000 Credits', credits: 10000, price: 1000 }
 ];
 
+/* ─── Subscription History ─── */
+const SubHistory: React.FC<{ user: User; onBack: () => void }> = ({ user, onBack }) => {
+  const history = user.subscriptionHistory || [];
+  const totalPaid = history.reduce((s, i) => s + i.price, 0);
+  const totalFree = history.reduce((s, i) => i.isFree ? s + i.originalPrice : s, 0);
+  const sorted = [...history].sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
+
+  return (
+    <div className="bg-[#0a0a0a] min-h-screen pb-28 animate-in fade-in slide-in-from-right duration-300">
+      {/* Header */}
+      <div className="relative overflow-hidden px-4 pt-5 pb-6" style={{ background: 'linear-gradient(135deg,#0f172a,#1e1b4b)' }}>
+        <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse at top right, rgba(99,102,241,0.18) 0%, transparent 60%)' }} />
+        <div className="relative z-10 flex items-center gap-3">
+          <button onClick={onBack} className="w-10 h-10 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center active:scale-90 transition-transform">
+            <ArrowLeft size={18} className="text-white" />
+          </button>
+          <div>
+            <h2 className="text-lg font-black text-white">Subscription History</h2>
+            <p className="text-[11px] text-indigo-300 font-medium">Plan & Payment Records</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="px-4 pt-4 space-y-4">
+        {/* Summary */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-2xl p-4 border" style={{ background: 'rgba(16,185,129,0.08)', borderColor: 'rgba(16,185,129,0.25)' }}>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'rgba(16,185,129,0.2)' }}>
+                <TrendingDown size={15} className="text-emerald-400" />
+              </div>
+              <span className="text-[10px] font-black text-slate-500 uppercase tracking-wide">You Paid</span>
+            </div>
+            <p className="text-2xl font-black text-white">₹{totalPaid}</p>
+            <p className="text-[10px] text-slate-600 mt-0.5">Total Spend</p>
+          </div>
+          <div className="rounded-2xl p-4 border" style={{ background: 'rgba(99,102,241,0.08)', borderColor: 'rgba(99,102,241,0.25)' }}>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'rgba(99,102,241,0.2)' }}>
+                <Gift size={15} className="text-indigo-400" />
+              </div>
+              <span className="text-[10px] font-black text-slate-500 uppercase tracking-wide">Free Value</span>
+            </div>
+            <p className="text-2xl font-black text-indigo-400">₹{totalFree}</p>
+            <p className="text-[10px] text-slate-600 mt-0.5">Gifts & Rewards</p>
+          </div>
+        </div>
+
+        {/* List */}
+        <div>
+          <h3 className="font-black text-slate-400 text-xs flex items-center gap-2 mb-3 uppercase tracking-widest">
+            <History size={14} /> Recent Activity
+          </h3>
+          {sorted.length === 0 && (
+            <div className="rounded-2xl border border-dashed border-white/10 p-10 text-center">
+              <Crown size={40} className="mx-auto mb-3 text-slate-700" />
+              <p className="font-bold text-slate-500 text-sm">Koi history nahi mili</p>
+              <p className="text-xs text-slate-600 mt-1">Pehli plan lo — yahan record aayega</p>
+            </div>
+          )}
+          <div className="space-y-3">
+            {sorted.map((item) => (
+              <div key={item.id} className="rounded-2xl border p-4" style={{ background: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.08)' }}>
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${item.isFree ? 'bg-emerald-500/20 text-emerald-400' : 'bg-violet-500/20 text-violet-400'}`}>
+                      {item.isFree ? <Gift size={18} /> : <DollarSign size={18} />}
+                    </div>
+                    <div>
+                      <p className="font-black text-white text-sm">
+                        {item.tier === 'LIFETIME' ? 'Lifetime Access' : `${item.durationHours < 24 ? item.durationHours + ' Hours' : Math.ceil(item.durationHours / 24) + ' Days'} Plan`}
+                      </p>
+                      <p className="text-[11px] text-slate-500 font-medium">{item.level} · {item.grantSource}</p>
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className={`font-black text-sm ${item.isFree ? 'text-emerald-400' : 'text-white'}`}>
+                      {item.isFree ? 'FREE' : `₹${item.price}`}
+                    </p>
+                    {item.isFree && <p className="text-[10px] text-slate-600 line-through">₹{item.originalPrice}</p>}
+                  </div>
+                </div>
+                <div className="rounded-xl p-3 flex justify-between items-center gap-2" style={{ background: 'rgba(255,255,255,0.04)' }}>
+                  <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                    <Calendar size={11} />
+                    <span>{new Date(item.startDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' })}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                    <Clock size={11} />
+                    <span>{item.tier === 'LIFETIME' ? 'Forever' : new Date(item.endDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' })}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ─── Main Store ─── */
 export const Store: React.FC<Props> = ({ user, settings, renderEarnContent }) => {
   const [tierType, setTierType] = useState<'BASIC' | 'ULTRA' | 'EARN' | 'CREDITS'>('BASIC');
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
 
   const packages = settings?.packages || DEFAULT_PACKAGES;
   const subscriptionPlans = settings?.subscriptionPlans || [];
@@ -33,41 +140,31 @@ export const Store: React.FC<Props> = ({ user, settings, renderEarnContent }) =>
   const nextTierInfo = getNextLevelInfo(totalScore);
   const scoreTierProgress = getLevelProgress(totalScore);
 
-  // storeDiscount: only active for Level 1–4 AND user has scored ≥ 100 points
   const activeStoreDiscount =
     (user.storeDiscount && user.storeDiscount > 0 && scoreTier.level <= 4 && totalScore >= 100)
-      ? user.storeDiscount
-      : 0;
+      ? user.storeDiscount : 0;
 
-  // === VISIT DISCOUNT ===
   const [visitCount, setVisitCount] = useState<number>(0);
   const visitDiscountRules = settings?.storeVisitDiscountRules || [];
   const visitDiscountEnabled = !!(settings?.storeVisitDiscountEnabled && visitDiscountRules.length > 0);
   const userSubTier: 'FREE' | 'BASIC' | 'ULTRA' =
     (user as any).subscriptionLevel === 'ULTRA' ? 'ULTRA'
-    : (user as any).subscriptionLevel === 'BASIC' ? 'BASIC'
-    : 'FREE';
+    : (user as any).subscriptionLevel === 'BASIC' ? 'BASIC' : 'FREE';
   const eligibleTiers: ('FREE' | 'BASIC' | 'ULTRA')[] = settings?.storeVisitDiscountTiers || ['FREE'];
   const isEligibleForVisitDiscount = visitDiscountEnabled && eligibleTiers.includes(userSubTier);
   const visitDiscount = isEligibleForVisitDiscount
-    ? (visitDiscountRules
-        .filter(r => visitCount >= r.visits)
-        .sort((a, b) => b.discountPercent - a.discountPercent)[0]?.discountPercent || 0)
+    ? (visitDiscountRules.filter(r => visitCount >= r.visits).sort((a, b) => b.discountPercent - a.discountPercent)[0]?.discountPercent || 0)
     : 0;
-  // Next visit threshold for progress hint
   const nextVisitRule = isEligibleForVisitDiscount
-    ? visitDiscountRules
-        .filter(r => r.visits > visitCount)
-        .sort((a, b) => a.visits - b.visits)[0]
+    ? visitDiscountRules.filter(r => r.visits > visitCount).sort((a, b) => a.visits - b.visits)[0]
     : null;
 
   useEffect(() => {
     if (!visitDiscountEnabled) return;
     const key = `store_visit_total_${user.id}`;
     const prev = parseInt(localStorage.getItem(key) || '0', 10);
-    const newCount = prev + 1;
-    localStorage.setItem(key, String(newCount));
-    setVisitCount(newCount);
+    localStorage.setItem(key, String(prev + 1));
+    setVisitCount(prev + 1);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.id]);
 
@@ -79,7 +176,6 @@ export const Store: React.FC<Props> = ({ user, settings, renderEarnContent }) =>
   }, [subscriptionPlans]);
 
   const selectedPlan = subscriptionPlans.find(p => p.id === selectedPlanId);
-
   const [showSupportModal, setShowSupportModal] = useState(false);
   const [purchaseItem, setPurchaseItem] = useState<any>(null);
 
@@ -95,101 +191,68 @@ export const Store: React.FC<Props> = ({ user, settings, renderEarnContent }) =>
     if (startsAt === endsAt) return now >= startsAt;
     return now >= startsAt && now < endsAt;
   };
-
   const isCooldownPhase = () => {
     if (!event?.enabled || !event.startsAt) return false;
     return Date.now() < new Date(event.startsAt).getTime();
   };
-
   const activeEvent = isEventActive();
   const inCooldown = isCooldownPhase();
   const showEventBanner = activeEvent || inCooldown;
 
-  const [timeLeft, setTimeLeft] = useState<{days: number, hours: number, minutes: number, seconds: number} | null>(null);
-
+  const [timeLeft, setTimeLeft] = useState<{ days: number; hours: number; minutes: number; seconds: number } | null>(null);
   useEffect(() => {
     if (!event?.enabled || (!event?.startsAt && !event?.endsAt)) { setTimeLeft(null); return; }
-    const calculateTime = () => {
-      const now = new Date().getTime();
+    const calc = () => {
+      const now = Date.now();
       const start = event.startsAt ? new Date(event.startsAt).getTime() : 0;
-      const end = event.endsAt ? new Date(event.endsAt).getTime() : 0;
+      const end   = event.endsAt   ? new Date(event.endsAt).getTime()   : 0;
       let diff = 0;
       if (now < start) diff = start - now;
       else if (start === end && now >= start) { setTimeLeft(null); return; }
       else if (now < end) diff = end - now;
-      if (diff <= 0) { setTimeLeft(null); }
-      else {
-        setTimeLeft({
-          days: Math.floor(diff / (1000 * 60 * 60 * 24)),
-          hours: Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
-          minutes: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
-          seconds: Math.floor((diff % (1000 * 60)) / 1000),
-        });
-      }
+      if (diff <= 0) { setTimeLeft(null); return; }
+      setTimeLeft({ days: Math.floor(diff/86400000), hours: Math.floor((diff%86400000)/3600000), minutes: Math.floor((diff%3600000)/60000), seconds: Math.floor((diff%60000)/1000) });
     };
-    calculateTime();
-    const interval = setInterval(calculateTime, 1000);
-    return () => clearInterval(interval);
+    calc();
+    const id = setInterval(calc, 1000);
+    return () => clearInterval(id);
   }, [event]);
 
   const handleSupportClick = (numEntry: any) => {
     if (!purchaseItem) return;
     const isSub = purchaseItem.duration !== undefined;
-    const itemName = purchaseItem.name;
-    let price = 0;
-    let features = '';
-    if (isSub) {
-      price = purchaseItem.finalPrice !== undefined ? purchaseItem.finalPrice : (tierType === 'BASIC' ? purchaseItem.basicPrice : purchaseItem.ultraPrice);
-      features = tierType === 'BASIC' ? 'MCQ + Notes (Pro)' : 'PDF + Videos + AI Studio (Max)';
-    } else {
-      price = purchaseItem.price;
-      features = `${purchaseItem.credits} Credits`;
-    }
-    if (typeof (window as any).recordActivity === 'function') {
-      (window as any).recordActivity('PURCHASE', `Initiated Purchase: ${itemName}`, price, { itemId: purchaseItem.id, subject: isSub ? 'Subscription' : 'Credits' });
-    }
-    const message = `Hello Admin, I want to buy:\n\nItem: ${itemName} ${isSub ? `(${tierType === 'BASIC' ? 'PRO' : 'MAX'})` : ''}\nPrice: ₹${price}\nUser ID: ${user.id}\nDetails: ${features}\n\nPlease share payment details.`;
-    window.open(`https://wa.me/91${numEntry.number}?text=${encodeURIComponent(message)}`, '_blank');
+    let price = isSub
+      ? (purchaseItem.finalPrice !== undefined ? purchaseItem.finalPrice : (tierType === 'BASIC' ? purchaseItem.basicPrice : purchaseItem.ultraPrice))
+      : purchaseItem.price;
+    const features = isSub ? (tierType === 'BASIC' ? 'MCQ + Notes (Pro)' : 'PDF + Videos + AI Studio (Max)') : `${purchaseItem.credits} Credits`;
+    if (typeof (window as any).recordActivity === 'function')
+      (window as any).recordActivity('PURCHASE', `Initiated Purchase: ${purchaseItem.name}`, price, { itemId: purchaseItem.id, subject: isSub ? 'Subscription' : 'Credits' });
+    const msg = `Hello Admin, I want to buy:\n\nItem: ${purchaseItem.name} ${isSub ? `(${tierType === 'BASIC' ? 'PRO' : 'MAX'})` : ''}\nPrice: ₹${price}\nUser ID: ${user.id}\nDetails: ${features}\n\nPlease share payment details.`;
+    window.open(`https://wa.me/91${numEntry.number}?text=${encodeURIComponent(msg)}`, '_blank');
     setShowSupportModal(false);
   };
-
   const initiatePurchase = (item: any) => { setPurchaseItem(item); setShowSupportModal(true); };
+
+  if (showHistory) return <SubHistory user={user} onBack={() => setShowHistory(false)} />;
 
   if (settings?.isPaymentEnabled === false) {
     return (
-      <div className="animate-in fade-in zoom-in duration-300 px-4 py-8">
-        <div className="bg-slate-900 p-10 rounded-3xl border border-slate-800 text-center shadow-2xl">
-          <div className="w-20 h-20 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner border border-slate-700">
-            <Lock size={40} className="text-slate-600" />
+      <div className="bg-[#0a0a0a] min-h-screen flex items-center justify-center px-4">
+        <div className="rounded-3xl border border-white/10 p-10 text-center max-w-sm w-full" style={{ background: 'rgba(255,255,255,0.04)' }}>
+          <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-5" style={{ background: 'rgba(255,255,255,0.06)' }}>
+            <Lock size={32} className="text-slate-500" />
           </div>
-          <h3 className="text-2xl font-black text-slate-200 mb-2">Store Locked</h3>
-          <p className="text-slate-500 font-medium max-w-xs mx-auto leading-relaxed">
-            {settings.paymentDisabledMessage || "Purchases are currently disabled by the Admin. Please check back later."}
+          <h3 className="text-xl font-black text-white mb-2">Store Locked</h3>
+          <p className="text-slate-500 font-medium text-sm leading-relaxed">
+            {settings.paymentDisabledMessage || 'Purchases are currently disabled by the Admin.'}
           </p>
         </div>
       </div>
     );
   }
 
-  const defaultBasicFeatures = [
-    'Daily Login Bonus: 10 Credits/Day',
-    'Full MCQs Unlocked',
-    'Premium Notes (Standard)',
-    'Audio Library (Standard)',
-    'AI Videos (2D Basic)',
-    'Team Support',
-    'Spin Wheel (5 Spins/Day)'
-  ];
-  const defaultUltraFeatures = [
-    'Daily Login Bonus: 20 Credits/Day',
-    'Everything in Basic Unlocked',
-    'Premium Notes (Deep Dive)',
-    'Ultra Podcast (Studio HD)',
-    'AI Videos (2D + 3D Deep Dive)',
-    'Competitive Mode Unlocked 🏆',
-    'Spin Wheel (10 Spins/Day)'
-  ];
-
+  const defaultBasicFeatures = ['Daily Login Bonus: 10 Credits/Day','Full MCQs Unlocked','Premium Notes (Standard)','Audio Library (Standard)','AI Videos (2D Basic)','Team Support','Spin Wheel (5 Spins/Day)'];
+  const defaultUltraFeatures = ['Daily Login Bonus: 20 Credits/Day','Everything in Basic Unlocked','Premium Notes (Deep Dive)','Ultra Podcast (Studio HD)','AI Videos (2D + 3D Deep Dive)','Competitive Mode Unlocked 🏆','Spin Wheel (10 Spins/Day)'];
   const featuresList = tierType === 'BASIC'
     ? (settings?.storeFeatures?.basic?.filter(f => f.trim()) || defaultBasicFeatures)
     : (settings?.storeFeatures?.ultra?.filter(f => f.trim()) || defaultUltraFeatures);
@@ -200,21 +263,57 @@ export const Store: React.FC<Props> = ({ user, settings, renderEarnContent }) =>
   };
 
   const isPro = tierType === 'BASIC';
-  const planAccent = isPro
-    ? { from: 'from-cyan-500', via: 'via-sky-400', to: 'to-cyan-500', ring: 'rgba(6,182,212,0.8)', glow: 'rgba(6,182,212,0.12)', border: 'border-cyan-500', text: 'text-cyan-300', bg: 'bg-cyan-500/20', badge: 'bg-cyan-500/25 text-cyan-300 border-cyan-500/40', selectedBg: 'from-cyan-950 to-sky-950' }
-    : { from: 'from-violet-500', via: 'via-purple-500', to: 'to-violet-600', ring: 'rgba(139,92,246,0.8)', glow: 'rgba(139,92,246,0.12)', border: 'border-purple-500', text: 'text-purple-300', bg: 'bg-purple-500/20', badge: 'bg-purple-500/25 text-purple-300 border-purple-500/40', selectedBg: 'from-violet-950 to-purple-950' };
+  const isGameEnabled = settings?.isGameEnabled !== false;
+
+  /* ── Dark accent palette ── */
+  const PA = {
+    // PRO (cyan)
+    cyanBorder:  'rgba(6,182,212,0.5)',
+    cyanBg:      'rgba(6,182,212,0.10)',
+    cyanGlow:    'rgba(6,182,212,0.20)',
+    cyanText:    '#67e8f9',
+    cyanBadge:   'rgba(6,182,212,0.18)',
+    cyanGrad:    'linear-gradient(135deg,#0891b2,#06b6d4)',
+    cyanPill:    'rgba(6,182,212,0.25)',
+    // MAX (violet)
+    violetBorder:'rgba(139,92,246,0.5)',
+    violetBg:    'rgba(139,92,246,0.10)',
+    violetGlow:  'rgba(139,92,246,0.20)',
+    violetText:  '#c4b5fd',
+    violetBadge: 'rgba(139,92,246,0.18)',
+    violetGrad:  'linear-gradient(135deg,#7c3aed,#8b5cf6)',
+    violetPill:  'rgba(139,92,246,0.25)',
+  };
+  const ac = {
+    border:  isPro ? PA.cyanBorder  : PA.violetBorder,
+    bg:      isPro ? PA.cyanBg      : PA.violetBg,
+    glow:    isPro ? PA.cyanGlow    : PA.violetGlow,
+    text:    isPro ? PA.cyanText    : PA.violetText,
+    badge:   isPro ? PA.cyanBadge   : PA.violetBadge,
+    grad:    isPro ? PA.cyanGrad    : PA.violetGrad,
+    pill:    isPro ? PA.cyanPill    : PA.violetPill,
+    label:   isPro ? 'PRO'          : 'MAX',
+    emoji:   isPro ? '⭐'           : '⚡',
+  };
+
+  const allTabs = [
+    { id: 'BASIC'   as const, label: 'Pro',     icon: '⭐', activeBg: 'rgba(6,182,212,0.18)',   activeBorder: 'rgba(6,182,212,0.6)',   activeText: '#67e8f9' },
+    { id: 'ULTRA'   as const, label: 'Max',     icon: '⚡', activeBg: 'rgba(139,92,246,0.18)',  activeBorder: 'rgba(139,92,246,0.6)',  activeText: '#c4b5fd' },
+    { id: 'CREDITS' as const, label: 'Credits', icon: '🪙', activeBg: 'rgba(245,158,11,0.18)',  activeBorder: 'rgba(245,158,11,0.6)',  activeText: '#fcd34d' },
+    ...(isGameEnabled ? [{ id: 'EARN' as const, label: 'Earn', icon: '🎰', activeBg: 'rgba(16,185,129,0.18)', activeBorder: 'rgba(16,185,129,0.6)', activeText: '#6ee7b7' }] : []),
+  ];
 
   return (
-    <div className="animate-in fade-in duration-300 pb-28 bg-black text-white font-sans">
+    <div className="bg-[#0a0a0a] min-h-screen pb-28 font-sans animate-in fade-in duration-300">
 
-      {/* SUPPORT MODAL */}
+      {/* ── SUPPORT MODAL ── */}
       {showSupportModal && (
         <div className="fixed inset-0 z-[200] flex items-end justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in">
-          <div className="bg-[#111] rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden border border-white/10 animate-in slide-in-from-bottom-4">
-            <div className="px-5 pt-5 pb-3">
-              <div className="flex items-center gap-3 mb-1">
-                <div className="w-9 h-9 bg-cyan-500/20 rounded-xl flex items-center justify-center">
-                  <MessageSquare size={18} className="text-cyan-400" />
+          <div className="rounded-3xl w-full max-w-lg overflow-hidden border border-white/10 animate-in slide-in-from-bottom-4" style={{ background: '#111' }}>
+            <div className="px-5 pt-5 pb-4 border-b border-white/8">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: ac.bg, border: `1px solid ${ac.border}` }}>
+                  <MessageSquare size={18} style={{ color: ac.text }} />
                 </div>
                 <div>
                   <h3 className="font-black text-white text-base">Support Channel Chuno</h3>
@@ -222,36 +321,36 @@ export const Store: React.FC<Props> = ({ user, settings, renderEarnContent }) =>
                 </div>
               </div>
             </div>
-            <div className="px-4 pb-3 space-y-2">
-              {(settings?.paymentNumbers || [{id: 'def', name: 'Main Support', number: '8227070298', dailyClicks: 0}]).map((num) => {
+            <div className="px-4 py-3 space-y-2">
+              {(settings?.paymentNumbers || [{ id: 'def', name: 'Main Support', number: '8227070298', dailyClicks: 0 }]).map((num) => {
                 const totalClicks = settings?.paymentNumbers?.reduce((acc, curr) => acc + (curr.dailyClicks || 0), 0) || 1;
                 const traffic = Math.round(((num.dailyClicks || 0) / totalClicks) * 100);
                 const isGreen = traffic < 30;
                 return (
-                  <button
-                    key={num.id}
-                    onClick={() => handleSupportClick(num)}
-                    className="w-full bg-white/5 border border-white/10 p-3.5 rounded-2xl flex justify-between items-center hover:bg-white/10 hover:border-cyan-500/40 transition-all group"
-                  >
+                  <button key={num.id} onClick={() => handleSupportClick(num)}
+                    className="w-full p-3.5 rounded-2xl flex justify-between items-center transition-all group active:scale-[0.98]"
+                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.08)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}>
                     <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white font-black text-sm ${isGreen ? 'bg-emerald-500/20 text-emerald-400' : 'bg-orange-500/20 text-orange-400'}`}>
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm ${isGreen ? 'bg-emerald-500/20 text-emerald-400' : 'bg-orange-500/20 text-orange-400'}`}>
                         {num.name.charAt(0)}
                       </div>
                       <div className="text-left">
-                        <p className="font-bold text-white text-sm group-hover:text-cyan-300 transition-colors">{num.name}</p>
+                        <p className="font-bold text-white text-sm">{num.name}</p>
                         <p className="text-[10px] text-slate-500">{isGreen ? '✅ Fast Response' : '⚠️ High Traffic'}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className={`text-xs font-black px-2 py-0.5 rounded-full ${isGreen ? 'text-emerald-400 bg-emerald-500/15' : 'text-orange-400 bg-orange-500/15'}`}>{traffic}% Busy</span>
-                      <ChevronRight size={14} className="text-slate-600 group-hover:text-cyan-400 transition-colors" />
+                      <ChevronRight size={14} className="text-slate-600" />
                     </div>
                   </button>
                 );
               })}
             </div>
-            <div className="px-4 pb-5 pt-2 border-t border-white/5">
-              <button onClick={() => setShowSupportModal(false)} className="w-full py-3 text-slate-500 font-bold text-sm hover:text-white transition-colors rounded-xl hover:bg-white/5">
+            <div className="px-4 pb-5 pt-1">
+              <button onClick={() => setShowSupportModal(false)} className="w-full py-3 text-slate-600 font-bold text-sm hover:text-white transition-colors rounded-xl hover:bg-white/5">
                 Cancel
               </button>
             </div>
@@ -259,88 +358,114 @@ export const Store: React.FC<Props> = ({ user, settings, renderEarnContent }) =>
         </div>
       )}
 
+      {/* ══════════ HEADER ══════════ */}
+      <div className="relative overflow-hidden px-4 pt-5 pb-5" style={{ background: 'linear-gradient(160deg,#0f0f1a 0%,#0d0d1a 60%,#0a0a12 100%)' }}>
+        {/* ambient glow based on active tab */}
+        <div className="absolute inset-0 pointer-events-none" style={{
+          background: tierType === 'BASIC' ? 'radial-gradient(ellipse at top right, rgba(6,182,212,0.12) 0%, transparent 55%)'
+            : tierType === 'ULTRA' ? 'radial-gradient(ellipse at top right, rgba(139,92,246,0.12) 0%, transparent 55%)'
+            : tierType === 'CREDITS' ? 'radial-gradient(ellipse at top right, rgba(245,158,11,0.1) 0%, transparent 55%)'
+            : 'radial-gradient(ellipse at top right, rgba(16,185,129,0.1) 0%, transparent 55%)'
+        }} />
 
-      {/* MAIN CONTENT */}
-      <div className="px-4 pt-5">
+        {/* Store / Sub History tabs */}
+        <div className="relative z-10 flex gap-2 mb-4 p-1 rounded-2xl" style={{ background: 'rgba(255,255,255,0.05)' }}>
+          <button onClick={() => setShowHistory(false)}
+            className="flex-1 py-2 rounded-xl text-xs font-black transition-all"
+            style={!showHistory ? { background: 'rgba(255,255,255,0.12)', color: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.3)' } : { color: 'rgba(255,255,255,0.45)' }}>
+            🛒 Store
+          </button>
+          <button onClick={() => setShowHistory(true)}
+            className="flex-1 py-2 rounded-xl text-xs font-black transition-all"
+            style={showHistory ? { background: 'rgba(255,255,255,0.12)', color: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.3)' } : { color: 'rgba(255,255,255,0.45)' }}>
+            📋 Sub History
+          </button>
+        </div>
 
-        {/* PLAN TYPE SELECTOR — Premium tab switcher */}
-        {(() => {
-          const isGameEnabled = settings?.isGameEnabled !== false;
-          const allTabs = [
-            { id: 'BASIC' as const, label: 'PRO', icon: '⭐', desc: 'Basic' },
-            { id: 'ULTRA' as const, label: 'MAX', icon: '⚡', desc: 'Ultra' },
-            { id: 'CREDITS' as const, label: 'Credits', icon: '🪙', desc: 'Buy' },
-            ...(isGameEnabled ? [{ id: 'EARN' as const, label: 'Earn', icon: '🎰', desc: 'Free' }] : []),
-          ];
-          return (
-        <div className="mb-5">
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Choose Your Plan</p>
+        {/* Title + user info */}
+        <div className="relative z-10 flex items-start justify-between">
+          <div>
+            <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-0.5">{settings?.appName || 'IIC'}</p>
+            <h1 className="text-2xl font-black text-white leading-none tracking-tight">Premium Store</h1>
+            <p className="text-[11px] text-slate-500 mt-1.5 font-medium">Apna plan upgrade karo — sab kuch unlock karo</p>
+          </div>
+          <div className="flex flex-col items-end gap-1.5">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full" style={{ background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.3)' }}>
+              <span className="text-sm">🪙</span>
+              <span className="font-black text-sm" style={{ color: '#fcd34d' }}>{((user.credits ?? 0) + (user.bonusCredits ?? 0)).toLocaleString('en-IN')}</span>
+              <span className="text-[9px] font-bold" style={{ color: 'rgba(252,211,77,0.6)' }}>CR</span>
+              {(user.bonusCredits ?? 0) > 0 && <span className="text-[8px] font-black text-emerald-400 bg-emerald-500/20 px-1 rounded-full">+{user.bonusCredits}🎁</span>}
+            </div>
+            {user.isPremium && (
+              <div className="flex flex-col items-end gap-1">
+                <span className="text-[9px] font-black px-2 py-0.5 rounded-full"
+                  style={{ background: user.subscriptionLevel === 'ULTRA' ? 'rgba(139,92,246,0.2)' : 'rgba(6,182,212,0.2)', color: user.subscriptionLevel === 'ULTRA' ? '#c4b5fd' : '#67e8f9', border: `1px solid ${user.subscriptionLevel === 'ULTRA' ? 'rgba(139,92,246,0.4)' : 'rgba(6,182,212,0.4)'}` }}>
+                  {user.subscriptionLevel === 'ULTRA' ? '⚡ ULTRA' : '★ BASIC'} Active
+                </span>
+                {user.subscriptionEndDate && (() => {
+                  const end = new Date(user.subscriptionEndDate);
+                  const days = Math.ceil((end.getTime() - Date.now()) / 86400000);
+                  const dateStr = end.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' });
+                  return days > 0 ? <span className="text-[9px] text-slate-600 font-bold">{days}d left · {dateStr}</span> : null;
+                })()}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ══════════ BODY ══════════ */}
+      <div className="px-4 pt-4">
+
+        {/* ── PLAN TYPE TABS ── */}
+        <div className="mb-4">
           <div className={`grid gap-2 ${allTabs.length === 3 ? 'grid-cols-3' : 'grid-cols-4'}`}>
             {allTabs.map(tab => {
               const isActive = tierType === tab.id;
               return (
-                <button
-                  key={tab.id}
-                  onClick={() => setTierType(tab.id)}
-                  className={`relative py-2.5 px-1 rounded-2xl text-[11px] font-black transition-all flex flex-col items-center gap-0.5 overflow-hidden ${
-                    isActive
-                      ? tab.id === 'BASIC'
-                        ? 'bg-gradient-to-b from-cyan-500/30 to-cyan-600/10 text-cyan-300 border border-cyan-500/60 shadow-[0_0_12px_rgba(6,182,212,0.25)]'
-                        : tab.id === 'ULTRA'
-                        ? 'bg-gradient-to-b from-purple-500/30 to-purple-600/10 text-purple-300 border border-purple-500/60 shadow-[0_0_12px_rgba(139,92,246,0.25)]'
-                        : tab.id === 'EARN'
-                        ? 'bg-gradient-to-b from-emerald-500/30 to-emerald-600/10 text-emerald-300 border border-emerald-500/60 shadow-[0_0_12px_rgba(16,185,129,0.25)]'
-                        : 'bg-gradient-to-b from-amber-500/30 to-amber-600/10 text-amber-300 border border-amber-500/60 shadow-[0_0_12px_rgba(245,158,11,0.25)]'
-                      : 'bg-white/5 text-slate-400 border border-white/8 hover:bg-white/8'
-                  }`}
-                >
-                  {isActive && (
-                    <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(105deg,transparent 40%,rgba(255,255,255,0.04) 50%,transparent 60%)', animation: 'shimmer-sweep 2.5s linear infinite' }} />
-                  )}
-                  <span className="text-lg leading-none">{tab.icon}</span>
-                  <span className="leading-tight text-center font-black">{tab.label}</span>
+                <button key={tab.id} onClick={() => setTierType(tab.id)}
+                  className="py-3 px-1 rounded-2xl text-[11px] font-black transition-all flex flex-col items-center gap-1 relative overflow-hidden"
+                  style={isActive
+                    ? { background: tab.activeBg, border: `1.5px solid ${tab.activeBorder}`, color: tab.activeText, boxShadow: `0 0 12px ${tab.activeBg}` }
+                    : { background: 'rgba(255,255,255,0.04)', border: '1.5px solid rgba(255,255,255,0.08)', color: '#64748b' }}>
+                  {isActive && <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(105deg,transparent 40%,rgba(255,255,255,0.04) 50%,transparent 60%)', animation: 'shimmer-sweep 2.5s linear infinite' }} />}
+                  <span className="text-lg leading-none relative z-10">{tab.icon}</span>
+                  <span className="leading-tight relative z-10">{tab.label}</span>
                 </button>
               );
             })}
           </div>
         </div>
-          );
-        })()}
 
-        {/* SPECIAL DISCOUNT EVENT BANNER */}
+        {/* ── EVENT BANNER ── */}
         {showEventBanner && (
-          <div className={`mb-5 p-4 rounded-2xl border animate-in fade-in ${
-            activeEvent
-              ? 'bg-gradient-to-r from-amber-900/40 to-orange-900/40 border-amber-500/40'
-              : 'bg-[#111] border-slate-700'
-          }`}>
+          <div className="mb-4 p-4 rounded-2xl border animate-in fade-in"
+            style={activeEvent
+              ? { background: 'linear-gradient(135deg,rgba(245,158,11,0.12),rgba(234,88,12,0.08))', borderColor: 'rgba(245,158,11,0.4)' }
+              : { background: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.1)' }}>
             <div className="flex items-center gap-3">
               <span className="text-2xl">{activeEvent ? '🔥' : '⏳'}</span>
               <div className="flex-1">
-                <p className={`text-sm font-black ${activeEvent ? 'text-amber-300' : 'text-slate-200'}`}>
-                  {activeEvent
-                    ? `${event?.eventName || 'Flash Sale'} — ${event?.discountPercent || 0}% OFF!`
-                    : `${event?.eventName || 'Sale'} — Jald aane wala hai!`}
+                <p className="text-sm font-black" style={{ color: activeEvent ? '#fcd34d' : '#cbd5e1' }}>
+                  {activeEvent ? `${event?.eventName || 'Flash Sale'} — ${event?.discountPercent || 0}% OFF!` : `${event?.eventName || 'Sale'} — Jald aane wala hai!`}
                 </p>
-                <p className={`text-[11px] mt-0.5 ${activeEvent ? 'text-orange-300' : 'text-slate-400'}`}>
-                  {activeEvent
-                    ? 'Sabhi plans aur credits pe discount apply ho gaya!'
-                    : 'Event abhi start nahi hua — countdown dekho neeche'}
+                <p className="text-[11px] mt-0.5" style={{ color: activeEvent ? '#fb923c' : '#475569' }}>
+                  {activeEvent ? 'Sabhi plans aur credits pe discount apply ho gaya!' : 'Event abhi start nahi hua'}
                 </p>
               </div>
             </div>
             {timeLeft && (
               <div className="flex gap-2 mt-3 justify-center">
                 {timeLeft.days > 0 && (
-                  <div className="bg-black/40 rounded-xl px-3 py-1.5 text-center min-w-[48px] border border-white/10">
+                  <div className="rounded-xl px-3 py-1.5 text-center min-w-[48px]" style={{ background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.1)' }}>
                     <p className="text-base font-black text-white font-mono leading-none">{String(timeLeft.days).padStart(2,'0')}</p>
                     <p className="text-[8px] text-slate-500 uppercase mt-0.5">Days</p>
                   </div>
                 )}
-                {[{ v: timeLeft.hours, l: 'Hrs' }, { v: timeLeft.minutes, l: 'Min' }, { v: timeLeft.seconds, l: 'Sec' }].map(item => (
-                  <div key={item.l} className="bg-black/40 rounded-xl px-3 py-1.5 text-center min-w-[48px] border border-white/10">
-                    <p className="text-base font-black text-white font-mono leading-none">{String(item.v).padStart(2,'0')}</p>
-                    <p className="text-[8px] text-slate-500 uppercase mt-0.5">{item.l}</p>
+                {[{v:timeLeft.hours,l:'Hrs'},{v:timeLeft.minutes,l:'Min'},{v:timeLeft.seconds,l:'Sec'}].map(t => (
+                  <div key={t.l} className="rounded-xl px-3 py-1.5 text-center min-w-[48px]" style={{ background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                    <p className="text-base font-black text-white font-mono leading-none">{String(t.v).padStart(2,'0')}</p>
+                    <p className="text-[8px] text-slate-500 uppercase mt-0.5">{t.l}</p>
                   </div>
                 ))}
               </div>
@@ -348,359 +473,262 @@ export const Store: React.FC<Props> = ({ user, settings, renderEarnContent }) =>
           </div>
         )}
 
-
-        {/* EARN CONTENT — only when game feature is enabled */}
-        {tierType === 'EARN' && settings?.isGameEnabled !== false && (
+        {/* ── EARN ── */}
+        {tierType === 'EARN' && isGameEnabled && (
           <div className="animate-in fade-in duration-200">
             {renderEarnContent ?? (
               <div className="text-center py-12 text-slate-500 font-bold">
-                <p className="text-2xl mb-2">🎰</p>
-                <p>Earn content loading...</p>
+                <p className="text-2xl mb-2">🎰</p><p>Earn content loading...</p>
               </div>
             )}
           </div>
         )}
 
-        {/* CREDITS CONTENT */}
+        {/* ── CREDITS ── */}
         {tierType === 'CREDITS' && (
-          <div className="animate-in fade-in duration-200 space-y-3">
-            <div className="space-y-2">
-              {packages.map((pkg) => {
-                let finalPrice = pkg.price;
-                let discountPercentVal = 0;
-                if (activeEvent && event?.discountPercent) discountPercentVal += event.discountPercent;
-                if (isSubscribed) discountPercentVal += 5;
-                if (activeStoreDiscount > 0) discountPercentVal += activeStoreDiscount;
-                if (scoreDiscount > 0) discountPercentVal += scoreDiscount;
-                if (visitDiscount > 0) discountPercentVal += visitDiscount;
-                if (discountPercentVal > 0) {
-                  if (discountPercentVal > 100) discountPercentVal = 100;
-                  finalPrice = Math.round(finalPrice * (1 - discountPercentVal / 100));
-                }
-                const perCredit = finalPrice > 0 ? (finalPrice / pkg.credits).toFixed(2) : '0';
-                const isPopular = pkg.credits === 500;
-                return (
-                  <button
-                    key={pkg.id}
-                    onClick={() => initiatePurchase(pkg)}
-                    className="w-full p-3.5 rounded-2xl border text-left transition-all hover:scale-[1.01] active:scale-[0.99] relative overflow-hidden group"
-                    style={{
-                      background: isPopular ? 'linear-gradient(135deg, rgba(234,179,8,0.12), rgba(245,158,11,0.06))' : 'rgba(255,255,255,0.03)',
-                      border: isPopular ? '1px solid rgba(234,179,8,0.4)' : '1px solid rgba(255,255,255,0.08)',
-                    }}
-                  >
-                    {isPopular && (
-                      <div className="absolute top-0 right-0 bg-amber-500 text-black text-[8px] font-black px-2.5 py-1 rounded-bl-xl rounded-tr-xl">
-                        POPULAR
-                      </div>
-                    )}
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg shrink-0" style={{ background: 'rgba(234,179,8,0.15)', border: '1px solid rgba(234,179,8,0.3)' }}>
-                          🪙
-                        </div>
-                        <div>
-                          <p className="text-sm font-black text-white">{pkg.credits.toLocaleString('en-IN')} Credits</p>
-                          <p className="text-[9px] text-slate-500 mt-0.5">₹{perCredit}/credit · {pkg.name}</p>
-                        </div>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <div className="flex items-center gap-1.5">
-                          {discountPercentVal > 0 && (
-                            <span className="text-[9px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded-full font-black border border-amber-500/30">
-                              {discountPercentVal}% OFF
-                            </span>
-                          )}
-                          <p className="text-base font-black text-white">₹{finalPrice.toLocaleString('en-IN')}</p>
-                        </div>
-                        {discountPercentVal > 0 && (
-                          <p className="text-[9px] text-slate-600 line-through text-right">₹{pkg.price.toLocaleString('en-IN')}</p>
-                        )}
+          <div className="animate-in fade-in duration-200 space-y-2.5">
+            {packages.map((pkg) => {
+              let finalPrice = pkg.price;
+              let disc = 0;
+              if (activeEvent && event?.discountPercent) disc += event.discountPercent;
+              if (isSubscribed) disc += 5;
+              if (activeStoreDiscount > 0) disc += activeStoreDiscount;
+              if (scoreDiscount > 0) disc += scoreDiscount;
+              if (visitDiscount > 0) disc += visitDiscount;
+              if (disc > 0) { if (disc > 100) disc = 100; finalPrice = Math.round(finalPrice * (1 - disc / 100)); }
+              const perCredit = finalPrice > 0 ? (finalPrice / pkg.credits).toFixed(2) : '0';
+              const isPopular = pkg.credits === 500;
+              return (
+                <button key={pkg.id} onClick={() => initiatePurchase(pkg)}
+                  className="w-full p-4 rounded-2xl text-left transition-all hover:scale-[1.01] active:scale-[0.99] relative overflow-hidden"
+                  style={isPopular
+                    ? { background: 'linear-gradient(135deg,rgba(245,158,11,0.14),rgba(234,88,12,0.08))', border: '1.5px solid rgba(245,158,11,0.45)' }
+                    : { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  {isPopular && <div className="absolute top-0 right-0 text-black text-[8px] font-black px-2.5 py-1 rounded-bl-xl rounded-tr-xl" style={{ background: '#f59e0b' }}>POPULAR</div>}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg shrink-0" style={{ background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.3)' }}>🪙</div>
+                      <div>
+                        <p className="text-sm font-black text-white">{pkg.credits.toLocaleString('en-IN')} Credits</p>
+                        <p className="text-[10px] text-slate-600 mt-0.5">₹{perCredit}/credit · {pkg.name}</p>
                       </div>
                     </div>
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="flex justify-center gap-4 mb-8 mt-2">
-              {[
-                { icon: <ShieldCheck size={12} />, text: 'Secure Payment' },
-                { icon: <Flame size={12} />, text: 'Instant Credits' },
-                { icon: <Star size={12} />, text: 'Never Expire' },
-              ].map(badge => (
-                <div key={badge.text} className="flex items-center gap-1 text-[10px] text-slate-600 font-bold">
-                  {badge.icon}
-                  <span>{badge.text}</span>
-                </div>
+                    <div className="text-right shrink-0">
+                      <div className="flex items-center gap-1.5">
+                        {disc > 0 && <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(245,158,11,0.2)', color: '#fcd34d', border: '1px solid rgba(245,158,11,0.3)' }}>{disc}% OFF</span>}
+                        <p className="text-base font-black text-white">₹{finalPrice.toLocaleString('en-IN')}</p>
+                      </div>
+                      {disc > 0 && <p className="text-[9px] text-slate-700 line-through text-right">₹{pkg.price.toLocaleString('en-IN')}</p>}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+            <div className="flex justify-center gap-5 mt-2">
+              {[{icon:<ShieldCheck size={12}/>,text:'Secure'},{icon:<Zap size={12}/>,text:'Instant'},{icon:<Star size={12}/>,text:'Never Expire'}].map(b=>(
+                <div key={b.text} className="flex items-center gap-1 text-[10px] text-slate-600 font-bold">{b.icon}<span>{b.text}</span></div>
               ))}
             </div>
           </div>
         )}
 
+        {/* ── PRO / MAX PLANS ── */}
         {tierType !== 'EARN' && tierType !== 'CREDITS' && (<>
 
-        {/* SCORE LEVEL BANNER */}
-        <div className="mb-4 rounded-2xl overflow-hidden border border-white/10">
-          <div className={`bg-gradient-to-r ${scoreTier.gradient} p-0.5`}>
-            <div className="bg-[#0e0e0e] rounded-[14px] p-3.5 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-xl"
+          {/* Score level banner */}
+          <div className="mb-3 rounded-2xl overflow-hidden" style={{ border: `1px solid ${ac.border}` }}>
+            <div className="h-0.5 w-full" style={{ background: ac.grad }} />
+            <div className="p-3.5 flex items-center gap-3" style={{ background: ac.bg }}>
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0"
                 style={{ background: `${scoreTier.color}22`, boxShadow: `0 0 12px ${scoreTier.glowColor}` }}>
                 {scoreTier.emoji}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-0.5">
                   <span className="text-xs font-black text-white">Level {scoreTier.level} {scoreTier.label}</span>
-                  <span className="text-[9px] text-slate-400">{totalScore} pts</span>
+                  <span className="text-[9px] text-slate-500">{totalScore} pts</span>
                   {scoreDiscount > 0 && (
-                    <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full text-white`}
-                      style={{ background: `linear-gradient(90deg, ${scoreTier.color}cc, ${scoreTier.color})` }}>
+                    <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full text-white"
+                      style={{ background: `linear-gradient(90deg,${scoreTier.color}cc,${scoreTier.color})` }}>
                       {scoreDiscount}% OFF
                     </span>
                   )}
                 </div>
-                {nextTierInfo ? (
-                  <p className="text-[10px] text-slate-400">
-                    {nextTierInfo.minScore - totalScore} aur → Level {nextTierInfo.level} {nextTierInfo.emoji} ({nextTierInfo.discount}% OFF)
-                  </p>
-                ) : (
-                  <p className="text-[10px] text-amber-400">Max Level (Legend) — 20% discount unlocked! 🏆</p>
-                )}
-                <div className="mt-1.5 h-1 bg-white/10 rounded-full overflow-hidden">
-                  <div className={`h-full bg-gradient-to-r ${scoreTier.gradient} rounded-full transition-all`}
-                    style={{ width: `${scoreTierProgress}%` }} />
+                {nextTierInfo
+                  ? <p className="text-[10px] text-slate-500">{nextTierInfo.minScore - totalScore} aur → Level {nextTierInfo.level} {nextTierInfo.emoji} ({nextTierInfo.discount}% OFF)</p>
+                  : <p className="text-[10px] font-bold" style={{ color: '#fcd34d' }}>Max Level — 20% discount unlocked! 🏆</p>}
+                <div className="mt-1.5 h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.1)' }}>
+                  <div className="h-full rounded-full transition-all" style={{ width: `${scoreTierProgress}%`, background: ac.grad }} />
                 </div>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* PERSONAL DISCOUNT BANNER */}
-        {activeStoreDiscount > 0 && (
-          <div className="mb-4 p-3.5 rounded-2xl bg-gradient-to-r from-rose-900/50 to-pink-900/50 border border-rose-500/40 flex items-center gap-3 animate-in fade-in">
-            <div className="w-9 h-9 bg-rose-500/25 rounded-xl flex items-center justify-center shrink-0">
-              <Ticket size={16} className="text-rose-300" />
-            </div>
-            <div>
-              <p className="text-sm font-black text-rose-300">Personal Discount Active! 🎉</p>
-              <p className="text-[11px] text-rose-400/80">{activeStoreDiscount}% OFF sabhi plans pe — Level 4 tak valid</p>
-            </div>
-          </div>
-        )}
-
-        {/* VISIT DISCOUNT BANNER */}
-        {visitDiscountEnabled && isEligibleForVisitDiscount && (
-          <div className="mb-4 rounded-2xl overflow-hidden border border-emerald-500/30 animate-in fade-in">
-            <div className="bg-gradient-to-r from-emerald-900/60 to-teal-900/60 p-3.5 flex items-center gap-3">
-              <div className="w-9 h-9 bg-emerald-500/20 rounded-xl flex items-center justify-center shrink-0 text-lg">🏬</div>
-              <div className="flex-1 min-w-0">
-                {visitDiscount > 0 ? (
-                  <>
-                    <p className="text-sm font-black text-emerald-300">Visit Discount Active! +{visitDiscount}% OFF 🎉</p>
-                    <p className="text-[10px] text-emerald-400/80 mt-0.5">
-                      {visitCount} store visits complete — discount sabhi plans pe apply ho raha hai
-                      {nextVisitRule && ` · ${nextVisitRule.visits - visitCount} aur visits pe ${nextVisitRule.discountPercent}% OFF`}
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-sm font-black text-emerald-400">Visit Discount — {visitCount} visit{visitCount !== 1 ? 's' : ''} 🏬</p>
-                    {nextVisitRule && (
-                      <p className="text-[10px] text-emerald-500/80 mt-0.5">
-                        Sirf {nextVisitRule.visits - visitCount} aur visits par {nextVisitRule.discountPercent}% OFF milega!
-                      </p>
-                    )}
-                  </>
-                )}
+          {/* Personal discount */}
+          {activeStoreDiscount > 0 && (
+            <div className="mb-3 p-3.5 rounded-2xl flex items-center gap-3 animate-in fade-in"
+              style={{ background: 'rgba(244,63,94,0.1)', border: '1px solid rgba(244,63,94,0.3)' }}>
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(244,63,94,0.2)' }}>
+                <Ticket size={16} className="text-rose-400" />
               </div>
-              {visitDiscount > 0 && (
-                <span className="shrink-0 text-[11px] font-black bg-emerald-500/25 text-emerald-300 border border-emerald-500/40 px-2 py-1 rounded-full">
-                  -{visitDiscount}%
-                </span>
+              <div>
+                <p className="text-sm font-black text-rose-400">Personal Discount Active! 🎉</p>
+                <p className="text-[11px] text-rose-600">{activeStoreDiscount}% OFF sabhi plans pe — Level 4 tak valid</p>
+              </div>
+            </div>
+          )}
+
+          {/* Visit discount */}
+          {visitDiscountEnabled && isEligibleForVisitDiscount && (
+            <div className="mb-3 rounded-2xl overflow-hidden animate-in fade-in"
+              style={{ border: '1px solid rgba(16,185,129,0.3)' }}>
+              <div className="p-3.5 flex items-center gap-3" style={{ background: 'rgba(16,185,129,0.08)' }}>
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg shrink-0" style={{ background: 'rgba(16,185,129,0.2)' }}>🏬</div>
+                <div className="flex-1 min-w-0">
+                  {visitDiscount > 0 ? (
+                    <>
+                      <p className="text-sm font-black text-emerald-400">Visit Discount Active! +{visitDiscount}% OFF 🎉</p>
+                      <p className="text-[10px] text-emerald-600 mt-0.5">{visitCount} store visits{nextVisitRule && ` · ${nextVisitRule.visits - visitCount} aur pe ${nextVisitRule.discountPercent}% OFF`}</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm font-black text-emerald-500">{visitCount} visit{visitCount !== 1 ? 's' : ''} 🏬</p>
+                      {nextVisitRule && <p className="text-[10px] text-emerald-600 mt-0.5">Sirf {nextVisitRule.visits - visitCount} aur visits par {nextVisitRule.discountPercent}% OFF!</p>}
+                    </>
+                  )}
+                </div>
+                {visitDiscount > 0 && <span className="shrink-0 text-[11px] font-black px-2 py-1 rounded-full" style={{ background: 'rgba(16,185,129,0.2)', color: '#6ee7b7', border: '1px solid rgba(16,185,129,0.35)' }}>-{visitDiscount}%</span>}
+              </div>
+              {nextVisitRule && (
+                <div className="px-3.5 py-2 flex items-center gap-2" style={{ background: 'rgba(16,185,129,0.04)', borderTop: '1px solid rgba(16,185,129,0.12)' }}>
+                  <span className="text-[9px] text-slate-600 font-bold shrink-0">{visitCount}v</span>
+                  <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                    <div className="h-full rounded-full" style={{ width: `${Math.min(100,(visitCount/nextVisitRule.visits)*100)}%`, background: 'linear-gradient(90deg,#10b981,#34d399)' }} />
+                  </div>
+                  <span className="text-[9px] text-emerald-500 font-black shrink-0">{nextVisitRule.visits}v → {nextVisitRule.discountPercent}% OFF</span>
+                </div>
               )}
             </div>
-            {/* Visit progress bar */}
-            {nextVisitRule && (
-              <div className="bg-slate-900/60 px-3.5 py-2 flex items-center gap-2">
-                <span className="text-[9px] text-slate-500 font-bold shrink-0">{visitCount}v</span>
-                <div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all"
-                    style={{ width: `${Math.min(100, (visitCount / nextVisitRule.visits) * 100)}%` }}
-                  />
-                </div>
-                <span className="text-[9px] text-emerald-400 font-black shrink-0">{nextVisitRule.visits}v → {nextVisitRule.discountPercent}% OFF</span>
-              </div>
-            )}
-          </div>
-        )}
+          )}
 
-        {/* PLAN HERO CARD — PRO or MAX */}
-        <div className={`mb-4 rounded-2xl p-4 relative overflow-hidden border`}
-          style={{
-            background: isPro
-              ? 'linear-gradient(135deg, rgba(8,145,178,0.18) 0%, rgba(6,182,212,0.08) 50%, rgba(2,132,199,0.12) 100%)'
-              : 'linear-gradient(135deg, rgba(109,40,217,0.18) 0%, rgba(139,92,246,0.08) 50%, rgba(124,58,237,0.12) 100%)',
-            border: isPro ? '1px solid rgba(6,182,212,0.35)' : '1px solid rgba(139,92,246,0.35)',
-          }}
-        >
-          <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full pointer-events-none" style={{ background: isPro ? 'rgba(6,182,212,0.08)' : 'rgba(139,92,246,0.08)', filter: 'blur(20px)' }} />
-          <div className="relative z-10 flex items-center justify-between mb-3">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border ${planAccent.badge}`}>
-                  {isPro ? '⭐ PRO' : '⚡ MAX'}
-                </span>
-                {isSubscribed && (
-                  <span className="text-[9px] font-black text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-full flex items-center gap-1">
-                    <BadgeCheck size={9} /> Active
-                  </span>
-                )}
-              </div>
-              <p className={`text-xl font-black ${planAccent.text}`}>{isPro ? 'Pro Plan' : 'Max Plan'}</p>
-              <p className="text-[11px] text-slate-500 mt-0.5">{isPro ? 'Sabse zyada popular choice' : 'Ultimate learning experience'}</p>
-            </div>
-            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl`}
-              style={{ background: isPro ? 'rgba(6,182,212,0.15)' : 'rgba(139,92,246,0.15)', border: isPro ? '1px solid rgba(6,182,212,0.3)' : '1px solid rgba(139,92,246,0.3)' }}>
-              {isPro ? '⭐' : '⚡'}
-            </div>
-          </div>
-
-          {/* Features List */}
-          <div className="grid grid-cols-1 gap-1.5 relative z-10">
-            {featuresList.map((f, i) => (
-              <div key={i} className="flex items-center gap-2.5">
-                <div className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 ${planAccent.bg}`}>
-                  <Check size={9} className={planAccent.text} strokeWidth={3} />
-                </div>
-                <span className="text-[12px] text-slate-300 font-medium leading-snug">{f}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* PRICING PLAN CARDS */}
-        <div className="space-y-2.5 mb-5">
-          {subscriptionPlans.map((plan, idx) => {
-            const isSelected = selectedPlanId === plan.id;
-            const original = tierType === 'BASIC' ? plan.basicOriginalPrice : plan.ultraOriginalPrice;
-            let price = tierType === 'BASIC' ? plan.basicPrice : plan.ultraPrice;
-            let discountPercentVal = 0;
-            if (activeEvent && event?.discountPercent) discountPercentVal += event.discountPercent;
-            if (isSubscribed) discountPercentVal += 5;
-            if (activeStoreDiscount > 0) discountPercentVal += activeStoreDiscount;
-            if (scoreDiscount > 0) discountPercentVal += scoreDiscount;
-            if (visitDiscount > 0) discountPercentVal += visitDiscount;
-            if (discountPercentVal > 0) {
-              if (discountPercentVal > 100) discountPercentVal = 100;
-              price = Math.round(price * (1 - discountPercentVal / 100));
-            }
-            const hasRenewalBonus = !!isSubscribed;
-            const perMonth = getPerMonthPrice(plan, price);
-            const isPopular = plan.name.toLowerCase().includes('monthly') || (subscriptionPlans.length > 1 && idx === 1);
-
-            return (
-              <button
-                key={plan.id}
-                onClick={() => setSelectedPlanId(plan.id)}
-                className={`w-full p-4 rounded-2xl border text-left transition-all relative overflow-hidden ${
-                  isSelected
-                    ? isPro
-                      ? 'bg-gradient-to-r from-cyan-950 to-sky-950 border-cyan-500 shadow-[0_0_0_1px_rgba(6,182,212,0.8),0_0_20px_rgba(6,182,212,0.12)]'
-                      : 'bg-gradient-to-r from-violet-950 to-purple-950 border-purple-500 shadow-[0_0_0_1px_rgba(139,92,246,0.8),0_0_20px_rgba(139,92,246,0.12)]'
-                    : 'bg-[#111] border-slate-800 hover:border-slate-700 hover:bg-[#1a1a1a]'
-                }`}
-              >
-                {isSelected && (
-                  <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(105deg,transparent 40%,rgba(255,255,255,0.03) 50%,transparent 60%)', animation: 'shimmer-sweep 2.5s linear infinite' }} />
-                )}
-                {isPopular && !isSelected && (
-                  <div className="absolute top-0 right-0 bg-amber-500 text-black text-[8px] font-black px-2.5 py-1 rounded-bl-xl rounded-tr-xl">
-                    POPULAR
-                  </div>
-                )}
-                {isSelected && (
-                  <div className="absolute top-0 right-0 text-black text-[8px] font-black px-2.5 py-1 rounded-bl-xl rounded-tr-xl"
-                    style={{ background: isPro ? 'rgba(6,182,212,1)' : 'rgba(139,92,246,1)' }}>
-                    ✓ SELECTED
-                  </div>
-                )}
-                <div className="flex justify-between items-start relative z-10">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className={`text-sm font-black ${isSelected ? 'text-white' : 'text-slate-200'}`}>{plan.name}</span>
-                    </div>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-2xl font-black text-white">₹{price.toLocaleString('en-IN')}</span>
-                      {original > price && <span className="text-slate-600 text-xs line-through">₹{original.toLocaleString('en-IN')}</span>}
-                    </div>
-                    {perMonth && (
-                      <p className="text-[10px] text-slate-500 mt-0.5">≈ ₹{perMonth}/month</p>
-                    )}
-                  </div>
-                  <div className="flex flex-col items-end gap-1">
-                    {discountPercentVal > 0 && (
-                      <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full font-black border border-amber-500/30">
-                        {discountPercentVal}% OFF
+          {/* ── PLAN HERO CARD ── */}
+          <div className="mb-4 rounded-2xl p-4 relative overflow-hidden" style={{ background: ac.bg, border: `1.5px solid ${ac.border}` }}>
+            <div className="absolute -top-10 -right-10 w-36 h-36 rounded-full pointer-events-none" style={{ background: ac.glow, filter: 'blur(24px)' }} />
+            <div className="relative z-10">
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full" style={{ background: ac.pill, color: ac.text, border: `1px solid ${ac.border}` }}>
+                      {ac.emoji} {ac.label}
+                    </span>
+                    {isSubscribed && (
+                      <span className="text-[9px] font-black text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-full flex items-center gap-1">
+                        <BadgeCheck size={9} /> Active
                       </span>
                     )}
-                    {hasRenewalBonus && discountPercentVal >= 5 && (
-                      <span className="text-[8px] text-cyan-400 font-bold">+5% Renewal</span>
-                    )}
                   </div>
+                  <p className="text-2xl font-black leading-none" style={{ color: ac.text }}>{isPro ? 'Pro Plan' : 'Max Plan'}</p>
+                  <p className="text-[11px] text-slate-600 mt-1">{isPro ? 'Sabse zyada popular choice' : 'Ultimate learning experience'}</p>
                 </div>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* CTA BUTTON */}
-        {subscriptionPlans.length > 0 && (
-          <button
-            onClick={() => {
-              if (!selectedPlan) return;
-              let finalPrice = tierType === 'BASIC' ? selectedPlan.basicPrice : selectedPlan.ultraPrice;
-              let discountPercentVal = 0;
-              if (activeEvent && event?.discountPercent) discountPercentVal += event.discountPercent;
-              if (isSubscribed) discountPercentVal += 5;
-              if (activeStoreDiscount > 0) discountPercentVal += activeStoreDiscount;
-              if (scoreDiscount > 0) discountPercentVal += scoreDiscount;
-              if (discountPercentVal > 0) {
-                if (discountPercentVal > 100) discountPercentVal = 100;
-                finalPrice = Math.round(finalPrice * (1 - discountPercentVal / 100));
-              }
-              if (settings?.creditFreeEvent?.enabled) finalPrice = 0;
-              initiatePurchase({ ...selectedPlan, finalPrice });
-            }}
-            className={`w-full py-4 rounded-2xl font-black text-sm tracking-widest uppercase shadow-xl transition-all hover:scale-[1.02] active:scale-[0.98] relative overflow-hidden group mb-3 ${
-              isPro
-                ? 'bg-gradient-to-r from-cyan-500 via-sky-400 to-cyan-500 text-white shadow-cyan-500/30'
-                : 'bg-gradient-to-r from-violet-500 via-purple-500 to-violet-600 text-white shadow-purple-500/30'
-            }`}
-          >
-            <span className="absolute inset-0 bg-white/15 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 skew-x-12 pointer-events-none" />
-            <span className="relative flex items-center justify-center gap-2">
-              <Sparkles size={15} />
-              Get {isPro ? 'PRO' : 'MAX'} — Abhi Unlock Karo
-            </span>
-          </button>
-        )}
-
-        {/* TRUST BADGES */}
-        <div className="flex justify-center gap-5 mb-8 mt-2">
-          {[
-            { icon: <ShieldCheck size={13} />, text: 'Secure Payment' },
-            { icon: <Flame size={13} />, text: 'Instant Access' },
-            { icon: <Star size={13} />, text: 'Premium Support' },
-          ].map(badge => (
-            <div key={badge.text} className="flex items-center gap-1.5 text-[10px] text-slate-600 font-bold">
-              {badge.icon}
-              <span>{badge.text}</span>
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shrink-0" style={{ background: ac.pill, border: `1px solid ${ac.border}` }}>
+                  {ac.emoji}
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-2">
+                {featuresList.map((f, i) => (
+                  <div key={i} className="flex items-center gap-2.5">
+                    <div className="w-4 h-4 rounded-full flex items-center justify-center shrink-0" style={{ background: ac.pill }}>
+                      <Check size={9} style={{ color: ac.text }} strokeWidth={3} />
+                    </div>
+                    <span className="text-[12px] text-slate-400 font-medium leading-snug">{f}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-          ))}
-        </div>
-        </>)}
+          </div>
 
+          {/* ── PRICING PLANS ── */}
+          <div className="space-y-2.5 mb-4">
+            {subscriptionPlans.map((plan, idx) => {
+              const isSelected = selectedPlanId === plan.id;
+              const original = tierType === 'BASIC' ? plan.basicOriginalPrice : plan.ultraOriginalPrice;
+              let price = tierType === 'BASIC' ? plan.basicPrice : plan.ultraPrice;
+              let disc = 0;
+              if (activeEvent && event?.discountPercent) disc += event.discountPercent;
+              if (isSubscribed) disc += 5;
+              if (activeStoreDiscount > 0) disc += activeStoreDiscount;
+              if (scoreDiscount > 0) disc += scoreDiscount;
+              if (visitDiscount > 0) disc += visitDiscount;
+              if (disc > 0) { if (disc > 100) disc = 100; price = Math.round(price * (1 - disc / 100)); }
+              const perMonth = getPerMonthPrice(plan, price);
+              const isPopular = plan.name.toLowerCase().includes('monthly') || (subscriptionPlans.length > 1 && idx === 1);
+
+              return (
+                <button key={plan.id} onClick={() => setSelectedPlanId(plan.id)}
+                  className="w-full p-4 rounded-2xl text-left transition-all relative overflow-hidden"
+                  style={isSelected
+                    ? { background: ac.bg, border: `2px solid ${ac.border}`, boxShadow: `0 0 0 1px ${ac.border}, 0 0 20px ${ac.glow}` }
+                    : { background: 'rgba(255,255,255,0.04)', border: '1.5px solid rgba(255,255,255,0.08)' }}>
+                  {isSelected && <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(105deg,transparent 40%,rgba(255,255,255,0.025) 50%,transparent 60%)', animation: 'shimmer-sweep 2.5s linear infinite' }} />}
+                  {isPopular && !isSelected && (
+                    <div className="absolute top-0 right-0 text-black text-[8px] font-black px-2.5 py-1 rounded-bl-xl rounded-tr-xl" style={{ background: '#f59e0b' }}>POPULAR</div>
+                  )}
+                  {isSelected && (
+                    <div className="absolute top-0 right-0 text-white text-[8px] font-black px-2.5 py-1 rounded-bl-xl rounded-tr-xl" style={{ background: ac.grad }}>✓ SELECTED</div>
+                  )}
+                  <div className="flex justify-between items-start relative z-10">
+                    <div className="flex-1">
+                      <p className="text-sm font-black mb-0.5" style={{ color: isSelected ? ac.text : '#cbd5e1' }}>{plan.name}</p>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-2xl font-black text-white">₹{price.toLocaleString('en-IN')}</span>
+                        {original > price && <span className="text-slate-700 text-xs line-through">₹{original.toLocaleString('en-IN')}</span>}
+                      </div>
+                      {perMonth && <p className="text-[10px] text-slate-600 mt-0.5">≈ ₹{perMonth}/month</p>}
+                    </div>
+                    <div className="flex flex-col items-end gap-1">
+                      {disc > 0 && <span className="text-[10px] font-black px-2 py-0.5 rounded-full" style={{ background: 'rgba(245,158,11,0.2)', color: '#fcd34d', border: '1px solid rgba(245,158,11,0.3)' }}>{disc}% OFF</span>}
+                      {isSubscribed && disc >= 5 && <span className="text-[8px] font-bold" style={{ color: ac.text }}>+5% Renewal</span>}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* ── CTA BUTTON ── */}
+          {subscriptionPlans.length > 0 && (
+            <button
+              onClick={() => {
+                if (!selectedPlan) return;
+                let finalPrice = tierType === 'BASIC' ? selectedPlan.basicPrice : selectedPlan.ultraPrice;
+                let disc = 0;
+                if (activeEvent && event?.discountPercent) disc += event.discountPercent;
+                if (isSubscribed) disc += 5;
+                if (activeStoreDiscount > 0) disc += activeStoreDiscount;
+                if (scoreDiscount > 0) disc += scoreDiscount;
+                if (visitDiscount > 0) disc += visitDiscount;
+                if (disc > 0) { if (disc > 100) disc = 100; finalPrice = Math.round(finalPrice * (1 - disc / 100)); }
+                if (settings?.creditFreeEvent?.enabled) finalPrice = 0;
+                initiatePurchase({ ...selectedPlan, finalPrice });
+              }}
+              className="w-full py-4 rounded-2xl font-black text-sm tracking-wide text-white relative overflow-hidden group mb-4 transition-all hover:scale-[1.02] active:scale-[0.98]"
+              style={{ background: ac.grad, boxShadow: `0 8px 24px ${ac.glow}` }}>
+              <span className="absolute inset-0 bg-white/15 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 skew-x-12 pointer-events-none" />
+              <span className="relative flex items-center justify-center gap-2">
+                <Sparkles size={15} />
+                Get {isPro ? 'PRO' : 'MAX'} — Abhi Unlock Karo
+              </span>
+            </button>
+          )}
+
+          {/* Trust badges */}
+          <div className="flex justify-center gap-5 mb-4">
+            {[{icon:<ShieldCheck size={12}/>,text:'Secure Payment'},{icon:<Flame size={12}/>,text:'Instant Access'},{icon:<Star size={12}/>,text:'Premium Support'}].map(b=>(
+              <div key={b.text} className="flex items-center gap-1.5 text-[10px] text-slate-700 font-bold">{b.icon}<span>{b.text}</span></div>
+            ))}
+          </div>
+
+        </>)}
       </div>
     </div>
   );

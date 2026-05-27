@@ -7,6 +7,13 @@ import { getCompreBookNotes, type CompreNote } from '../firebase';
 
 const POINTS_PER_PAGE = 50;
 
+function getCompareTierGrad(user?: { subscriptionLevel?: string; isPremium?: boolean }): string {
+  const level = user?.subscriptionLevel?.toUpperCase();
+  if (level === 'ULTRA') return 'linear-gradient(135deg, #0F172A 0%, #1A2F5E 50%, #0F172A 100%)';
+  if (level === 'BASIC' || user?.isPremium) return 'linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%)';
+  return 'linear-gradient(135deg, #0284c7 0%, #38bdf8 100%)';
+}
+
 // ── Comparison helpers ──
 function normalizeSentence(s: string): string {
   return s.toLowerCase().replace(/[^\u0900-\u097fa-z0-9\s]/g, '').replace(/\s+/g, ' ').trim();
@@ -490,7 +497,7 @@ export const FullBookCompare: React.FC<Props> = ({ settings, user, isLimited = f
     <div className="fixed inset-0 z-[250] bg-white flex flex-col overflow-hidden animate-in fade-in">
       {/* Header — hidden in focus mode */}
       {!isFocusMode && (
-        <div className="bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 text-white px-4 py-3 flex items-center gap-3 shrink-0 shadow-xl">
+        <div className="text-white px-4 py-3 flex items-center gap-3 shrink-0 shadow-xl" style={{ background: getCompareTierGrad(user) }}>
           <div className="p-2 rounded-xl bg-white/10">
             <Crown size={18} className="text-yellow-400" />
           </div>
@@ -499,7 +506,7 @@ export const FullBookCompare: React.FC<Props> = ({ settings, user, isLimited = f
               <h2 className="font-black text-base leading-tight">Full Book Compare</h2>
               <span className="text-[9px] font-black bg-yellow-400 text-black px-2 py-0.5 rounded-full tracking-wide">ULTRA</span>
             </div>
-            <p className="text-[11px] text-purple-200 truncate">
+            <p className="text-[11px] text-white/70 truncate">
               {topicResult
                 ? `"${topicResult.topicName}" · ${topicResult.common.length} common · ${topicResult.extra.reduce((a, e) => a + e.points.length, 0)} extra`
                 : compreLoading

@@ -185,6 +185,7 @@ import { UniversalInfoPage } from "./UniversalInfoPage";
 import { UniversalChat } from "./UniversalChat";
 import { ExpiryPopup } from "./ExpiryPopup";
 import { SubscriptionHistory } from "./SubscriptionHistory";
+import { getTierTheme } from '../utils/tierTheme';
 import { SearchResult } from "../utils/syllabusSearch";
 import { RevisionHub } from "./RevisionHub"; // NEW
 import { AiHub } from "./AiHub"; // NEW: AI Hub
@@ -527,6 +528,9 @@ export const StudentDashboard: React.FC<Props> = ({
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
+
+  // ── Tier Theme (Ultra=navy · Basic=blue · Free=sky) ─────────────────────
+  const tierTheme = getTierTheme(user);
 
   // ── HTML Write-Mode Daily Quota (ALL tiers) ──────────────────────────────
   const _subValid      = SubscriptionEngine.isPremium(user); // true only if not expired
@@ -7008,6 +7012,8 @@ export const StudentDashboard: React.FC<Props> = ({
                 : isActive
                   ? '#1D4ED8'
                   : '#38BDF8';
+              // In dark mode the border color is too dark to use as text — use a bright tier color instead
+              const tbTextColor = isDarkMode ? tierTheme.border : tbBorderColor;
 
               const ClassBtn = ({ c }: { c: string }) => {
                 const subjectCount = getSubjectsList(c, _stream, _board).length;
@@ -7025,7 +7031,7 @@ export const StudentDashboard: React.FC<Props> = ({
                       <span className="absolute top-1.5 right-1.5 text-sm leading-none select-none opacity-60">{classEmojis[c]}</span>
                     )}
                     <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-0.5">CLASS</p>
-                    <p className="text-2xl font-black leading-none mb-1" style={{ color: tbBorderColor }}>{c}</p>
+                    <p className="text-2xl font-black leading-none mb-1" style={{ color: tbTextColor }}>{c}</p>
                     <p className="text-[9px] font-bold text-slate-500 leading-tight">{subjectCount} Subj.</p>
                   </button>
                 );
@@ -7062,16 +7068,11 @@ export const StudentDashboard: React.FC<Props> = ({
                       >
                         <div className="flex items-center justify-between px-4 py-4">
                           <div className="flex-1 min-w-0 pr-2">
-                            <p className="text-[10px] font-black uppercase tracking-wider mb-1" style={{ color: tbBorderColor }}>Competitive Mode</p>
+                            <p className="text-[10px] font-black uppercase tracking-wider mb-1" style={{ color: tbTextColor }}>Competitive Mode</p>
                             <h3 className="text-[24px] font-black leading-tight mb-1 text-slate-800">Govt. Exams</h3>
-                            <div className="flex items-center gap-1.5 mb-3 flex-wrap">
+                            <div className="mb-3">
                               <span className="text-[11px] font-bold text-slate-700">7 Books</span>
-                              <span className="text-slate-300 text-xs">·</span>
-                              <span className="text-[11px] text-slate-500">SSC</span>
-                              <span className="text-slate-300 text-xs">·</span>
-                              <span className="text-[11px] text-slate-500">Railway</span>
-                              <span className="text-slate-300 text-xs">·</span>
-                              <span className="text-[11px] text-slate-500">UPSC</span>
+                              <span className="text-[10px] text-slate-400 ml-1.5">SSC · UPSC · Railway · BPSC · BSSC · Police</span>
                             </div>
                             <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-black text-white" style={{ background: tbBorderColor }}>
                               Tap to open →
@@ -7486,134 +7487,34 @@ export const StudentDashboard: React.FC<Props> = ({
     // if (activeTab === 'REWARDS') return (...); // REMOVED TO PREVENT CRASH
     if (activeTab === "STORE") {
       return (
-        <div className="animate-in fade-in duration-300 bg-black min-h-screen">
-          {/* Professional Store Header */}
-          <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-black px-4 pt-5 pb-4 border-b border-slate-700/50">
-            {/* Sub-tab toggle: Store | Sub History */}
-            <div className="flex gap-2 mb-3">
-              <button
-                onClick={() => setStoreShowSubHistory(false)}
-                className={`flex-1 py-2 rounded-xl text-xs font-black transition-all ${!storeShowSubHistory ? 'bg-white text-slate-900' : 'bg-white/10 text-slate-400 hover:bg-white/20'}`}
-              >
-                🛒 Store
-              </button>
-              <button
-                onClick={() => setStoreShowSubHistory(true)}
-                className={`flex-1 py-2 rounded-xl text-xs font-black transition-all ${storeShowSubHistory ? 'bg-white text-slate-900' : 'bg-white/10 text-slate-400 hover:bg-white/20'}`}
-              >
-                📋 Sub History
-              </button>
-            </div>
-            <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(105deg,transparent 30%,rgba(99,102,241,0.08) 50%,transparent 70%)', animation: 'shimmer-sweep 3s linear infinite' }} />
-            <div className="absolute -top-10 -right-10 w-40 h-40 bg-indigo-600/10 rounded-full blur-3xl" />
-            <div className="flex items-center justify-between relative z-10">
-              <div>
-                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-0.5">{settings?.appName || 'IIC'}</p>
-                <h1 className="text-2xl font-black text-white tracking-tight leading-none">Premium Store</h1>
-                <p className="text-[11px] text-slate-400 mt-1 font-medium">Apna plan upgrade karo — anlock karo sab kuch</p>
-              </div>
-              <div className="flex flex-col items-end gap-1.5">
-                <div className="flex items-center gap-1.5 bg-amber-500/15 border border-amber-500/30 px-3 py-1.5 rounded-full">
-                  <span className="text-sm">🪙</span>
-                  <span className="text-amber-300 font-black text-sm">{((user.credits ?? 0) + (user.bonusCredits ?? 0)).toLocaleString('en-IN')}</span>
-                  <span className="text-amber-500 text-[9px] font-bold">CR</span>
-                  {(user.bonusCredits ?? 0) > 0 && <span className="text-[8px] font-black text-emerald-400 bg-emerald-500/20 px-1 rounded-full">+{user.bonusCredits}🎁</span>}
-                </div>
-                {user.isPremium && (
-                  <div className="flex flex-col items-end gap-1">
-                    <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border ${user.subscriptionLevel === 'ULTRA' ? 'text-purple-300 border-purple-500/40 bg-purple-500/15' : 'text-sky-300 border-sky-500/40 bg-sky-500/15'}`}>
-                      {user.subscriptionLevel === 'ULTRA' ? '⚡ ULTRA' : '★ BASIC'} Active
-                    </span>
-                    {user.subscriptionEndDate && (() => {
-                      const end = new Date(user.subscriptionEndDate);
-                      const diff = end.getTime() - new Date().getTime();
-                      const days = diff > 0 ? Math.ceil(diff / (1000 * 60 * 60 * 24)) : null;
-                      const dateStr = end.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' });
-                      return days ? (
-                        <span className="text-[9px] text-slate-400 font-bold">
-                          {days}d left · {dateStr}
-                        </span>
-                      ) : null;
-                    })()}
+        <Store
+          user={user}
+          settings={settings}
+          onUserUpdate={handleUserUpdate}
+          renderEarnContent={
+            isGameEnabled
+              ? user.isGameBanned
+                ? (
+                  <div className="mx-4 text-center py-10 bg-red-50 rounded-2xl border border-red-200">
+                    <Ban size={36} className="mx-auto text-red-400 mb-3" />
+                    <p className="text-sm font-bold text-red-500">Admin ne game band kar diya hai.</p>
                   </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {(() => {
-            const _discKey = `nst_sv_disc_${user.id}`;
-            let _svDisc: { percent: number; expiresAt: string; visits: number } | null = null;
-            try { _svDisc = JSON.parse(localStorage.getItem(_discKey) || 'null'); } catch {}
-            const _discActive = _svDisc && new Date(_svDisc.expiresAt).getTime() > nowTick;
-            const _discMsLeft = _discActive ? Math.max(0, new Date(_svDisc!.expiresAt).getTime() - nowTick) : 0;
-            const _discHH = Math.floor(_discMsLeft / 3600000).toString().padStart(2, '0');
-            const _discMM = Math.floor((_discMsLeft % 3600000) / 60000).toString().padStart(2, '0');
-            const _discSS = Math.floor((_discMsLeft % 60000) / 1000).toString().padStart(2, '0');
-            return (
-              <>
-                {_discActive && (
-                  <div className="mx-4 mt-2 mb-1 px-4 py-3 rounded-2xl flex items-center gap-3" style={{ background: 'linear-gradient(90deg, rgba(16,185,129,0.15), rgba(5,150,105,0.1))', border: '1.5px solid rgba(16,185,129,0.4)' }}>
-                    <span className="text-2xl">🏷️</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-black text-emerald-400 leading-tight">{_svDisc!.percent}% Store Visit Discount Active!</p>
-                      <p className="text-[10px] text-emerald-600 mt-0.5">Visit {_svDisc!.visits}/5 — {_svDisc!.visits >= 5 ? 'Max discount!' : `${5 - _svDisc!.visits} more visits ke liye 10% off milega`}</p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-xs font-black text-white font-mono">{_discHH}:{_discMM}:{_discSS}</p>
-                      <p className="text-[8px] text-slate-500">Expires in</p>
-                    </div>
-                  </div>
-                )}
-                {!_discActive && _svDisc && getLevelInfo(user.totalScore || 0).level <= 4 && (
-                  <div className="mx-4 mt-2 mb-1 px-3 py-2 rounded-xl flex items-center gap-2" style={{ background: 'rgba(100,116,139,0.1)', border: '1px solid rgba(100,116,139,0.2)' }}>
-                    <span>⏰</span>
-                    <p className="text-[10px] font-bold text-slate-500">Store visit discount khatam ho gaya — dobara visit karo!</p>
-                  </div>
-                )}
-                {!storeShowSubHistory && (
-                  <Store
+                )
+                : (
+                  <SpinWheel
                     user={user}
+                    onUpdateUser={handleUserUpdate}
                     settings={settings}
-                    onUserUpdate={handleUserUpdate}
-                    renderEarnContent={
-                      isGameEnabled
-                        ? user.isGameBanned
-                          ? (
-                            <div className="mx-4 text-center py-10 bg-red-950/40 rounded-2xl border border-red-800/40">
-                              <Ban size={36} className="mx-auto text-red-500 mb-3" />
-                              <p className="text-sm font-bold text-red-400">Admin ne game band kar diya hai.</p>
-                            </div>
-                          )
-                          : (
-                            <SpinWheel
-                              user={user}
-                              onUpdateUser={handleUserUpdate}
-                              settings={settings}
-                            />
-                          )
-                        : (
-                          <div className="mx-4 text-center py-14 bg-black/40 rounded-2xl border border-white/10">
-                            <Gamepad2 size={36} className="mx-auto text-slate-500 mb-3" />
-                            <p className="text-sm font-bold text-slate-500">Game abhi disabled hai admin ke taraf se.</p>
-                          </div>
-                        )
-                    }
                   />
-                )}
-              </>
-            );
-          })()}
-          {storeShowSubHistory && (
-            <div className="bg-white min-h-screen">
-              <SubscriptionHistory
-                user={user}
-                onBack={() => setStoreShowSubHistory(false)}
-                hideHeader={false}
-              />
-            </div>
-          )}
-        </div>
+                )
+              : (
+                <div className="mx-4 text-center py-14 bg-slate-50 rounded-2xl border border-slate-200">
+                  <Gamepad2 size={36} className="mx-auto text-slate-300 mb-3" />
+                  <p className="text-sm font-bold text-slate-400">Game abhi disabled hai admin ke taraf se.</p>
+                </div>
+              )
+          }
+        />
       );
     }
     if ((activeTab as any) === "TEACHER_STORE") {
@@ -8214,7 +8115,7 @@ export const StudentDashboard: React.FC<Props> = ({
   }
 
   return (
-    <div className={`min-h-[100dvh] pb-0 ${activeTab === 'STORE' ? 'bg-black' : 'bg-slate-50'}`}>
+    <div data-tier={tierTheme.tier} className="min-h-[100dvh] pb-0 bg-slate-50">
       <NotificationPrompt />
       {/* ADMIN SWITCH BUTTON — only visible inside content (Notes/MCQ player or HW notes) */}
       {(user.role === "ADMIN" ||
@@ -8245,13 +8146,7 @@ export const StudentDashboard: React.FC<Props> = ({
       <div
         id="top-banner-container"
         className={`sticky top-0 z-[100] w-full flex flex-col transition-all duration-300 ease-in-out ${isFullscreenMode ? "hidden" : ""} ${(isTopBarHidden || isLandscapeUiHidden || activeTab === 'STORE' || activeTab === 'CUSTOM_PAGE') ? "-translate-y-full !h-0 overflow-hidden opacity-0 pointer-events-none" : "translate-y-0 opacity-100"}`}
-        style={{ background: (() => {
-          const isActive = user.isPremium && user.subscriptionEndDate && new Date(user.subscriptionEndDate) > new Date();
-          const level = user.subscriptionLevel || '';
-          if (isActive && (level === 'ULTRA' || level === 'PRO')) return 'linear-gradient(135deg, #0F172A 0%, #1E2A4A 50%, #1A2F5E 100%)';
-          if (isActive) return 'linear-gradient(135deg, #1E3A8A 0%, #1D4ED8 50%, #1E40AF 100%)';
-          return 'linear-gradient(135deg, #38BDF8 0%, #5B8FF9 55%, #6366F1 100%)';
-        })() }}
+        style={{ background: tierTheme.topBarGrad }}
       >
         {/* Main Header Row */}
         <div className="flex items-center justify-between w-full px-3 pt-2 pb-1.5">
@@ -12690,8 +12585,10 @@ export const StudentDashboard: React.FC<Props> = ({
                 {/* SLIDING TOP ACCENT — single pill that glides between tabs */}
                 <span
                   aria-hidden
-                  className="pointer-events-none absolute top-0 h-[3px] rounded-b-full bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 shadow-[0_2px_10px_-2px_rgba(79,70,229,0.55)]"
+                  className="pointer-events-none absolute top-0 h-[3px] rounded-b-full"
                   style={{
+                    background: tierTheme.pillGrad,
+                    boxShadow: `0 2px 10px -2px ${tierTheme.shadowColor}`,
                     left: `calc(${activeIndex * tabWidthPct}% + ${tabWidthPct / 2}% - 18px)`,
                     width: '36px',
                     transition: 'left 380ms cubic-bezier(0.34, 1.56, 0.64, 1)',
@@ -12700,8 +12597,10 @@ export const StudentDashboard: React.FC<Props> = ({
                 {/* SLIDING SOFT GLOW behind the active tab icon */}
                 <span
                   aria-hidden
-                  className="nav-active-glow pointer-events-none absolute top-1.5 h-9 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50/80 ring-1 ring-blue-100/60"
+                  className="nav-active-glow pointer-events-none absolute top-1.5 h-9 rounded-2xl"
                   style={{
+                    background: tierTheme.navGlow,
+                    border: `1px solid ${tierTheme.navBorder}`,
                     left: `calc(${activeIndex * tabWidthPct}% + ${tabWidthPct / 2}% - 24px)`,
                     width: '48px',
                     transition: 'left 420ms cubic-bezier(0.34, 1.56, 0.64, 1)',
@@ -12760,9 +12659,8 @@ export const StudentDashboard: React.FC<Props> = ({
                         <Icon
                           size={22}
                           strokeWidth={tab.isActive ? 2.4 : 2}
-                          className={`transition-colors duration-300 ${
-                            tab.isActive ? "text-blue-600" : "text-slate-500"
-                          }`}
+                          className="transition-colors duration-300"
+                          style={{ color: tab.isActive ? tierTheme.primary : undefined }}
                           fill={
                             tab.filledOnActive && tab.isActive && !isLocked
                               ? "currentColor"
@@ -12785,9 +12683,10 @@ export const StudentDashboard: React.FC<Props> = ({
                       <span
                         className={`relative z-10 text-[10.5px] leading-none tracking-wide transition-all duration-300 ${
                           tab.isActive
-                            ? "text-blue-600 font-semibold translate-y-0 opacity-100"
+                            ? "font-semibold translate-y-0 opacity-100"
                             : "text-slate-500 font-medium translate-y-0 opacity-90"
                         }`}
+                        style={tab.isActive ? { color: tierTheme.primary } : undefined}
                       >
                         {tab.label}
                       </span>
@@ -15778,7 +15677,7 @@ RULES:
         // ensures the user sees only ONE page at a time.
         <div className="fixed inset-0 z-[200] bg-white flex flex-col animate-in slide-in-from-right-full duration-300">
           {/* === PREMIUM HEADER (study-app gradient) === */}
-          <div className="relative bg-gradient-to-br from-indigo-600 via-blue-600 to-violet-600 sticky top-0 z-10 shadow-lg shadow-indigo-200/50">
+          <div className="relative sticky top-0 z-10 shadow-lg" style={{ background: tierTheme.topBarGrad }}>
             {/* Decorative pattern overlay */}
             <div className="absolute inset-0 opacity-10 pointer-events-none" style={{
               backgroundImage: `radial-gradient(circle at 20% 30%, white 1px, transparent 1px), radial-gradient(circle at 70% 60%, white 1px, transparent 1px)`,
@@ -15796,7 +15695,7 @@ RULES:
                   <h2 className="font-black text-lg text-white tracking-tight">Important Notes</h2>
                   <span className="text-[8px] font-black text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded-md uppercase tracking-widest shadow-sm">⭐ Premium</span>
                 </div>
-                <p className="text-[11px] text-indigo-50/90 font-semibold mt-0.5">
+                <p className="text-[11px] text-white/80 font-semibold mt-0.5">
                   {starredPageTab === 'mine'
                     ? (starredNotes.length === 0
                         ? 'Notes save karein, yahan dikhenge'
@@ -18541,7 +18440,7 @@ RULES:
 
       {/* ═══════════ USER GUIDE MODAL ═══════════ */}
       {showUserGuide && (
-        <UserGuide onClose={() => setShowUserGuide(false)} />
+        <UserGuide onClose={() => setShowUserGuide(false)} user={user} />
       )}
 
       {/* CUSTOM CONFIRM DIALOG */}
