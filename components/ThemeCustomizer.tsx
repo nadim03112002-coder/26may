@@ -185,6 +185,204 @@ const PRESETS: Array<{ name: string; emoji: string; colors: ThemeState }> = [
             accentGlow: '#fb7185', progressColor: '#e11d48',
         }
     },
+    {
+        name: 'Neon Cyan', emoji: '💠',
+        colors: {
+            bgColor: '#010d10', topBarStart: '#003d50', topBarEnd: '#001a22',
+            navBg: '#010f14', navActive: '#00e5ff', navBorder: '#004a5c',
+            cardBg: '#011520', cardBorder: '#005570',
+            btnStart: '#00bcd4', btnEnd: '#00acc1',
+            textPrimary: '#e0ffff', textSecondary: '#80deea',
+            accentGlow: '#00e5ff', progressColor: '#00bcd4',
+        }
+    },
+    {
+        name: 'Dracula', emoji: '🧛',
+        colors: {
+            bgColor: '#0a0010', topBarStart: '#44005c', topBarEnd: '#1e002a',
+            navBg: '#0e0015', navActive: '#bd93f9', navBorder: '#330044',
+            cardBg: '#130018', cardBorder: '#3a0050',
+            btnStart: '#bd93f9', btnEnd: '#ff79c6',
+            textPrimary: '#f8f8f2', textSecondary: '#caa9fa',
+            accentGlow: '#bd93f9', progressColor: '#6272a4',
+        }
+    },
+    {
+        name: 'Harvest', emoji: '🍂',
+        colors: {
+            bgColor: '#0d0500', topBarStart: '#78340f', topBarEnd: '#3b1800',
+            navBg: '#110600', navActive: '#fb923c', navBorder: '#6b2f00',
+            cardBg: '#1c0900', cardBorder: '#5c2400',
+            btnStart: '#ea580c', btnEnd: '#b45309',
+            textPrimary: '#fff7ed', textSecondary: '#fdba74',
+            accentGlow: '#fb923c', progressColor: '#c2410c',
+        }
+    },
+    {
+        name: 'Jade', emoji: '🍃',
+        colors: {
+            bgColor: '#01100a', topBarStart: '#005f3d', topBarEnd: '#002e1d',
+            navBg: '#011510', navActive: '#34d399', navBorder: '#005240',
+            cardBg: '#021a10', cardBorder: '#004a35',
+            btnStart: '#059669', btnEnd: '#047857',
+            textPrimary: '#d1fae5', textSecondary: '#6ee7b7',
+            accentGlow: '#34d399', progressColor: '#059669',
+        }
+    },
+    {
+        name: 'Crimson', emoji: '🔴',
+        colors: {
+            bgColor: '#0d0004', topBarStart: '#7f0010', topBarEnd: '#3b0008',
+            navBg: '#100005', navActive: '#f43f5e', navBorder: '#55000c',
+            cardBg: '#1a0008', cardBorder: '#500015',
+            btnStart: '#e11d48', btnEnd: '#be123c',
+            textPrimary: '#fff1f2', textSecondary: '#fda4af',
+            accentGlow: '#f43f5e', progressColor: '#dc2626',
+        }
+    },
+    {
+        name: 'Saffron', emoji: '🌼',
+        colors: {
+            bgColor: '#0d0700', topBarStart: '#92400e', topBarEnd: '#3d1a00',
+            navBg: '#110800', navActive: '#fbbf24', navBorder: '#78350f',
+            cardBg: '#1a0d00', cardBorder: '#6b3300',
+            btnStart: '#f59e0b', btnEnd: '#d97706',
+            textPrimary: '#fffbeb', textSecondary: '#fde68a',
+            accentGlow: '#fbbf24', progressColor: '#b45309',
+        }
+    },
+    {
+        name: 'Deep Space', emoji: '🚀',
+        colors: {
+            bgColor: '#010208', topBarStart: '#0f0f30', topBarEnd: '#060616',
+            navBg: '#01020c', navActive: '#7c6fcd', navBorder: '#14143a',
+            cardBg: '#040516', cardBorder: '#111130',
+            btnStart: '#4c46a8', btnEnd: '#3730a3',
+            textPrimary: '#eef0ff', textSecondary: '#9896d8',
+            accentGlow: '#7c6fcd', progressColor: '#5b54c2',
+        }
+    },
+    {
+        name: 'Bubblegum', emoji: '🍬',
+        colors: {
+            bgColor: '#100410', topBarStart: '#701a75', topBarEnd: '#3b0a3e',
+            navBg: '#140518', navActive: '#e879f9', navBorder: '#5b1060',
+            cardBg: '#1a0620', cardBorder: '#631070',
+            btnStart: '#d946ef', btnEnd: '#c026d3',
+            textPrimary: '#fdf4ff', textSecondary: '#f0abfc',
+            accentGlow: '#e879f9', progressColor: '#a21caf',
+        }
+    },
+    {
+        name: 'Bronze', emoji: '🥉',
+        colors: {
+            bgColor: '#0d0600', topBarStart: '#7a3c00', topBarEnd: '#3a1c00',
+            navBg: '#100700', navActive: '#cd7f32', navBorder: '#5a2c00',
+            cardBg: '#180900', cardBorder: '#5c2e00',
+            btnStart: '#b45309', btnEnd: '#92400e',
+            textPrimary: '#fef9f0', textSecondary: '#d4a76a',
+            accentGlow: '#cd7f32', progressColor: '#a16207',
+        }
+    },
+    {
+        name: 'Electric Lime', emoji: '⚡',
+        colors: {
+            bgColor: '#050d00', topBarStart: '#2d5a00', topBarEnd: '#152800',
+            navBg: '#060f00', navActive: '#a3e635', navBorder: '#254f00',
+            cardBg: '#0a1400', cardBorder: '#2f5500',
+            btnStart: '#84cc16', btnEnd: '#65a30d',
+            textPrimary: '#f7fee7', textSecondary: '#bef264',
+            accentGlow: '#a3e635', progressColor: '#65a30d',
+        }
+    },
+    {
+        name: 'Glacier', emoji: '🧊',
+        colors: {
+            bgColor: '#01080f', topBarStart: '#0c3352', topBarEnd: '#051929',
+            navBg: '#010a14', navActive: '#7dd3fc', navBorder: '#0f3555',
+            cardBg: '#021020', cardBorder: '#0e3050',
+            btnStart: '#0ea5e9', btnEnd: '#0284c7',
+            textPrimary: '#f0f9ff', textSecondary: '#bae6fd',
+            accentGlow: '#7dd3fc', progressColor: '#38bdf8',
+        }
+    },
+    {
+        name: 'Inferno', emoji: '🌋',
+        colors: {
+            bgColor: '#0d0200', topBarStart: '#991b1b', topBarEnd: '#450a0a',
+            navBg: '#100300', navActive: '#f87171', navBorder: '#6b0000',
+            cardBg: '#1c0400', cardBorder: '#700a0a',
+            btnStart: '#dc2626', btnEnd: '#b91c1c',
+            textPrimary: '#fff5f5', textSecondary: '#fca5a5',
+            accentGlow: '#f87171', progressColor: '#ef4444',
+        }
+    },
+    {
+        name: 'Purple Haze', emoji: '🔮',
+        colors: {
+            bgColor: '#07020e', topBarStart: '#5b21b6', topBarEnd: '#2e0e5e',
+            navBg: '#0a0315', navActive: '#c084fc', navBorder: '#4c1d95',
+            cardBg: '#0f0520', cardBorder: '#451a8c',
+            btnStart: '#9333ea', btnEnd: '#7e22ce',
+            textPrimary: '#faf5ff', textSecondary: '#d8b4fe',
+            accentGlow: '#c084fc', progressColor: '#7c3aed',
+        }
+    },
+    {
+        name: 'Cobalt', emoji: '💙',
+        colors: {
+            bgColor: '#010610', topBarStart: '#0e2870', topBarEnd: '#060e3a',
+            navBg: '#010812', navActive: '#60a5fa', navBorder: '#0f2260',
+            cardBg: '#02091e', cardBorder: '#102060',
+            btnStart: '#2563eb', btnEnd: '#1d4ed8',
+            textPrimary: '#eff6ff', textSecondary: '#93c5fd',
+            accentGlow: '#60a5fa', progressColor: '#3b82f6',
+        }
+    },
+    {
+        name: 'Coral', emoji: '🪸',
+        colors: {
+            bgColor: '#0d0400', topBarStart: '#9a3412', topBarEnd: '#4a1a06',
+            navBg: '#110500', navActive: '#fb923c', navBorder: '#7c2d12',
+            cardBg: '#1c0600', cardBorder: '#6c2008',
+            btnStart: '#f97316', btnEnd: '#ea580c',
+            textPrimary: '#fff7ed', textSecondary: '#fed7aa',
+            accentGlow: '#fb923c', progressColor: '#c2410c',
+        }
+    },
+    {
+        name: 'Onyx', emoji: '⬛',
+        colors: {
+            bgColor: '#000000', topBarStart: '#1a1a1a', topBarEnd: '#0a0a0a',
+            navBg: '#000000', navActive: '#e2e8f0', navBorder: '#1e1e1e',
+            cardBg: '#111111', cardBorder: '#222222',
+            btnStart: '#475569', btnEnd: '#334155',
+            textPrimary: '#f1f5f9', textSecondary: '#94a3b8',
+            accentGlow: '#e2e8f0', progressColor: '#64748b',
+        }
+    },
+    {
+        name: 'Cosmic', emoji: '🌠',
+        colors: {
+            bgColor: '#020106', topBarStart: '#1a003d', topBarEnd: '#06001a',
+            navBg: '#030108', navActive: '#a78bfa', navBorder: '#200050',
+            cardBg: '#07010f', cardBorder: '#250060',
+            btnStart: '#7c3aed', btnEnd: '#c026d3',
+            textPrimary: '#f5f3ff', textSecondary: '#c4b5fd',
+            accentGlow: '#a78bfa', progressColor: '#8b5cf6',
+        }
+    },
+    {
+        name: 'Turquoise', emoji: '🐟',
+        colors: {
+            bgColor: '#01100e', topBarStart: '#0f5a52', topBarEnd: '#052c28',
+            navBg: '#011412', navActive: '#2dd4bf', navBorder: '#0d4e47',
+            cardBg: '#031a17', cardBorder: '#0d4540',
+            btnStart: '#0d9488', btnEnd: '#0f766e',
+            textPrimary: '#f0fdfa', textSecondary: '#99f6e4',
+            accentGlow: '#2dd4bf', progressColor: '#14b8a6',
+        }
+    },
 ];
 
 type ColorSection = 'BACKGROUND' | 'TOPBAR' | 'NAVIGATION' | 'CARDS' | 'BUTTONS' | 'TEXT' | 'ACCENTS';
@@ -324,6 +522,8 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
 
     /* Entry popup — shown once when user opens Theme Studio */
     const [showEntryPopup, setShowEntryPopup] = useState(true);
+    /* Selected preset index in the entry popup (-1 = none) */
+    const [popupPresetIdx, setPopupPresetIdx] = useState<number>(-1);
 
     /* Coin confirmation popup — shown before applying a 2nd/changed theme */
     const [showCoinPopup, setShowCoinPopup]   = useState(false);
@@ -551,80 +751,112 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
                 ENTRY POPUP — shown when user first opens
             ══════════════════════════════════════════ */}
             {showEntryPopup && (
-                <div className="fixed inset-0 z-50 flex items-end justify-center pb-6 px-4" style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)' }}>
+                <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ background: 'rgba(0,0,0,0.80)', backdropFilter: 'blur(8px)' }}>
                     <div
-                        className="w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl"
-                        style={{ background: '#0d0f1a', border: '1px solid rgba(255,255,255,0.08)' }}
+                        className="w-full rounded-t-3xl overflow-hidden shadow-2xl flex flex-col"
+                        style={{ background: '#0d0f1a', border: '1px solid rgba(255,255,255,0.08)', maxHeight: '88vh' }}
                     >
                         {/* Top gradient strip */}
-                        <div
-                            className="h-1.5 w-full"
-                            style={{ background: `linear-gradient(90deg, ${theme.btnStart}, ${theme.btnEnd})` }}
-                        />
-                        <div className="p-5">
-                            <div className="text-center mb-4">
-                                <div
-                                    className="w-16 h-16 rounded-2xl mx-auto mb-3 flex items-center justify-center text-3xl"
-                                    style={{ background: `linear-gradient(135deg, ${theme.btnStart}30, ${theme.btnEnd}20)`, border: `1px solid ${theme.btnStart}40` }}
-                                >
-                                    🎨
-                                </div>
-                                <p className="text-lg font-black text-white">Theme Studio</p>
-                                <p className="text-xs text-white/40 mt-1">Apni app ka pura look customize karo</p>
-                            </div>
+                        <div className="h-1 w-full shrink-0" style={{ background: `linear-gradient(90deg, ${theme.btnStart}, ${theme.btnEnd})` }} />
 
-                            {/* Info cards */}
-                            <div className="space-y-2.5 mb-4">
-                                <div
-                                    className="flex items-center gap-3 rounded-2xl p-3 border"
-                                    style={{ background: '#22c55e12', borderColor: '#22c55e30' }}
-                                >
-                                    <span className="text-xl shrink-0">🎁</span>
-                                    <div>
-                                        <p className="text-xs font-black text-green-400">Pehla Theme — BILKUL FREE!</p>
-                                        <p className="text-[9px] text-white/40 mt-0.5">Pehli baar theme bana ke apply karo, koi coin nahi lagega</p>
-                                    </div>
-                                </div>
-                                <div
-                                    className="flex items-center gap-3 rounded-2xl p-3 border"
-                                    style={{ background: `${theme.btnStart}12`, borderColor: `${theme.btnStart}30` }}
-                                >
-                                    <span className="text-xl shrink-0">🪙</span>
-                                    <div>
-                                        <p className="text-xs font-black text-white">Theme Change — {THEME_COST} Coins</p>
-                                        <p className="text-[9px] text-white/40 mt-0.5">Doosri baar ya theme change karne pe {THEME_COST} coins lagenge</p>
-                                    </div>
-                                </div>
-                                <div
-                                    className="flex items-center gap-3 rounded-2xl p-3 border"
-                                    style={{ background: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.07)' }}
-                                >
-                                    <span className="text-xl shrink-0">✨</span>
-                                    <div>
-                                        <p className="text-xs font-black text-white">14 Color Controls</p>
-                                        <p className="text-[9px] text-white/40 mt-0.5">Top Bar, Nav, Cards, Buttons, Text — har cheez alag customize karo</p>
-                                    </div>
-                                </div>
+                        {/* Header */}
+                        <div className="flex items-center gap-3 px-4 pt-4 pb-2 shrink-0">
+                            <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg shrink-0" style={{ background: `linear-gradient(135deg,${theme.btnStart}40,${theme.btnEnd}30)`, border: `1px solid ${theme.btnStart}50` }}>🎨</div>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-sm font-black text-white leading-none">Theme Studio</p>
+                                <p className="text-[10px] text-white/40 mt-0.5">Preset chunno ya custom colors set karo</p>
                             </div>
-
-                            {/* Your coins */}
-                            <div
-                                className="flex items-center justify-between rounded-2xl px-4 py-2.5 mb-4"
-                                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}
-                            >
-                                <p className="text-xs text-white/50 font-bold">Aapke Paas</p>
-                                <p className="text-base font-black text-amber-400">🪙 {isAdmin ? '∞ (Admin)' : totalCoins} coins</p>
+                            <div className="flex items-center gap-2">
+                                <div className="h-6 rounded-full px-2.5 flex items-center gap-1 text-[10px] font-black text-amber-400" style={{ background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.2)' }}>
+                                    🪙 {isAdmin ? '∞' : totalCoins}
+                                </div>
+                                {isFirstTime && <div className="h-6 rounded-full px-2 flex items-center text-[9px] font-black text-green-300" style={{ background: 'rgba(34,197,94,0.15)' }}>FREE</div>}
+                                <button onClick={onBack} className="w-7 h-7 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                                    <X size={13} className="text-white/60" />
+                                </button>
                             </div>
+                        </div>
 
+                        {/* Section label */}
+                        <p className="px-4 pb-2 text-[10px] font-bold text-white/30 uppercase tracking-widest shrink-0">30 Ready-made Presets</p>
+
+                        {/* Preset grid — scrollable */}
+                        <div className="overflow-y-auto flex-1 px-3 pb-2" style={{ WebkitOverflowScrolling: 'touch' }}>
+                            <div className="grid grid-cols-3 gap-2">
+                                {PRESETS.map((p, i) => {
+                                    const sel = popupPresetIdx === i;
+                                    return (
+                                        <button
+                                            key={p.name}
+                                            onClick={() => {
+                                                setPopupPresetIdx(i);
+                                                setTheme({ ...p.colors });
+                                            }}
+                                            className="rounded-2xl overflow-hidden active:scale-95 transition-all flex flex-col"
+                                            style={{
+                                                border: sel ? `2px solid ${p.colors.btnStart}` : '2px solid rgba(255,255,255,0.06)',
+                                                background: '#0a0c14',
+                                                boxShadow: sel ? `0 0 12px ${p.colors.btnStart}60` : 'none',
+                                            }}
+                                        >
+                                            {/* Gradient swatch */}
+                                            <div className="h-10 w-full relative" style={{ background: `linear-gradient(135deg, ${p.colors.topBarStart}, ${p.colors.topBarEnd})` }}>
+                                                {/* Accent dots */}
+                                                <div className="absolute bottom-1.5 right-1.5 flex gap-1">
+                                                    <div className="w-3 h-3 rounded-full border border-white/30" style={{ background: p.colors.navActive }} />
+                                                    <div className="w-3 h-3 rounded-full border border-white/30" style={{ background: p.colors.btnStart }} />
+                                                </div>
+                                                {sel && (
+                                                    <div className="absolute top-1 left-1 w-4 h-4 rounded-full bg-white/90 flex items-center justify-center">
+                                                        <Check size={9} className="text-black" strokeWidth={3} />
+                                                    </div>
+                                                )}
+                                            </div>
+                                            {/* Name row */}
+                                            <div className="px-2 py-1.5 flex items-center gap-1">
+                                                <span className="text-sm leading-none">{p.emoji}</span>
+                                                <p className="text-[9px] font-bold leading-tight truncate" style={{ color: sel ? p.colors.btnStart : 'rgba(255,255,255,0.55)' }}>{p.name}</p>
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* Bottom action area */}
+                        <div className="px-4 pt-2 pb-5 shrink-0 flex flex-col gap-2.5" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                            {popupPresetIdx >= 0 ? (
+                                <button
+                                    onClick={() => {
+                                        /* Apply the selected preset directly */
+                                        setTheme({ ...PRESETS[popupPresetIdx].colors });
+                                        setShowEntryPopup(false);
+                                        /* Trigger apply flow */
+                                        if (isFirstTime || isAdmin) {
+                                            doApply();
+                                        } else {
+                                            setShowCoinPopup(true);
+                                        }
+                                    }}
+                                    className="w-full py-3.5 rounded-2xl font-black text-sm text-white active:scale-95 transition-all"
+                                    style={{ background: `linear-gradient(135deg, ${theme.btnStart}, ${theme.btnEnd})`, boxShadow: `0 6px 20px ${theme.btnStart}50` }}
+                                >
+                                    {isFirstTime || isAdmin ? `✅ Apply — ${PRESETS[popupPresetIdx].emoji} ${PRESETS[popupPresetIdx].name}` : `🪙 Apply (${THEME_COST} coins) — ${PRESETS[popupPresetIdx].emoji} ${PRESETS[popupPresetIdx].name}`}
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={() => setShowEntryPopup(false)}
+                                    className="w-full py-3.5 rounded-2xl font-black text-sm text-white active:scale-95 transition-all"
+                                    style={{ background: `linear-gradient(135deg, ${theme.btnStart}, ${theme.btnEnd})`, boxShadow: `0 6px 20px ${theme.btnStart}50` }}
+                                >
+                                    {isFirstTime ? '🎁 Studio Kholo (Free)' : '🎨 Studio Kholo'}
+                                </button>
+                            )}
                             <button
                                 onClick={() => setShowEntryPopup(false)}
-                                className="w-full py-3.5 rounded-2xl font-black text-sm text-white active:scale-95 transition-all"
-                                style={{
-                                    background: `linear-gradient(135deg, ${theme.btnStart}, ${theme.btnEnd})`,
-                                    boxShadow: `0 6px 20px ${theme.btnStart}50`,
-                                }}
+                                className="w-full py-2 text-xs font-bold text-white/40 active:text-white/70 transition-colors"
                             >
-                                {isFirstTime ? '🎁 Studio Kholo (Free)' : `🎨 Studio Kholo`}
+                                Custom colors set karo →
                             </button>
                         </div>
                     </div>

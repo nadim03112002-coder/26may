@@ -157,6 +157,7 @@ import {
   BadgeCheck,
   Copy,
   Sun,
+  Palette,
 } from "lucide-react";
 import { speakText, stopSpeech, stripHtml } from "../utils/textToSpeech";
 import { getMistakeBankSync, getMistakeBank, addMistakes, removeMistakeByQuestion, MistakeEntry } from "../utils/mistakeBank";
@@ -1510,6 +1511,7 @@ export const StudentDashboard: React.FC<Props> = ({
   const [showLessonModal, setShowLessonModal] = useState(false);
   const [selectedLessonForModal, setSelectedLessonForModal] =
     useState<Chapter | null>(null);
+  const [pdfInitialTab, setPdfInitialTab] = useState<'DEEP_DIVE' | 'PREMIUM'>('DEEP_DIVE');
   const [syllabusMode, setSyllabusMode] = useState<"SCHOOL" | "COMPETITION">(
     "SCHOOL",
   );
@@ -1606,6 +1608,7 @@ export const StudentDashboard: React.FC<Props> = ({
   const [nowTick, setNowTick] = useState(Date.now());
   const [isDocFullscreen, setIsDocFullscreen] = useState(false);
   const rotateFullscreenRef = useRef(false);
+  const themeOpenerRef = useRef<'PROFILE' | 'HOME'>('HOME');
   const topBarScrollRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const handler = () => {
@@ -4279,10 +4282,22 @@ export const StudentDashboard: React.FC<Props> = ({
   };
 
   const handleLessonOption = (
-    type: "VIDEO" | "PDF" | "MCQ" | "AUDIO" | any,
+    type: "VIDEO" | "PDF" | "MCQ" | "AUDIO" | "NOTES_PREMIUM" | any,
   ) => {
     if (!selectedLessonForModal) return;
     setShowLessonModal(false);
+
+    if (type === 'NOTES_PREMIUM') {
+      onTabChange('PDF');
+      setSelectedChapter(selectedLessonForModal);
+      setContentViewStep("PLAYER");
+      setFullScreen(true);
+      setPdfInitialTab('PREMIUM');
+      return;
+    }
+
+    // Reset to default tab for normal Notes
+    if (type === 'PDF') setPdfInitialTab('DEEP_DIVE');
 
     // Update Tab and State for Player
     onTabChange(type as any);
@@ -6306,6 +6321,7 @@ export const StudentDashboard: React.FC<Props> = ({
             settings={settings}
             hideHeader={isLandscapeUiHidden}
             onImmersiveChange={(v) => setIsInternalImmersive(v)}
+            initialActiveTab={pdfInitialTab}
             // Lucent-style cross-tab switching: lets the student jump from
             // Notes (PdfView) → MCQ (McqView) without going back to the modal.
             onSwitchToMcq={() => handleLessonOption('MCQ')}
@@ -7602,7 +7618,7 @@ export const StudentDashboard: React.FC<Props> = ({
           <ThemeCustomizer
             user={user}
             onUpdateUser={handleUserUpdate}
-            onBack={() => onTabChange("PROFILE")}
+            onBack={() => onTabChange(themeOpenerRef.current === 'PROFILE' ? 'PROFILE' : 'HOME' as any)}
             settings={settings}
           />
         </div>
@@ -7890,7 +7906,7 @@ export const StudentDashboard: React.FC<Props> = ({
               return (
                 <div className="rounded-none mb-2.5" style={{ background: _pCard, border: _pBdrSoft }}>
                   <button
-                    onClick={() => onTabChange('THEME_CUSTOMIZER' as any)}
+                    onClick={() => { themeOpenerRef.current = 'PROFILE'; onTabChange('THEME_CUSTOMIZER' as any); }}
                     className={`w-full px-4 py-3.5 flex items-center gap-3 ${_pHovCls} transition-colors`}
                   >
                     {themeCard}
@@ -8939,8 +8955,11 @@ export const StudentDashboard: React.FC<Props> = ({
                         if (!lvlInfo) return null;
                         const benefits: string[] = [];
                         if (lvlInfo.discount > 0) benefits.push(`🏷️ ${lvlInfo.discount}% Discount on purchases`);
-                        if (lvlInfo.animationIntensity >= 1) benefits.push(`✨ Top Bar Animation unlocked`);
                         if (lvlInfo.nameColor) benefits.push(`🎨 Colored name in Leaderboard`);
+                        const ld = getLevelDailyLimits(lvlInfo.level);
+                        benefits.push(`📈 MCQ limit: ${ld.mcq.free} free · ${ld.mcq.basic} basic · ${ld.mcq.ultra} ultra/day`);
+                        const bonus = getLevelLimitBonus(lvlInfo.level);
+                        if (bonus.bonusLoginCredits > 0) benefits.push(`🎁 +${bonus.bonusLoginCredits} bonus login credits`);
                         return benefits.map((b, i) => (
                           <div key={i} className="bg-white/15 rounded-xl px-3 py-1.5 text-white text-[11px] font-bold">{b}</div>
                         ));
@@ -13902,11 +13921,9 @@ export const StudentDashboard: React.FC<Props> = ({
           chapter={selectedLessonForModal}
           onClose={() => setShowLessonModal(false)}
           onSelect={handleLessonOption}
-          logoUrl={settings?.appLogo} // Pass logo from settings
+          logoUrl={settings?.appLogo}
           appName={settings?.appName}
-          // hideMcq removed: Class 6-12 students now also see the MCQ option
-          // here. Once inside MCQ they get the Lucent-style 3-mode selector
-          // (📝 MCQ · 💬 Q&A · 🃏 Flashcard) and a Notes ↔ MCQ tab switch.
+          isPremiumUser={SubscriptionEngine.isPremium(user)}
         />
       )}
 

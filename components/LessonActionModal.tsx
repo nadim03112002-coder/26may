@@ -1,17 +1,18 @@
 import React from 'react';
 import { Chapter, ContentType } from '../types';
-import { FileText, CheckSquare, Video, Headphones, X } from 'lucide-react';
+import { FileText, CheckSquare, Video, Headphones, X, Crown, Lock } from 'lucide-react';
 
 interface Props {
     chapter: Chapter;
     onClose: () => void;
-    onSelect: (type: ContentType) => void;
-    logoUrl?: string; // NEW
-    appName?: string; // NEW
+    onSelect: (type: ContentType | 'NOTES_PREMIUM') => void;
+    logoUrl?: string;
+    appName?: string;
     hideMcq?: boolean;
+    isPremiumUser?: boolean;
 }
 
-export const LessonActionModal: React.FC<Props> = ({ chapter, onClose, onSelect, logoUrl, appName, hideMcq }) => {
+export const LessonActionModal: React.FC<Props> = ({ chapter, onClose, onSelect, logoUrl, appName, hideMcq, isPremiumUser }) => {
     return (
         <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-in fade-in duration-200">
             <div
@@ -40,16 +41,17 @@ export const LessonActionModal: React.FC<Props> = ({ chapter, onClose, onSelect,
                 </div>
 
                 {/* Content Body */}
-                <div className="p-6 -mt-4 bg-white rounded-t-[32px] relative z-10">
-                    <div className="text-center mb-6">
+                <div className="p-5 -mt-4 bg-white rounded-t-[32px] relative z-10">
+                    <div className="text-center mb-5">
                         <h3 className="font-black text-slate-800 text-lg leading-tight mb-1 line-clamp-2">{chapter.title}</h3>
                         <p className="text-xs text-slate-500 font-bold uppercase tracking-wide">Select Resource</p>
                     </div>
 
-                    <div className={`grid gap-2 ${hideMcq ? 'grid-cols-3' : 'grid-cols-4'}`}>
+                    {/* Notes Row: Free Notes + Premium Notes */}
+                    <div className="grid grid-cols-2 gap-2 mb-2">
                         <button
-                            onClick={() => onSelect('PDF')}
-                            className="group relative flex flex-col items-center justify-center gap-1.5 p-2.5 bg-white border border-slate-100 rounded-2xl shadow-sm hover:shadow-md hover:border-blue-200 transition-all active:scale-95"
+                            onClick={() => onSelect('PDF' as any)}
+                            className="group relative flex flex-col items-center justify-center gap-1.5 p-3 bg-white border border-slate-100 rounded-2xl shadow-sm hover:shadow-md hover:border-blue-200 transition-all active:scale-95"
                         >
                             <div className="w-9 h-9 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors">
                                 <FileText size={16} />
@@ -57,20 +59,48 @@ export const LessonActionModal: React.FC<Props> = ({ chapter, onClose, onSelect,
                             <span className="font-bold text-slate-600 text-[11px] group-hover:text-blue-600">Notes</span>
                         </button>
 
+                        <button
+                            onClick={() => onSelect('NOTES_PREMIUM')}
+                            className={`group relative flex flex-col items-center justify-center gap-1.5 p-3 border rounded-2xl shadow-sm transition-all active:scale-95 ${
+                                isPremiumUser
+                                    ? 'bg-white border-amber-200 hover:shadow-md hover:border-amber-300'
+                                    : 'bg-amber-50/60 border-amber-100'
+                            }`}
+                        >
+                            <div className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${
+                                isPremiumUser
+                                    ? 'bg-amber-50 text-amber-600 group-hover:bg-amber-500 group-hover:text-white'
+                                    : 'bg-amber-100 text-amber-500'
+                            }`}>
+                                {isPremiumUser ? <Crown size={16} /> : <Lock size={16} />}
+                            </div>
+                            <span className={`font-bold text-[11px] ${isPremiumUser ? 'text-slate-600 group-hover:text-amber-600' : 'text-amber-600'}`}>
+                                Premium Notes
+                            </span>
+                            {!isPremiumUser && (
+                                <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-amber-500 rounded-full flex items-center justify-center">
+                                    <Lock size={8} className="text-white" />
+                                </span>
+                            )}
+                        </button>
+                    </div>
+
+                    {/* MCQ / Video / Audio Row */}
+                    <div className={`grid gap-2 ${hideMcq ? 'grid-cols-2' : 'grid-cols-3'}`}>
                         {!hideMcq && (
                             <button
-                                onClick={() => onSelect('MCQ')}
+                                onClick={() => onSelect('MCQ' as any)}
                                 className="group relative flex flex-col items-center justify-center gap-1.5 p-2.5 bg-white border border-slate-100 rounded-2xl shadow-sm hover:shadow-md hover:border-purple-200 transition-all active:scale-95"
                             >
                                 <div className="w-9 h-9 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center group-hover:bg-purple-600 group-hover:text-white transition-colors">
                                     <CheckSquare size={16} />
                                 </div>
-                                <span className="font-bold text-slate-600 text-[11px] group-hover:text-purple-600">Test</span>
+                                <span className="font-bold text-slate-600 text-[11px] group-hover:text-purple-600">MCQ</span>
                             </button>
                         )}
 
                         <button
-                            onClick={() => onSelect('VIDEO')}
+                            onClick={() => onSelect('VIDEO' as any)}
                             className="group relative flex flex-col items-center justify-center gap-1.5 p-2.5 bg-white border border-slate-100 rounded-2xl shadow-sm hover:shadow-md hover:border-rose-200 transition-all active:scale-95"
                         >
                             <div className="w-9 h-9 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center group-hover:bg-rose-600 group-hover:text-white transition-colors">
@@ -80,7 +110,7 @@ export const LessonActionModal: React.FC<Props> = ({ chapter, onClose, onSelect,
                         </button>
 
                         <button
-                            onClick={() => onSelect('AUDIO')}
+                            onClick={() => onSelect('AUDIO' as any)}
                             className="group relative flex flex-col items-center justify-center gap-1.5 p-2.5 bg-white border border-slate-100 rounded-2xl shadow-sm hover:shadow-md hover:border-amber-200 transition-all active:scale-95"
                         >
                             <div className="w-9 h-9 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center group-hover:bg-amber-600 group-hover:text-white transition-colors">
