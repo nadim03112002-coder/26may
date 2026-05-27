@@ -12,6 +12,7 @@ interface Props {
   settings?: SystemSettings;
   onUserUpdate: (user: User) => void;
   renderEarnContent?: React.ReactNode;
+  onBack?: () => void;
 }
 
 const DEFAULT_PACKAGES: CreditPackage[] = [
@@ -126,7 +127,7 @@ const SubHistory: React.FC<{ user: User; onBack: () => void }> = ({ user, onBack
 };
 
 /* ─── Main Store ─── */
-export const Store: React.FC<Props> = ({ user, settings, renderEarnContent }) => {
+export const Store: React.FC<Props> = ({ user, settings, renderEarnContent, onBack }) => {
   const [tierType, setTierType] = useState<'BASIC' | 'ULTRA' | 'EARN' | 'CREDITS'>('BASIC');
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
@@ -367,6 +368,20 @@ export const Store: React.FC<Props> = ({ user, settings, renderEarnContent }) =>
             : tierType === 'CREDITS' ? 'radial-gradient(ellipse at top right, rgba(245,158,11,0.1) 0%, transparent 55%)'
             : 'radial-gradient(ellipse at top right, rgba(16,185,129,0.1) 0%, transparent 55%)'
         }} />
+
+        {/* Back button */}
+        {onBack && (
+          <div className="relative z-10 mb-3">
+            <button
+              onClick={onBack}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-xl active:scale-95 transition-transform"
+              style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }}
+            >
+              <ArrowLeft size={15} className="text-white" />
+              <span className="text-xs font-black text-white">Back</span>
+            </button>
+          </div>
+        )}
 
         {/* Store / Sub History tabs */}
         <div className="relative z-10 flex gap-2 mb-4 p-1 rounded-2xl" style={{ background: 'rgba(255,255,255,0.05)' }}>

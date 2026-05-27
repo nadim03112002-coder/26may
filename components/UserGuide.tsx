@@ -15,31 +15,37 @@ import {
 import { User } from '../types';
 
 /* ── Tier gradient helper ── */
-function getTierGrad(user?: User): { header: string; btn: string; focus: string; ring: string } {
+function getTierGrad(user?: User): { header: string; btn: string; focus: string; ring: string; shimmerMid: string; shimmerPeak: string } {
     const level = (user as any)?.subscriptionLevel || '';
     const active = user?.isPremium && user?.subscriptionEndDate && new Date(user.subscriptionEndDate) > new Date();
     if (active && (level === 'ULTRA' || level === 'PRO')) {
         return {
-            header: 'linear-gradient(135deg,#0F172A 0%,#1E2A4A 50%,#1A2F5E 100%)',
-            btn:    'linear-gradient(135deg,#1e3a8a,#1d4ed8)',
-            focus:  '#60a5fa',
-            ring:   'rgba(96,165,250,0.25)',
+            header:      'linear-gradient(135deg,#0F172A 0%,#1E2A4A 50%,#1A2F5E 100%)',
+            btn:         'linear-gradient(135deg,#1e3a8a,#1d4ed8)',
+            focus:       '#60a5fa',
+            ring:        'rgba(96,165,250,0.25)',
+            shimmerMid:  'rgba(30,58,95,0.55)',
+            shimmerPeak: 'rgba(30,58,95,0.80)',
         };
     }
     if (active && level === 'BASIC') {
         return {
-            header: 'linear-gradient(135deg,#1e3a8a 0%,#2563eb 55%,#1d4ed8 100%)',
-            btn:    'linear-gradient(135deg,#2563eb,#3b82f6)',
-            focus:  '#60a5fa',
-            ring:   'rgba(96,165,250,0.25)',
+            header:      'linear-gradient(135deg,#1e3a8a 0%,#2563eb 55%,#1d4ed8 100%)',
+            btn:         'linear-gradient(135deg,#2563eb,#3b82f6)',
+            focus:       '#60a5fa',
+            ring:        'rgba(96,165,250,0.25)',
+            shimmerMid:  'rgba(59,130,246,0.40)',
+            shimmerPeak: 'rgba(59,130,246,0.65)',
         };
     }
-    // Free
+    // Free — sky
     return {
-        header: 'linear-gradient(135deg,#0284c7 0%,#0ea5e9 55%,#38bdf8 100%)',
-        btn:    'linear-gradient(135deg,#0284c7,#0ea5e9)',
-        focus:  '#38bdf8',
-        ring:   'rgba(56,189,248,0.25)',
+        header:      'linear-gradient(135deg,#0284c7 0%,#0ea5e9 55%,#38bdf8 100%)',
+        btn:         'linear-gradient(135deg,#0284c7,#0ea5e9)',
+        focus:       '#38bdf8',
+        ring:        'rgba(56,189,248,0.25)',
+        shimmerMid:  'rgba(14,165,233,0.38)',
+        shimmerPeak: 'rgba(14,165,233,0.60)',
     };
 }
 
@@ -750,8 +756,14 @@ export const UserGuide: React.FC<Props> = ({ onClose, user }) => {
 
                             {/* ── Section header ── */}
                             <button onClick={() => toggle(section.id)}
-                                className="w-full flex items-center gap-3 px-4 py-3.5 text-left transition-all"
-                                style={{ background: C.cardBg }}>
+                                className={`w-full flex items-center gap-3 px-4 py-3.5 text-left transition-all relative overflow-hidden${isOpen ? ' guide-section-shimmer' : ''}`}
+                                style={{
+                                    background: C.cardBg,
+                                    ...(isOpen ? {
+                                        '--gs-mid':  tierGrad.shimmerMid,
+                                        '--gs-peak': tierGrad.shimmerPeak,
+                                    } as React.CSSProperties : {})
+                                }}>
                                 {/* icon */}
                                 <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
                                     style={{ background: tierGrad.ring, color: tierGrad.focus, border: `1px solid ${tierGrad.focus}44` }}>
@@ -782,8 +794,12 @@ export const UserGuide: React.FC<Props> = ({ onClose, user }) => {
                                     {section.items.map((item, idx) => {
                                         const isSelected = selectedItem?.sectionId === section.id && selectedItem.itemIndex === idx;
                                         return (
-                                            <div key={idx} className={`${idx > 0 ? 'border-t' : ''} transition-colors`}
-                                                style={{ background: isSelected ? C.itemSelBg : C.itemBg, borderColor: C.divider }}>
+                                            <div key={idx} className={`${idx > 0 ? 'border-t' : ''} transition-all`}
+                                                style={{
+                                                    background: isSelected ? C.itemSelBg : C.itemBg,
+                                                    borderColor: C.divider,
+                                                    borderLeft: isSelected ? `3px solid ${tierGrad.focus}` : '3px solid transparent',
+                                                }}>
                                                 {/* item row */}
                                                 <button
                                                     onClick={() => setSelectedItem(isSelected ? null : { sectionId: section.id, itemIndex: idx })}

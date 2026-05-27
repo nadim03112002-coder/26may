@@ -4273,13 +4273,13 @@ export const StudentDashboard: React.FC<Props> = ({
   };
 
   const LUCENT_CATEGORIES = [
-    { id: 'biology', name: 'जीव विज्ञान (Biology)', icon: 'bio', color: 'bg-green-50 text-green-600' },
-    { id: 'chemistry', name: 'रसायन शास्त्र (Chemistry)', icon: 'flask', color: 'bg-purple-50 text-purple-600' },
-    { id: 'physics', name: 'भौतिकी (Physics)', icon: 'physics', color: 'bg-blue-50 text-blue-600' },
-    { id: 'economics', name: 'अर्थशास्त्र (Economics)', icon: 'social', color: 'bg-cyan-50 text-cyan-600' },
-    { id: 'geography', name: 'भूगोल (Geography)', icon: 'geo', color: 'bg-indigo-50 text-indigo-600' },
-    { id: 'polity', name: 'राजनीति विज्ञान (Polity)', icon: 'gov', color: 'bg-amber-50 text-amber-600' },
-    { id: 'history', name: 'इतिहास (History)', icon: 'history', color: 'bg-rose-50 text-rose-600' },
+    { id: 'biology', name: 'जीव विज्ञान (Biology)', icon: 'bio', color: 'bg-white text-slate-700' },
+    { id: 'chemistry', name: 'रसायन शास्त्र (Chemistry)', icon: 'flask', color: 'bg-white text-slate-700' },
+    { id: 'physics', name: 'भौतिकी (Physics)', icon: 'physics', color: 'bg-white text-slate-700' },
+    { id: 'economics', name: 'अर्थशास्त्र (Economics)', icon: 'social', color: 'bg-white text-slate-700' },
+    { id: 'geography', name: 'भूगोल (Geography)', icon: 'geo', color: 'bg-white text-slate-700' },
+    { id: 'polity', name: 'राजनीति विज्ञान (Polity)', icon: 'gov', color: 'bg-white text-slate-700' },
+    { id: 'history', name: 'इतिहास (History)', icon: 'history', color: 'bg-white text-slate-700' },
   ] as Subject[];
 
   const renderContentSection = (
@@ -4334,14 +4334,21 @@ export const StudentDashboard: React.FC<Props> = ({
         // Custom book labels — pulled live from admin settings.
         ...Object.fromEntries(customBooksFromSettings.map(b => [b.id, b.name])),
       };
+      // Tier-based button color: Free=sky, Basic=blue, Ultra=navy dark blue
+      const _tierBtn = user.isPremium && user.subscriptionLevel === 'ULTRA'
+        ? { btn: 'bg-[#1e3a5f]', btnHover: 'hover:bg-[#162d4a]' }
+        : user.isPremium && user.subscriptionLevel === 'BASIC'
+        ? { btn: 'bg-blue-600', btnHover: 'hover:bg-blue-700' }
+        : { btn: 'bg-sky-500', btnHover: 'hover:bg-sky-600' };
+      const _WHITE_THEME = { bg: 'bg-white', bgSoft: 'bg-slate-50', text: 'text-slate-600', textDeep: 'text-slate-800', border: 'border-slate-200', ring: 'ring-slate-300', btn: _tierBtn.btn, btnHover: _tierBtn.btnHover, chip: 'bg-slate-100 text-slate-700' };
       const SUBJECT_THEME: Record<string, { bg: string; bgSoft: string; text: string; textDeep: string; border: string; ring: string; btn: string; btnHover: string; chip: string; }> = {
-        mcq: { bg: 'bg-green-50', bgSoft: 'bg-green-100', text: 'text-green-600', textDeep: 'text-green-800', border: 'border-green-200', ring: 'ring-green-300', btn: 'bg-green-600', btnHover: 'hover:bg-green-700', chip: 'bg-green-100 text-green-700' },
-        sarSangrah: { bg: 'bg-rose-50', bgSoft: 'bg-rose-100', text: 'text-rose-600', textDeep: 'text-rose-800', border: 'border-rose-200', ring: 'ring-rose-300', btn: 'bg-rose-600', btnHover: 'hover:bg-rose-700', chip: 'bg-rose-100 text-rose-700' },
-        speedySocialScience: { bg: 'bg-orange-50', bgSoft: 'bg-orange-100', text: 'text-orange-600', textDeep: 'text-orange-800', border: 'border-orange-200', ring: 'ring-orange-300', btn: 'bg-orange-600', btnHover: 'hover:bg-orange-700', chip: 'bg-orange-100 text-orange-700' },
-        speedyScience: { bg: 'bg-blue-50', bgSoft: 'bg-blue-100', text: 'text-blue-600', textDeep: 'text-blue-800', border: 'border-blue-200', ring: 'ring-blue-300', btn: 'bg-blue-600', btnHover: 'hover:bg-blue-700', chip: 'bg-blue-100 text-blue-700' },
+        mcq: _WHITE_THEME,
+        sarSangrah: _WHITE_THEME,
+        speedySocialScience: _WHITE_THEME,
+        speedyScience: _WHITE_THEME,
       };
-      // Custom books fall back to an indigo theme if not pre-configured.
-      const CUSTOM_BOOK_THEME = { bg: 'bg-indigo-50', bgSoft: 'bg-indigo-100', text: 'text-indigo-600', textDeep: 'text-indigo-800', border: 'border-indigo-200', ring: 'ring-indigo-300', btn: 'bg-indigo-600', btnHover: 'hover:bg-indigo-700', chip: 'bg-indigo-100 text-indigo-700' };
+      // Custom books fall back to same white theme.
+      const CUSTOM_BOOK_THEME = _WHITE_THEME;
       const theme = SUBJECT_THEME[homeworkSubjectView] || CUSTOM_BOOK_THEME;
       const isPageWiseSubject = PAGE_WISE_SUBJECTS.has(homeworkSubjectView);
 
@@ -6030,12 +6037,12 @@ export const StudentDashboard: React.FC<Props> = ({
       ).sort((a, b) => a === 'Lucent' ? -1 : b === 'Lucent' ? 1 : a.localeCompare(b));
 
       const BOOK_THEME: Record<string, { bg: string; text: string; border: string; emoji: string }> = {
-        'Lucent':               { bg: 'bg-indigo-50', text: 'text-indigo-700', border: 'border-indigo-200', emoji: '📘' },
-        'Speedy Science':       { bg: 'bg-blue-50',   text: 'text-blue-700',   border: 'border-blue-200',   emoji: '🔬' },
-        'Speedy Social Science':{ bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200', emoji: '🌏' },
-        'Sar Sangrah':          { bg: 'bg-rose-50',   text: 'text-rose-700',   border: 'border-rose-200',   emoji: '📕' },
+        'Lucent':               { bg: 'bg-white', text: 'text-slate-700', border: 'border-slate-200', emoji: '📘' },
+        'Speedy Science':       { bg: 'bg-white', text: 'text-slate-700', border: 'border-slate-200', emoji: '🔬' },
+        'Speedy Social Science':{ bg: 'bg-white', text: 'text-slate-700', border: 'border-slate-200', emoji: '🌏' },
+        'Sar Sangrah':          { bg: 'bg-white', text: 'text-slate-700', border: 'border-slate-200', emoji: '📕' },
       };
-      const defaultTheme = { bg: 'bg-violet-50', text: 'text-violet-700', border: 'border-violet-200', emoji: '📗' };
+      const defaultTheme = { bg: 'bg-white', text: 'text-slate-700', border: 'border-slate-200', emoji: '📗' };
 
       // STEP 1 — Book selection screen
       if (selectedLucentBook === null) {
@@ -7491,6 +7498,7 @@ export const StudentDashboard: React.FC<Props> = ({
           user={user}
           settings={settings}
           onUserUpdate={handleUserUpdate}
+          onBack={() => onTabChange('HOME')}
           renderEarnContent={
             isGameEnabled
               ? user.isGameBanned
@@ -8188,16 +8196,15 @@ export const StudentDashboard: React.FC<Props> = ({
               <span>{user.streak}d</span>
             </button>
 
-            {/* Search */}
-            {isHomeSectionVisible('home_search_button', settings) && (
-              <button
-                onClick={() => { setShowHomeSearch(s => !s); setHomeSearchQuery(''); if (activeTab !== 'HOME') onTabChange('HOME'); }}
-                className={`keep-light-badge p-1.5 rounded-xl transition-all shrink-0 active:scale-95 shadow ${showHomeSearch ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
-                title="Search"
-              >
-                <Search size={16} />
-              </button>
-            )}
+            {/* Rank */}
+            <button
+              onClick={() => setShowLevelLeaderboard(true)}
+              className="keep-light-badge px-2.5 py-1.5 rounded-xl transition-all shrink-0 active:scale-95 shadow bg-white text-slate-700 hover:bg-slate-50 flex items-center gap-1"
+              title="Rank"
+            >
+              <Trophy size={14} className="text-amber-500" />
+              <span className="text-[11px] font-black">Rank</span>
+            </button>
 
             {/* Mail */}
             {(() => {
@@ -16884,10 +16891,6 @@ RULES:
                     onClick={() => setScorePanelTab('FEATURES')}
                     className={`flex-1 py-1.5 rounded-xl text-[10px] font-black ${scorePanelTab === 'FEATURES' ? 'bg-sky-600 text-white' : 'bg-white/6 text-slate-400'}`}
                   >🎯 Level System</button>
-                  <button
-                    onClick={() => { _closePanel(); setTimeout(() => onTabChange('LEADERBOARD'), 120); }}
-                    className="flex-1 py-1.5 rounded-xl text-[10px] font-black bg-white/6 text-slate-400"
-                  >🏆 Rank</button>
                 </div>
               </div>
 

@@ -88,24 +88,24 @@ export const DEFAULT_APP_FEATURES = [
 ];
 
 export const DEFAULT_SUBJECTS = {
-  physics: { id: 'physics', name: 'Physics', icon: 'physics', color: 'bg-blue-50 text-blue-600' },
-  chemistry: { id: 'chemistry', name: 'Chemistry', icon: 'flask', color: 'bg-purple-50 text-purple-600' },
-  biology: { id: 'biology', name: 'Biology', icon: 'bio', color: 'bg-green-50 text-green-600' },
-  math: { id: 'math', name: 'Mathematics', icon: 'math', color: 'bg-emerald-50 text-emerald-600' },
-  history: { id: 'history', name: 'History', icon: 'history', color: 'bg-rose-50 text-rose-600' },
-  geography: { id: 'geography', name: 'Geography', icon: 'geo', color: 'bg-indigo-50 text-indigo-600' },
-  polity: { id: 'polity', name: 'Political Science', icon: 'gov', color: 'bg-amber-50 text-amber-600' },
-  economics: { id: 'economics', name: 'Economics', icon: 'social', color: 'bg-cyan-50 text-cyan-600' },
-  business: { id: 'business', name: 'Business Studies', icon: 'business', color: 'bg-blue-50 text-blue-600' },
-  accounts: { id: 'accounts', name: 'Accountancy', icon: 'accounts', color: 'bg-emerald-50 text-emerald-600' },
+  physics: { id: 'physics', name: 'Physics', icon: 'physics', color: 'bg-white text-slate-700' },
+  chemistry: { id: 'chemistry', name: 'Chemistry', icon: 'flask', color: 'bg-white text-slate-700' },
+  biology: { id: 'biology', name: 'Biology', icon: 'bio', color: 'bg-white text-slate-700' },
+  math: { id: 'math', name: 'Mathematics', icon: 'math', color: 'bg-white text-slate-700' },
+  history: { id: 'history', name: 'History', icon: 'history', color: 'bg-white text-slate-700' },
+  geography: { id: 'geography', name: 'Geography', icon: 'geo', color: 'bg-white text-slate-700' },
+  polity: { id: 'polity', name: 'Political Science', icon: 'gov', color: 'bg-white text-slate-700' },
+  economics: { id: 'economics', name: 'Economics', icon: 'social', color: 'bg-white text-slate-700' },
+  business: { id: 'business', name: 'Business Studies', icon: 'business', color: 'bg-white text-slate-700' },
+  accounts: { id: 'accounts', name: 'Accountancy', icon: 'accounts', color: 'bg-white text-slate-700' },
 
-  lucent: { id: 'lucent', name: 'Lucent Book', icon: 'book', color: 'bg-indigo-50 text-indigo-600' },
-  speedyScience: { id: 'speedyScience', name: 'Speedy Science', icon: 'science', color: 'bg-blue-50 text-blue-600' },
-  speedySocialScience: { id: 'speedySocialScience', name: 'Speedy Social Science', icon: 'social', color: 'bg-orange-50 text-orange-600' },
-  sarSangrah: { id: 'sarSangrah', name: 'Sar Sangrah', icon: 'history', color: 'bg-rose-50 text-rose-600' },
-  mcq: { id: 'mcq', name: 'MCQ Practice', icon: 'mcq', color: 'bg-green-50 text-green-600' },
-  science: { id: 'science', name: 'Science', icon: 'science', color: 'bg-blue-50 text-blue-600' },
-  sst: { id: 'sst', name: 'Social Science', icon: 'geo', color: 'bg-orange-50 text-orange-600' }
+  lucent: { id: 'lucent', name: 'Lucent Book', icon: 'book', color: 'bg-white text-slate-700' },
+  speedyScience: { id: 'speedyScience', name: 'Speedy Science', icon: 'science', color: 'bg-white text-slate-700' },
+  speedySocialScience: { id: 'speedySocialScience', name: 'Speedy Social Science', icon: 'social', color: 'bg-white text-slate-700' },
+  sarSangrah: { id: 'sarSangrah', name: 'Sar Sangrah', icon: 'history', color: 'bg-white text-slate-700' },
+  mcq: { id: 'mcq', name: 'MCQ Practice', icon: 'mcq', color: 'bg-white text-slate-700' },
+  science: { id: 'science', name: 'Science', icon: 'science', color: 'bg-white text-slate-700' },
+  sst: { id: 'sst', name: 'Social Science', icon: 'geo', color: 'bg-white text-slate-700' }
 };
 
 export const getSubjectsList = (classLevel: string, stream: string | null, board?: string): Subject[] => {
@@ -146,7 +146,7 @@ export const getSubjectsList = (classLevel: string, stream: string | null, board
           const customBooks: Array<{ id: string; name: string }> = Array.isArray(settingsObj?.customBooks)
               ? settingsObj.customBooks
               : [];
-          const palette = ['bg-fuchsia-50 text-fuchsia-600', 'bg-emerald-50 text-emerald-600', 'bg-sky-50 text-sky-600', 'bg-yellow-50 text-yellow-600', 'bg-violet-50 text-violet-600'];
+          const palette = ['bg-white text-slate-700', 'bg-white text-slate-700', 'bg-white text-slate-700', 'bg-white text-slate-700', 'bg-white text-slate-700'];
           customBooks.forEach((b, i) => {
               if (b && b.id && b.name) {
                   selectedSubjects.push({
