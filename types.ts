@@ -676,6 +676,7 @@ export interface SystemSettings {
   ultraThemeColor?: string;
   basicThemeColor?: string;
   freeThemeColor?: string;
+  adminActiveTheme?: { id: string; name: string; color: string; expiresAt?: string };
   levelScoreOverride?: Record<string, number>;
   isGlobalFreeMode?: boolean; // NEW: Global Free Mode
   watermarkOpacity?: number; // 0.0 to 1.0

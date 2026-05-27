@@ -30,7 +30,7 @@ export const TIER_THEME = {
     navBorder:     'rgba(200,160,32,0.22)',
     navRing:       'rgba(200,160,32,0.24)',
     pillGrad:      'linear-gradient(90deg,#7a5c10,#c8a020,#e6c84a)',
-    topBarGrad:    'linear-gradient(135deg,#050026 0%,#050026 50%,#050026 100%)',
+    topBarGrad:    'linear-gradient(135deg,#0d0540 0%,#120660 50%,#0d0540 100%)',
     btnGrad:       'linear-gradient(135deg,#7a5c10,#c8a020)',
     shadowColor:   'rgba(200,160,32,0.32)',
     profileBg:     '#07051a',
@@ -94,22 +94,30 @@ export const buildOverrideTierTheme = (
   const r = parseInt(hex.substring(0, 2), 16);
   const g = parseInt(hex.substring(2, 4), 16);
   const b = parseInt(hex.substring(4, 6), 16);
-  const rd = Math.max(0, r - 20);
-  const gd = Math.max(0, g - 20);
-  const bd = Math.max(0, b - 20);
+  const rD = Math.round(r * 0.12), gD = Math.round(g * 0.12), bD = Math.round(b * 0.12);
+  const rM = Math.round(r * 0.20), gM = Math.round(g * 0.20), bM = Math.round(b * 0.20);
+  const rBg = Math.max(Math.round(r * 0.07), 3);
+  const gBg = Math.max(Math.round(g * 0.07), 3);
+  const bBg = Math.max(Math.round(b * 0.07), 3);
+  const rCBg = Math.max(Math.round(r * 0.13), 5);
+  const gCBg = Math.max(Math.round(g * 0.13), 5);
+  const bCBg = Math.max(Math.round(b * 0.13), 5);
   return {
     ...base,
-    primary:     hexColor,
-    mid:         hexColor,
-    border:      `rgba(${r},${g},${b},0.70)`,
-    borderSoft:  `rgba(${r},${g},${b},0.28)`,
-    text:        hexColor,
-    navGlow:     `rgba(${r},${g},${b},0.16)`,
-    navBorder:   `rgba(${r},${g},${b},0.22)`,
-    navRing:     `rgba(${r},${g},${b},0.24)`,
-    pillGrad:    `linear-gradient(90deg,${hexColor}bb,${hexColor},${hexColor}dd)`,
-    btnGrad:     `linear-gradient(135deg,${hexColor}cc,${hexColor})`,
-    shadowColor: `rgba(${r},${g},${b},0.32)`,
+    primary:      hexColor,
+    mid:          hexColor,
+    border:       `rgba(${r},${g},${b},0.70)`,
+    borderSoft:   `rgba(${r},${g},${b},0.28)`,
+    text:         hexColor,
+    navGlow:      `rgba(${r},${g},${b},0.16)`,
+    navBorder:    `rgba(${r},${g},${b},0.22)`,
+    navRing:      `rgba(${r},${g},${b},0.24)`,
+    pillGrad:     `linear-gradient(90deg,${hexColor}bb,${hexColor},${hexColor}dd)`,
+    btnGrad:      `linear-gradient(135deg,${hexColor}cc,${hexColor})`,
+    shadowColor:  `rgba(${r},${g},${b},0.32)`,
+    topBarGrad:   `linear-gradient(135deg,rgb(${rD},${gD},${bD}) 0%,rgb(${rM},${gM},${bM}) 50%,rgb(${rD},${gD},${bD}) 100%)`,
+    profileBg:    `rgb(${rBg},${gBg},${bBg})`,
+    profileCardBg:`rgb(${rCBg},${gCBg},${bCBg})`,
   };
 };
 
@@ -126,21 +134,52 @@ export const buildSubColorsFromHex = (hexColor: string) => {
   };
 };
 
+// Named theme presets for admin
+export const ADMIN_NAMED_THEMES = [
+  { id: 'GOLD',    name: 'Gold',       color: '#c8a020', emoji: '⚡' },
+  { id: 'ROYAL',   name: 'Royal Blue', color: '#2563eb', emoji: '👑' },
+  { id: 'NAVY',    name: 'Navy',       color: '#1e3a8a', emoji: '💙' },
+  { id: 'EMERALD', name: 'Emerald',    color: '#059669', emoji: '💚' },
+  { id: 'RUBY',    name: 'Ruby',       color: '#e11d48', emoji: '❤️' },
+  { id: 'VIOLET',  name: 'Violet',     color: '#7c3aed', emoji: '💜' },
+  { id: 'ORANGE',  name: 'Sunset',     color: '#f97316', emoji: '🔥' },
+  { id: 'CYAN',    name: 'Cyan',       color: '#0891b2', emoji: '🌊' },
+  { id: 'PINK',    name: 'Pink',       color: '#db2777', emoji: '🌸' },
+  { id: 'LIME',    name: 'Lime',       color: '#65a30d', emoji: '🍀' },
+  { id: 'SILVER',  name: 'Silver',     color: '#64748b', emoji: '⚪' },
+  { id: 'MAROON',  name: 'Maroon',     color: '#9f1239', emoji: '🍷' },
+] as const;
+
 // Get the effective theme override color:
 //   1. user.tempThemeColor (if not expired) — personal redeem code color
-//   2. Tier-specific color from settings (ultraThemeColor / basicThemeColor / freeThemeColor)
-//   3. settingsThemeColor — admin global color (applied to all tiers)
-//   4. null — use default tierTheme
+//   2. adminActiveTheme.color (if not expired) — admin temporary global theme
+//   3. Tier-specific color from settings (ultraThemeColor / basicThemeColor / freeThemeColor)
+//   4. settingsThemeColor — admin global color (applied to all tiers)
+//   5. null — use default tierTheme
 export const getEffectiveOverrideColor = (
   user: Pick<User, 'tempThemeColor' | 'tempThemeColorExpiry' | 'isPremium' | 'subscriptionLevel' | 'subscriptionEndDate'>,
   settingsThemeColor?: string,
-  tierSettings?: { ultraThemeColor?: string; basicThemeColor?: string; freeThemeColor?: string } | null
+  tierSettings?: {
+    ultraThemeColor?: string;
+    basicThemeColor?: string;
+    freeThemeColor?: string;
+    adminActiveTheme?: { id: string; name: string; color: string; expiresAt?: string };
+  } | null
 ): string | null => {
+  // 1. Personal redeem theme (highest priority)
   if (user.tempThemeColor && user.tempThemeColorExpiry) {
     if (new Date(user.tempThemeColorExpiry) > new Date()) {
       return user.tempThemeColor;
     }
   }
+  // 2. Admin temporary global theme (with expiry check)
+  if (tierSettings?.adminActiveTheme?.color) {
+    const theme = tierSettings.adminActiveTheme;
+    if (!theme.expiresAt || new Date(theme.expiresAt) > new Date()) {
+      return theme.color;
+    }
+  }
+  // 3. Tier-specific permanent color
   if (tierSettings) {
     const tier = getUserTier(user);
     const tierColor =
@@ -149,6 +188,7 @@ export const getEffectiveOverrideColor = (
       tierSettings.freeThemeColor;
     if (tierColor) return tierColor;
   }
+  // 4. Global admin color
   if (settingsThemeColor) return settingsThemeColor;
   return null;
 };

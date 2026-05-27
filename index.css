@@ -2412,3 +2412,17 @@ model-viewer {
   outline-color: var(--tier-primary) !important;
   border-color: var(--tier-border) !important;
 }
+
+/* ── White Profile Mode ── */
+[data-pw="1"] .text-white { color: #1e293b !important; }
+[data-pw="1"] [class*="text-white/"] { color: #64748b !important; }
+[data-pw="1"] .hover\:bg-white\/5:hover { background-color: rgba(0,0,0,0.05) !important; }
+[data-pw="1"] .hover\:bg-white\/8:hover { background-color: rgba(0,0,0,0.08) !important; }
+[data-pw="1"] .active\:bg-white\/8:active { background-color: rgba(0,0,0,0.08) !important; }
+[data-pw="1"] .active\:bg-white\/12:active { background-color: rgba(0,0,0,0.12) !important; }
+[data-pw="1"] .text-red-400 { color: #dc2626 !important; }
+[data-pw="1"] .text-red-800 { color: #b91c1c !important; }
+[data-pw="1"] .text-emerald-400 { color: #059669 !important; }
+[data-pw="1"] .text-blue-400 { color: #2563eb !important; }
+[data-pw="1"] .text-violet-400 { color: #7c3aed !important; }
+[data-pw="1"] .text-amber-400 { color: #d97706 !important; }

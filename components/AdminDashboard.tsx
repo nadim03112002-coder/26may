@@ -12817,6 +12817,133 @@ Statement 2"
                   </div>
               </div>
 
+              {/* NAMED THEME PRESETS WITH EXPIRY */}
+              {(() => {
+                const NAMED_THEMES = [
+                  { id: 'GOLD',    name: 'Gold',       color: '#c8a020', emoji: '⚡' },
+                  { id: 'ROYAL',   name: 'Royal Blue', color: '#2563eb', emoji: '👑' },
+                  { id: 'NAVY',    name: 'Navy',       color: '#1e3a8a', emoji: '💙' },
+                  { id: 'EMERALD', name: 'Emerald',    color: '#059669', emoji: '💚' },
+                  { id: 'RUBY',    name: 'Ruby',       color: '#e11d48', emoji: '❤️' },
+                  { id: 'VIOLET',  name: 'Violet',     color: '#7c3aed', emoji: '💜' },
+                  { id: 'ORANGE',  name: 'Sunset',     color: '#f97316', emoji: '🔥' },
+                  { id: 'CYAN',    name: 'Cyan',       color: '#0891b2', emoji: '🌊' },
+                  { id: 'PINK',    name: 'Pink',       color: '#db2777', emoji: '🌸' },
+                  { id: 'LIME',    name: 'Lime',       color: '#65a30d', emoji: '🍀' },
+                  { id: 'SILVER',  name: 'Silver',     color: '#64748b', emoji: '⚪' },
+                  { id: 'MAROON',  name: 'Maroon',     color: '#9f1239', emoji: '🍷' },
+                ];
+                const active = localSettings.adminActiveTheme;
+                const isExpired = active?.expiresAt ? new Date(active.expiresAt) <= new Date() : false;
+                const getRemainingText = () => {
+                  if (!active?.expiresAt) return null;
+                  const diff = new Date(active.expiresAt).getTime() - Date.now();
+                  if (diff <= 0) return '❌ Expired';
+                  const d = Math.floor(diff / 86400000);
+                  const h = Math.floor((diff % 86400000) / 3600000);
+                  const m = Math.floor((diff % 3600000) / 60000);
+                  return `⏳ ${d > 0 ? d + 'd ' : ''}${h}h ${m}m baaki`;
+                };
+                const setTheme = (t: { id: string; name: string; color: string }) =>
+                  setLocalSettings({ ...localSettings, adminActiveTheme: { id: t.id, name: t.name, color: t.color, expiresAt: active?.expiresAt } });
+                const setExpiry = (iso?: string) => {
+                  if (!active) return;
+                  setLocalSettings({ ...localSettings, adminActiveTheme: { ...active, expiresAt: iso } });
+                };
+                return (
+                  <div className="bg-gradient-to-br from-amber-50 to-rose-50 p-6 rounded-3xl border border-amber-200 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-bold text-amber-900 flex items-center gap-2 text-lg">
+                        <Palette size={20} /> Global Named Theme
+                      </h4>
+                      {active && (
+                        <button onClick={() => setLocalSettings({ ...localSettings, adminActiveTheme: undefined })}
+                          className="text-xs font-bold text-red-500 hover:text-red-700 bg-red-50 px-3 py-1 rounded-full border border-red-200">
+                          ✕ Theme Hatao
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-xs text-amber-700">Ek naam se theme select karo — <strong>har jagah ka color badal jayega</strong> (top bar, profile, nav, cards, buttons). Expiry set karo to waqt ke baad sab normal ho jayega.</p>
+
+                    {/* Active Status */}
+                    {active && (
+                      <div className={`p-3 rounded-xl border flex items-center gap-3 ${isExpired ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
+                        <div className="w-8 h-8 rounded-full shrink-0 shadow-md" style={{ background: active.color }} />
+                        <div className="flex-1 min-w-0">
+                          <p className={`font-bold text-sm ${isExpired ? 'text-red-700' : 'text-green-800'}`}>
+                            {isExpired ? '❌ Expired:' : '✅ Active:'} {active.name} Theme
+                          </p>
+                          <p className={`text-xs ${isExpired ? 'text-red-500' : 'text-green-600'}`}>
+                            {getRemainingText() || '♾️ No expiry set (permanent jab tak hatao)'}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Theme Grid */}
+                    <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                      {NAMED_THEMES.map(t => {
+                        const isActive = active?.id === t.id && !isExpired;
+                        return (
+                          <button key={t.id} onClick={() => setTheme(t)}
+                            className="p-2 rounded-xl border-2 transition-all text-center"
+                            style={{ borderColor: isActive ? t.color : '#e2e8f0', background: isActive ? `${t.color}18` : 'white', transform: isActive ? 'scale(1.06)' : 'scale(1)' }}>
+                            <div className="w-8 h-8 rounded-full mx-auto mb-1 shadow" style={{ background: t.color }} />
+                            <p className="text-[9px] font-bold text-slate-600 leading-tight">{t.emoji}</p>
+                            <p className="text-[9px] font-bold text-slate-700 leading-tight truncate">{t.name}</p>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Custom Color */}
+                    <div className="bg-white p-3 rounded-xl border border-amber-100">
+                      <label className="text-[10px] font-bold text-slate-600 uppercase mb-2 block">🎨 Custom Color</label>
+                      <div className="flex items-center gap-2">
+                        <input type="color"
+                          value={active?.id === 'CUSTOM' ? active.color : '#6366f1'}
+                          onChange={e => setLocalSettings({ ...localSettings, adminActiveTheme: { id: 'CUSTOM', name: 'Custom', color: e.target.value, expiresAt: active?.expiresAt } })}
+                          className="w-10 h-10 rounded-lg cursor-pointer border-none" />
+                        <input type="text"
+                          value={active?.id === 'CUSTOM' ? active.color : '#6366f1'}
+                          onChange={e => setLocalSettings({ ...localSettings, adminActiveTheme: { id: 'CUSTOM', name: 'Custom', color: e.target.value, expiresAt: active?.expiresAt } })}
+                          className="flex-1 p-2 border rounded-lg text-sm font-mono uppercase" />
+                        <button onClick={() => setLocalSettings({ ...localSettings, adminActiveTheme: { id: 'CUSTOM', name: 'Custom', color: active?.color || '#6366f1', expiresAt: active?.expiresAt } })}
+                          className={`px-3 py-2 rounded-lg text-xs font-bold ${active?.id === 'CUSTOM' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                          Apply
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Expiry Picker */}
+                    <div className="bg-white p-4 rounded-xl border border-amber-100 space-y-3">
+                      <label className="text-[10px] font-bold text-orange-700 uppercase block">⏰ Theme Expiry (Optional)</label>
+                      <div className="flex gap-2 flex-wrap">
+                        {[1, 6, 12, 24, 48, 168].map(h => (
+                          <button key={h} onClick={() => setExpiry(new Date(Date.now() + h * 3600000).toISOString())}
+                            disabled={!active}
+                            className="text-[10px] px-3 py-1.5 bg-orange-100 text-orange-700 rounded-full font-bold hover:bg-orange-200 disabled:opacity-40 disabled:cursor-not-allowed">
+                            {h < 24 ? `${h}h` : `${h / 24}d`}
+                          </button>
+                        ))}
+                        {active?.expiresAt && (
+                          <button onClick={() => setExpiry(undefined)}
+                            className="text-[10px] px-3 py-1.5 bg-red-100 text-red-600 rounded-full font-bold hover:bg-red-200">
+                            No Expiry
+                          </button>
+                        )}
+                      </div>
+                      <input type="datetime-local"
+                        value={active?.expiresAt ? new Date(active.expiresAt).toISOString().slice(0, 16) : ''}
+                        onChange={e => setExpiry(e.target.value ? new Date(e.target.value).toISOString() : undefined)}
+                        disabled={!active}
+                        className="w-full p-2 border rounded-lg text-sm disabled:opacity-40" />
+                      {!active && <p className="text-[10px] text-slate-500">Pehle upar se koi theme select karo.</p>}
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* PER-TIER THEME COLORS */}
               <div className="bg-gradient-to-br from-violet-50 to-pink-50 p-6 rounded-3xl border border-violet-100 space-y-4">
                   <h4 className="font-bold text-violet-900 flex items-center gap-2 text-lg"><Palette size={20} /> Tier-wise Theme Colors</h4>
