@@ -271,10 +271,10 @@ export const FlashcardMcqView: React.FC<Props> = ({
 
   // Tier-based background gradient
   const tierBg = userTier === 'ULTRA'
-    ? 'from-violet-800 via-purple-900 to-fuchsia-950'
+    ? 'from-blue-950 via-slate-900 to-blue-950'
     : userTier === 'BASIC'
-      ? 'from-sky-800 via-blue-900 to-indigo-950'
-      : 'from-slate-700 via-slate-800 to-slate-950';
+      ? 'from-blue-700 via-blue-800 to-blue-900'
+      : 'from-sky-400 via-sky-500 to-cyan-500';
 
   if (limitReached) {
     const canPay = !!(user?.subscriptionLevel && (user.credits ?? 0) >= CREDIT_COST);

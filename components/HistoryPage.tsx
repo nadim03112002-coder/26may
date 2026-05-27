@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { LessonContent, User, SystemSettings, UsageHistoryEntry } from '../types';
 import { BookOpen, Calendar, ChevronDown, ChevronUp, Trash2, Search, FileText, CheckCircle2, Lock, AlertCircle, Folder, Download, ChevronRight, Play, X as XIcon, Star, Volume2, Square, Target, Sparkles } from 'lucide-react';
 import { getMistakeBank, removeMistakes, clearMistakeBank, MistakeEntry } from '../utils/mistakeBank';
+import { getMistakeSessions, MistakeSession } from '../utils/mistakeAnalytics';
 import { MistakePracticeView } from './MistakePracticeView';
 import { speakText, stopSpeech } from '../utils/textToSpeech';
 import { LessonView } from './LessonView';
@@ -53,8 +54,10 @@ export const HistoryPage: React.FC<Props> = ({ user, onUpdateUser, settings, ini
   const [mistakeSearch, setMistakeSearch] = useState('');
   const [showPractice, setShowPractice] = useState(false);
   const [expandedMistakeId, setExpandedMistakeId] = useState<string | null>(null);
+  const [mistakeSessions, setMistakeSessions] = useState<MistakeSession[]>([]);
   const refreshMistakes = useCallback(() => {
     getMistakeBank().then(setMistakes).catch(() => setMistakes([]));
+    setMistakeSessions(getMistakeSessions());
   }, []);
   useEffect(() => {
     if (activeTab === 'MISTAKE') refreshMistakes();
@@ -823,6 +826,184 @@ export const HistoryPage: React.FC<Props> = ({ user, onUpdateUser, settings, ini
                       </div>
                     )}
                 </div>
+
+                {/* ── MEMORY ANALYTICS ── */}
+                {mistakes.length > 0 && (() => {
+                  const now = Date.now();
+                  const sevenDaysAgo = now - 7 * 86400_000;
+
+                  // Difficulty counts
+                  const easy   = mistakes.filter(m => (m.attempts||1) === 1).length;
+                  const medium = mistakes.filter(m => (m.attempts||1) >= 2 && (m.attempts||1) <= 3).length;
+                  const hard   = mistakes.filter(m => (m.attempts||1) >= 4 && (m.attempts||1) <= 6).length;
+                  const king   = mistakes.filter(m => (m.attempts||1) >= 7).length;
+
+                  // Subject breakdown (top 5)
+                  const subjectMap: Record<string, number> = {};
+                  mistakes.forEach(m => {
+                    const s = m.subjectName || 'Other';
+                    subjectMap[s] = (subjectMap[s] || 0) + 1;
+                  });
+                  const topSubjects = Object.entries(subjectMap)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 5);
+                  const maxSubjectCount = topSubjects[0]?.[1] || 1;
+
+                  // New this week
+                  const newThisWeek = mistakes.filter(m => m.addedAt > sevenDaysAgo).length;
+
+                  // Total attempts across all mistakes
+                  const totalAttempts = mistakes.reduce((s, m) => s + (m.attempts || 1), 0);
+
+                  // Hardest questions (top 3 by attempts)
+                  const hardest = [...mistakes].sort((a, b) => (b.attempts||1) - (a.attempts||1)).slice(0, 3);
+
+                  // Session history (last 7)
+                  const recentSessions = mistakeSessions.slice(0, 7).reverse();
+                  const maxSessionTotal = Math.max(...recentSessions.map(s => s.total), 1);
+
+                  return (
+                    <div className="mb-5 space-y-3">
+
+                      {/* Stats row */}
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-3 text-center">
+                          <div className="text-xl font-black text-rose-600">{mistakes.length}</div>
+                          <div className="text-[9px] font-bold text-slate-500 uppercase mt-0.5">Total Mistakes</div>
+                        </div>
+                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-3 text-center">
+                          <div className="text-xl font-black text-amber-600">{totalAttempts}</div>
+                          <div className="text-[9px] font-bold text-slate-500 uppercase mt-0.5">Total Attempts</div>
+                        </div>
+                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-3 text-center">
+                          <div className="text-xl font-black text-indigo-600">{newThisWeek}</div>
+                          <div className="text-[9px] font-bold text-slate-500 uppercase mt-0.5">New This Week</div>
+                        </div>
+                      </div>
+
+                      {/* Difficulty breakdown */}
+                      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
+                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-3">Difficulty Breakdown</p>
+                        <div className="grid grid-cols-4 gap-2">
+                          {[
+                            { label: 'Easy', count: easy, color: 'bg-emerald-500', text: 'text-emerald-700', bg: 'bg-emerald-50' },
+                            { label: 'Medium', count: medium, color: 'bg-amber-500', text: 'text-amber-700', bg: 'bg-amber-50' },
+                            { label: 'Hard', count: hard, color: 'bg-red-500', text: 'text-red-700', bg: 'bg-red-50' },
+                            { label: '👑 King', count: king, color: 'bg-yellow-500', text: 'text-yellow-700', bg: 'bg-yellow-50' },
+                          ].map(d => (
+                            <div key={d.label} className={`${d.bg} rounded-xl p-2.5 text-center`}>
+                              <div className={`text-lg font-black ${d.text}`}>{d.count}</div>
+                              <div className={`text-[9px] font-bold ${d.text} opacity-80 mt-0.5`}>{d.label}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Subject breakdown */}
+                      {topSubjects.length > 0 && (
+                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
+                          <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-3">Subject Breakdown</p>
+                          <div className="space-y-2">
+                            {topSubjects.map(([subject, count]) => (
+                              <div key={subject} className="flex items-center gap-2">
+                                <span className="text-xs text-slate-700 font-semibold w-28 truncate shrink-0">{subject}</span>
+                                <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                                  <div
+                                    className="h-full bg-gradient-to-r from-rose-400 to-orange-400 rounded-full transition-all duration-500"
+                                    style={{ width: `${(count / maxSubjectCount) * 100}%` }}
+                                  />
+                                </div>
+                                <span className="text-[11px] font-black text-rose-600 w-5 text-right shrink-0">{count}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Practice session history */}
+                      {recentSessions.length > 0 && (
+                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
+                          <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-3">
+                            Practice History <span className="normal-case font-normal">(last {recentSessions.length} sessions)</span>
+                          </p>
+                          <div className="flex items-end gap-1.5 h-14">
+                            {recentSessions.map((s, i) => {
+                              const pct = s.total > 0 ? Math.round((s.correct / s.total) * 100) : 0;
+                              const barH = Math.max(8, (s.total / maxSessionTotal) * 48);
+                              const isLast = i === recentSessions.length - 1;
+                              return (
+                                <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                                  <span className={`text-[8px] font-black ${pct >= 70 ? 'text-emerald-600' : pct >= 40 ? 'text-amber-600' : 'text-rose-600'}`}>
+                                    {pct}%
+                                  </span>
+                                  <div
+                                    className={`w-full rounded-t-lg transition-all duration-500 ${
+                                      pct >= 70 ? 'bg-emerald-400' : pct >= 40 ? 'bg-amber-400' : 'bg-rose-400'
+                                    } ${isLast ? 'ring-2 ring-offset-1 ring-indigo-400' : ''}`}
+                                    style={{ height: `${barH}px` }}
+                                    title={`${s.correct}/${s.total} correct`}
+                                  />
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <div className="flex justify-between mt-1">
+                            <span className="text-[8px] text-slate-400">Oldest</span>
+                            <span className="text-[8px] text-indigo-500 font-bold">Latest ↑</span>
+                          </div>
+                          {/* Overall session stats */}
+                          {mistakeSessions.length > 0 && (() => {
+                            const allSessions = mistakeSessions;
+                            const totalCorrect = allSessions.reduce((s, x) => s + x.correct, 0);
+                            const totalQ = allSessions.reduce((s, x) => s + x.total, 0);
+                            const overallAcc = totalQ > 0 ? Math.round((totalCorrect / totalQ) * 100) : 0;
+                            const bestStreak = Math.max(...allSessions.map(s => s.maxStreak), 0);
+                            return (
+                              <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-slate-100">
+                                <div className="text-center">
+                                  <div className="text-sm font-black text-slate-800">{allSessions.length}</div>
+                                  <div className="text-[8px] font-bold text-slate-500 uppercase">Sessions</div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="text-sm font-black text-indigo-600">{overallAcc}%</div>
+                                  <div className="text-[8px] font-bold text-slate-500 uppercase">Accuracy</div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="text-sm font-black text-orange-500">🔥 {bestStreak}</div>
+                                  <div className="text-[8px] font-bold text-slate-500 uppercase">Best Streak</div>
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      )}
+
+                      {/* Hardest questions */}
+                      {hardest.length > 0 && hardest[0].attempts > 1 && (
+                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
+                          <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-3">Most Stubborn Questions 🔁</p>
+                          <div className="space-y-2">
+                            {hardest.map((m, i) => (
+                              <div key={m.id} className="flex items-start gap-2.5">
+                                <div className={`shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black text-white ${
+                                  i === 0 ? 'bg-red-500' : i === 1 ? 'bg-orange-500' : 'bg-amber-500'
+                                }`}>{i + 1}</div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs text-slate-700 leading-snug line-clamp-2">{m.question}</p>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <span className="text-[9px] font-bold text-red-600 bg-red-50 rounded-full px-1.5 py-0.5">×{m.attempts} attempts</span>
+                                    {m.subjectName && <span className="text-[9px] font-bold text-slate-500 bg-slate-100 rounded-full px-1.5 py-0.5">{m.subjectName}</span>}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                    </div>
+                  );
+                })()}
 
                 {mistakes.length > 0 && (
                   <div className="relative mb-4">
