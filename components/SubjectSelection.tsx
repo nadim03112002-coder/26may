@@ -102,18 +102,20 @@ export const SubjectSelection: React.FC<Props> = ({
   };
   const iconColor = iconColorMap[tier];
 
+  const tierHeaderColor = tier === 'ultra' ? '#1e3a8a' : tier === 'basic' ? '#1d4ed8' : '#0369a1';
+
   return (
     <div className="animate-in fade-in slide-in-from-right-8 duration-500 mt-0 pt-0">
       {!hideBack && (
         <div className="flex items-center mb-6">
-          <button onClick={onBack} className="text-slate-600 hover:text-slate-800 transition-colors mr-4">
+          <button onClick={onBack} style={{ color: tierHeaderColor }} className="hover:opacity-70 transition-opacity mr-4 font-bold text-sm">
             &larr; Back
           </button>
           <div>
-            <h2 className="text-2xl font-bold text-slate-800">
+            <h2 className="text-2xl font-bold" style={{ color: tierHeaderColor }}>
               {stream ? `${stream} Subjects` : `Class ${classLevel} Subjects`}
             </h2>
-            <p className="text-slate-600 text-sm">Select a subject to view chapters</p>
+            <p className="text-sm mt-0.5" style={{ color: `${tierHeaderColor}99` }}>Select a subject to view chapters</p>
           </div>
         </div>
       )}
