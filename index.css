@@ -4,6 +4,25 @@
     display: none !important;
 }
 
+/* App Guide shimmer effect for open sections — tier-colored, right→left */
+@keyframes guideShimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.guide-section-shimmer {
+  background: linear-gradient(90deg,
+    transparent 0%,
+    transparent 25%,
+    var(--gs-mid, rgba(255,255,255,0.20)) 42%,
+    var(--gs-peak, rgba(255,255,255,0.38)) 50%,
+    var(--gs-mid, rgba(255,255,255,0.20)) 58%,
+    transparent 75%,
+    transparent 100%
+  ) !important;
+  background-size: 200% 100% !important;
+  animation: guideShimmer 1.6s linear infinite !important;
+}
+
 /* Offline banner scrolling marquee */
 @keyframes offlineMarquee {
   0%   { transform: translateX(0); }
