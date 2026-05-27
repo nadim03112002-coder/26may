@@ -97,11 +97,14 @@ interface Props {
   freeLimit?: number;
   onClose: () => void;
   isFocusMode?: boolean;
+  topBarGrad?: string;
+  profileBg?: string;
+  profileCardBg?: string;
 }
 
-export const FullBookCompare: React.FC<Props> = ({ settings, user, isLimited = false, freeLimit = 4, onClose, isFocusMode = false }) => {
+export const FullBookCompare: React.FC<Props> = ({ settings, user, isLimited = false, freeLimit = 4, onClose, isFocusMode = false, topBarGrad, profileBg, profileCardBg }) => {
   const isAdmin = !!(user?.isAdmin);
-  // Effective color: admin settings.themeColor > subscription tier
+  // Effective color: parent tierTheme > admin settings.themeColor > subscription tier
   const _overrideColor = (settings as any)?.themeColor as string | undefined;
   const _baseSubColor = (user?.subscriptionLevel === 'ULTRA' && user?.isPremium) ? '#1d4ed8'
     : (user?.subscriptionLevel === 'BASIC' && user?.isPremium) ? '#2563eb'
@@ -510,10 +513,10 @@ export const FullBookCompare: React.FC<Props> = ({ settings, user, isLimited = f
   };
 
   return (
-    <div className="fixed inset-0 z-[250] bg-white flex flex-col overflow-hidden animate-in fade-in">
+    <div className="fixed inset-0 z-[250] flex flex-col overflow-hidden animate-in fade-in" style={{ background: profileBg || '#050d1e' }}>
       {/* Header — hidden in focus mode */}
       {!isFocusMode && (
-        <div className="text-white px-4 py-3 flex items-center gap-3 shrink-0 shadow-xl" style={{ background: getCompareTierGrad(user) }}>
+        <div className="text-white px-4 py-3 flex items-center gap-3 shrink-0 shadow-xl" style={{ background: topBarGrad || getCompareTierGrad(user) }}>
           <div className="p-2 rounded-xl bg-white/10">
             <Crown size={18} className="text-yellow-400" />
           </div>

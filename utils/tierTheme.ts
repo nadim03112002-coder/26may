@@ -150,6 +150,49 @@ export const ADMIN_NAMED_THEMES = [
   { id: 'MAROON',  name: 'Maroon',     color: '#9f1239', emoji: '🍷' },
 ] as const;
 
+// Build a FULL tier-theme object from granular personalTheme colors.
+// This ensures the new theme COMPLETELY replaces the old one — no layering.
+export const buildGranularTierTheme = (
+  base: typeof TIER_THEME[UserTier],
+  t: {
+    bgColor?: string; topBarStart?: string; topBarEnd?: string;
+    navBg?: string; navBorder?: string; navActive?: string;
+    cardBg?: string; cardColor?: string; cardBorder?: string;
+    btnStart?: string; btnEnd?: string; accentColor?: string;
+    textColor?: string; textSecondary?: string;
+    accentGlow?: string; progressColor?: string;
+  }
+): typeof TIER_THEME[UserTier] => {
+  const accent = t.btnStart || t.accentColor || base.primary;
+  const hex = accent.replace('#', '').padEnd(6, '0');
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+  const topBarGrad = (t.topBarStart && t.topBarEnd)
+    ? `linear-gradient(135deg,${t.topBarStart},${t.topBarEnd})`
+    : `linear-gradient(135deg,rgb(${Math.round(r*0.12)},${Math.round(g*0.12)},${Math.round(b*0.12)}) 0%,rgb(${Math.round(r*0.20)},${Math.round(g*0.20)},${Math.round(b*0.20)}) 50%,rgb(${Math.round(r*0.12)},${Math.round(g*0.12)},${Math.round(b*0.12)}) 100%)`;
+  const btnGrad = (t.btnStart && t.btnEnd)
+    ? `linear-gradient(135deg,${t.btnStart},${t.btnEnd})`
+    : `linear-gradient(135deg,${accent}cc,${accent})`;
+  return {
+    ...base,
+    primary:       accent,
+    mid:           t.accentGlow || accent,
+    border:        `rgba(${r},${g},${b},0.70)`,
+    borderSoft:    `rgba(${r},${g},${b},0.28)`,
+    text:          accent,
+    navGlow:       `rgba(${r},${g},${b},0.16)`,
+    navBorder:     t.navBorder  ? `1px solid ${t.navBorder}` : `rgba(${r},${g},${b},0.22)`,
+    navRing:       `rgba(${r},${g},${b},0.24)`,
+    pillGrad:      `linear-gradient(90deg,${accent}bb,${accent},${accent}dd)`,
+    btnGrad,
+    shadowColor:   `rgba(${r},${g},${b},0.32)`,
+    topBarGrad,
+    profileBg:     t.bgColor    || base.profileBg,
+    profileCardBg: t.cardBg     || t.cardColor || base.profileCardBg,
+  };
+};
+
 // Get the effective theme override color:
 //   1. user.tempThemeColor (if not expired) — personal redeem code color
 //   2. adminActiveTheme.color (if not expired) — admin temporary global theme

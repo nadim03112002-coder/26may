@@ -189,7 +189,7 @@ import { UniversalInfoPage } from "./UniversalInfoPage";
 import { UniversalChat } from "./UniversalChat";
 import { ExpiryPopup } from "./ExpiryPopup";
 import { SubscriptionHistory } from "./SubscriptionHistory";
-import { getTierTheme, buildOverrideTierTheme, getEffectiveOverrideColor } from '../utils/tierTheme';
+import { getTierTheme, buildOverrideTierTheme, buildGranularTierTheme, getEffectiveOverrideColor, getUserTier } from '../utils/tierTheme';
 import { SearchResult } from "../utils/syllabusSearch";
 import { RevisionHub } from "./RevisionHub"; // NEW
 import { AiHub } from "./AiHub"; // NEW: AI Hub
@@ -535,11 +535,40 @@ export const StudentDashboard: React.FC<Props> = ({
   }, [user?.id]);
 
   // ── Tier Theme (Ultra=navy · Basic=blue · Free=sky) ─────────────────────
-  // Priority: user.tempThemeColor (active redeem) > tier-specific (admin) > global > default tier
+  // Priority:
+  //   1. personalTheme (granular, permanent — set by user themselves)  → FULLY replaces
+  //   2. customTheme with activeThemeAppliedUntil (24h, not expired) → FULLY replaces
+  //   3. adminAppliedTheme (global broadcast by admin, tier/level filtered, timed)
+  //   4. tempThemeColor (redeem code single-color, not expired)
+  //   5. admin tier/global color override
+  //   6. default tierTheme
+  const _personalTheme = (user as any).personalTheme as import('../types').UserCustomTheme | undefined;
+  const _customThemeRaw = (user as any).customTheme as (import('../types').UserCustomTheme & { activeThemeAppliedUntil?: string }) | undefined;
+  const _customThemeActive = !!(_customThemeRaw && _customThemeRaw.activeThemeAppliedUntil && new Date(_customThemeRaw.activeThemeAppliedUntil) > new Date());
+
+  // Admin global broadcast theme — check expiry + tier + level
+  const _adminGlobal = settings?.adminAppliedTheme;
+  const _adminGlobalActive = (() => {
+    if (!_adminGlobal) return false;
+    if (_adminGlobal.expiresAt && new Date(_adminGlobal.expiresAt) <= new Date()) return false;
+    if (_adminGlobal.targetTier !== 'all' && getUserTier(user) !== _adminGlobal.targetTier) return false;
+    const _lvl = getLevelInfo(user.totalScore || 0).level;
+    if (_adminGlobal.minLevel && _lvl < _adminGlobal.minLevel) return false;
+    if (_adminGlobal.maxLevel && _lvl > _adminGlobal.maxLevel) return false;
+    return true;
+  })();
+
   const _overrideColor = getEffectiveOverrideColor(user, settings?.themeColor, settings);
-  const tierTheme = _overrideColor
-    ? buildOverrideTierTheme(getTierTheme(user), _overrideColor)
-    : getTierTheme(user);
+  const tierTheme =
+    _personalTheme
+      ? buildGranularTierTheme(getTierTheme(user), _personalTheme)
+      : _customThemeActive && _customThemeRaw
+        ? buildGranularTierTheme(getTierTheme(user), _customThemeRaw)
+        : _adminGlobalActive && _adminGlobal
+          ? buildGranularTierTheme(getTierTheme(user), _adminGlobal.theme)
+          : _overrideColor
+            ? buildOverrideTierTheme(getTierTheme(user), _overrideColor)
+            : getTierTheme(user);
 
   // ── HTML Write-Mode Daily Quota (ALL tiers) ──────────────────────────────
   const _subValid      = SubscriptionEngine.isPremium(user); // true only if not expired
@@ -7574,6 +7603,7 @@ export const StudentDashboard: React.FC<Props> = ({
             user={user}
             onUpdateUser={handleUserUpdate}
             onBack={() => onTabChange("PROFILE")}
+            settings={settings}
           />
         </div>
       );
@@ -7814,10 +7844,14 @@ export const StudentDashboard: React.FC<Props> = ({
           })()}
 
           {/* ── THEME STATUS CARD ── */}
+          {/* Admin only: only admin/sub-admin can open Theme Studio */}
           {(() => {
+            const _isAdminUser = user.role === 'ADMIN' || user.role === 'SUB_ADMIN' || isImpersonating;
             const _tTempActive = !!(user.tempThemeColor && user.tempThemeColorExpiry && new Date(user.tempThemeColorExpiry) > new Date());
-            const _tPersonal = !!(user as any).personalThemeColor;
-            const _tActiveColor = _tTempActive ? user.tempThemeColor! : (_tPersonal ? (user as any).personalThemeColor : null);
+            const _tPersonalTheme = (user as any).personalTheme as import('../types').UserCustomTheme | undefined;
+            const _tCustomActive = !!((user as any).customTheme && (user as any).customTheme.activeThemeAppliedUntil && new Date((user as any).customTheme.activeThemeAppliedUntil) > new Date());
+            const _tHasTheme = !!(_tTempActive || _tPersonalTheme || _tCustomActive);
+            const _tDisplayColor = _tTempActive ? user.tempThemeColor! : (_tPersonalTheme?.btnStart || _tPersonalTheme?.accentColor || null);
             const _tNow = Date.now();
             const _tLeft = _tTempActive && user.tempThemeColorExpiry ? (() => {
               const diff = new Date(user.tempThemeColorExpiry!).getTime() - _tNow;
@@ -7827,40 +7861,62 @@ export const StudentDashboard: React.FC<Props> = ({
               const m = Math.floor((diff % 3600000) / 60000);
               return d > 0 ? `${d}d ${h}h baki` : `${h}h ${m}m baki`;
             })() : null;
-            return (
-              <div className="rounded-none mb-2.5" style={{ background: _pCard, border: _pBdrSoft }}>
-                <button
-                  onClick={() => onTabChange('THEME_CUSTOMIZER' as any)}
-                  className={`w-full px-4 py-3.5 flex items-center gap-3 ${_pHovCls} transition-colors`}
-                >
-                  <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 relative overflow-hidden"
-                    style={{ background: _tActiveColor ? `${_tActiveColor}25` : `${tierTheme.primary}18`, border: `1px solid ${_tActiveColor || tierTheme.primary}50` }}>
-                    <span className="text-base">🎨</span>
-                    {_tActiveColor && (
-                      <div className="absolute bottom-0 left-0 right-0 h-1.5 rounded-b" style={{ background: _tActiveColor }} />
-                    )}
-                  </div>
-                  <div className="flex-1 text-left min-w-0">
-                    <p className="text-sm font-bold text-white">Theme Studio</p>
-                    {_tTempActive && _tLeft ? (
-                      <p className="text-[10px] mt-0.5 font-bold" style={{ color: tierTheme.primary }}>
-                        🎁 Redeem Theme · ⏳ {_tLeft}
-                      </p>
-                    ) : _tPersonal ? (
-                      <p className="text-[10px] mt-0.5 font-bold" style={{ color: tierTheme.primary }}>
-                        ✨ Custom Theme Active
-                      </p>
-                    ) : (
-                      <p className="text-[10px] mt-0.5 text-white/40">Default theme · Change karo</p>
-                    )}
-                  </div>
-                  {_tActiveColor && (
-                    <div className="w-5 h-5 rounded-full border-2 border-white/30 shrink-0" style={{ background: _tActiveColor }} />
-                  )}
-                  <ChevronRight size={14} className="text-white/30 shrink-0" />
-                </button>
+            const _tCustomLeft = _tCustomActive && (user as any).customTheme?.activeThemeAppliedUntil ? (() => {
+              const diff = new Date((user as any).customTheme.activeThemeAppliedUntil).getTime() - _tNow;
+              if (diff <= 0) return null;
+              const h = Math.floor(diff / 3600000);
+              const m = Math.floor((diff % 3600000) / 60000);
+              return `${h}h ${m}m baki`;
+            })() : null;
+            const themeCard = (
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 relative overflow-hidden"
+                style={{ background: _tDisplayColor ? `${_tDisplayColor}25` : `${tierTheme.primary}18`, border: `1px solid ${_tDisplayColor || tierTheme.primary}50` }}>
+                <span className="text-base">🎨</span>
+                {_tDisplayColor && (
+                  <div className="absolute bottom-0 left-0 right-0 h-1.5 rounded-b" style={{ background: _tDisplayColor }} />
+                )}
               </div>
             );
+            const themeLabel = _tTempActive && _tLeft ? (
+              <p className="text-[10px] mt-0.5 font-bold" style={{ color: tierTheme.primary }}>🎁 Redeem Theme · ⏳ {_tLeft}</p>
+            ) : _tCustomActive && _tCustomLeft ? (
+              <p className="text-[10px] mt-0.5 font-bold" style={{ color: tierTheme.primary }}>🎨 Custom Theme · ⏳ {_tCustomLeft}</p>
+            ) : _tPersonalTheme ? (
+              <p className="text-[10px] mt-0.5 font-bold" style={{ color: tierTheme.primary }}>✨ Custom Theme Active</p>
+            ) : (
+              <p className="text-[10px] mt-0.5 text-white/40">Default theme</p>
+            );
+            if (_isAdminUser) {
+              return (
+                <div className="rounded-none mb-2.5" style={{ background: _pCard, border: _pBdrSoft }}>
+                  <button
+                    onClick={() => onTabChange('THEME_CUSTOMIZER' as any)}
+                    className={`w-full px-4 py-3.5 flex items-center gap-3 ${_pHovCls} transition-colors`}
+                  >
+                    {themeCard}
+                    <div className="flex-1 text-left min-w-0">
+                      <p className="text-sm font-bold text-white">Theme Studio</p>
+                      {themeLabel}
+                    </div>
+                    {_tDisplayColor && <div className="w-5 h-5 rounded-full border-2 border-white/30 shrink-0" style={{ background: _tDisplayColor }} />}
+                    <ChevronRight size={14} className="text-white/30 shrink-0" />
+                  </button>
+                </div>
+              );
+            }
+            if (_tHasTheme) {
+              return (
+                <div className="rounded-none mb-2.5 px-4 py-3.5 flex items-center gap-3" style={{ background: _pCard, border: _pBdrSoft }}>
+                  {themeCard}
+                  <div className="flex-1 text-left min-w-0">
+                    <p className="text-sm font-bold text-white">Aapka Theme</p>
+                    {themeLabel}
+                  </div>
+                  {_tDisplayColor && <div className="w-5 h-5 rounded-full border-2 border-white/30 shrink-0" style={{ background: _tDisplayColor }} />}
+                </div>
+              );
+            }
+            return null;
           })()}
 
           {/* ── ACTIONS MENU ── */}
@@ -8189,7 +8245,7 @@ export const StudentDashboard: React.FC<Props> = ({
   }
 
   return (
-    <div data-tier={tierTheme.tier} className="min-h-[100dvh] pb-0 bg-slate-50">
+    <div data-tier={tierTheme.tier} className="min-h-[100dvh] pb-0" style={{ background: tierTheme.profileBg }}>
       <NotificationPrompt />
       {/* ADMIN SWITCH BUTTON — only visible inside content (Notes/MCQ player or HW notes) */}
       {(user.role === "ADMIN" ||
@@ -9787,9 +9843,9 @@ export const StudentDashboard: React.FC<Props> = ({
         };
 
         return (
-          <div className="fixed inset-0 z-[100] bg-slate-50 flex flex-col animate-in fade-in pb-20">
+          <div className="fixed inset-0 z-[100] flex flex-col animate-in fade-in pb-20" style={{ background: tierTheme.profileBg }}>
             {/* Header */}
-            <div className="bg-white border-b border-slate-200 shadow-sm sticky top-0 z-10">
+            <div className="sticky top-0 z-10 shadow-md" style={{ background: tierTheme.topBarGrad }}>
               <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">
                 <button
                   onClick={() => {
@@ -10396,13 +10452,13 @@ export const StudentDashboard: React.FC<Props> = ({
         };
 
         return (
-          <div className="fixed inset-0 z-[100] bg-slate-50 flex flex-col animate-in fade-in pb-20">
+          <div className="fixed inset-0 z-[100] flex flex-col animate-in fade-in pb-20" style={{ background: tierTheme.profileBg }}>
             {/* Header */}
-            <div className="bg-white border-b border-slate-200 shadow-sm sticky top-0 z-10">
+            <div className="sticky top-0 z-10 shadow-md" style={{ background: tierTheme.topBarGrad }}>
               <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">
                 <button
                   onClick={closeHub}
-                  className="p-2 hover:bg-slate-100 rounded-full text-slate-700"
+                  className="p-2 bg-white/20 rounded-full text-white"
                   aria-label="Back"
                 >
                   <ChevronRight size={22} className="rotate-180" />
@@ -11684,6 +11740,9 @@ export const StudentDashboard: React.FC<Props> = ({
           isLimited={!(user.subscriptionLevel === 'ULTRA' && user.isPremium)}
           freeLimit={(settings as any)?.comparePointsLimit || 4}
           isFocusMode={isLandscapeUiHidden}
+          topBarGrad={tierTheme.topBarGrad}
+          profileBg={tierTheme.profileBg}
+          profileCardBg={tierTheme.profileCardBg}
           onClose={() => setShowFullBookCompare(false)}
         />
       )}
@@ -11793,9 +11852,9 @@ export const StudentDashboard: React.FC<Props> = ({
         };
 
         return (
-          <div className="fixed inset-0 z-[250] bg-white flex flex-col animate-in fade-in">
+          <div className="fixed inset-0 z-[250] flex flex-col animate-in fade-in" style={{ background: tierTheme.profileBg }}>
             {/* Header */}
-            <div className={`bg-gradient-to-r from-indigo-700 to-violet-700 text-white px-4 py-3 flex items-center gap-3 shrink-0 shadow-lg${isLandscapeUiHidden ? ' hidden' : ''}`}>
+            <div className={`text-white px-4 py-3 flex items-center gap-3 shrink-0 shadow-lg${isLandscapeUiHidden ? ' hidden' : ''}`} style={{ background: tierTheme.topBarGrad }}>
               <button
                 onClick={() => setLucentLessonCompare(null)}
                 className="bg-white/20 hover:bg-white/30 p-2 rounded-full transition-colors shrink-0"
@@ -12085,7 +12144,7 @@ export const StudentDashboard: React.FC<Props> = ({
       <div
         className={`relative ${
           contentViewStep === "PLAYER" && selectedChapter
-            ? "fixed inset-0 z-[150] bg-white overflow-hidden"
+            ? "fixed inset-0 z-[150] overflow-hidden"
             : activeTab === "REVISION" || activeTab === "AI_HUB"
               ? ""
               : activeTab === "HOME"
@@ -14045,7 +14104,7 @@ export const StudentDashboard: React.FC<Props> = ({
         };
 
         return (
-          <div className="fixed inset-0 z-[200] bg-white flex flex-col animate-in fade-in">
+          <div className="fixed inset-0 z-[200] flex flex-col animate-in fade-in" style={{ background: tierTheme.profileBg }}>
             {/* Reading progress bar — same gradient style as Sar Sangrah / Speedy */}
             <div className="absolute top-0 left-0 right-0 h-1 bg-slate-200/60 z-[60] pointer-events-none">
               <div
@@ -14068,7 +14127,7 @@ export const StudentDashboard: React.FC<Props> = ({
               </button>
             )}
             {/* Header */}
-            <div className={`bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 py-3 flex items-center gap-3 shrink-0 ${isLandscapeUiHidden ? 'hidden' : ''}`}>
+            <div className={`text-white px-4 py-3 flex items-center gap-3 shrink-0 ${isLandscapeUiHidden ? 'hidden' : ''}`} style={{ background: tierTheme.topBarGrad }}>
               <button onClick={closeLucentViewer} className="bg-white/20 hover:bg-white/30 p-2 rounded-full shrink-0 transition-colors">
                 <ChevronRight size={18} className="rotate-180" />
               </button>
@@ -15637,13 +15696,13 @@ RULES:
 
       {/* ===================== NOTIFICATION PAGE ===================== */}
       {showNotifPage && (
-        <div className="fixed inset-0 z-[9000] bg-white flex flex-col animate-in slide-in-from-right-full duration-300">
-          <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-100 bg-white sticky top-0 z-10">
-            <button onClick={() => setShowNotifPage(false)} className="p-2 rounded-full hover:bg-slate-100 text-slate-700">
+        <div className="fixed inset-0 z-[9000] flex flex-col animate-in slide-in-from-right-full duration-300" style={{ background: tierTheme.profileBg }}>
+          <div className="flex items-center gap-3 px-4 py-3 sticky top-0 z-10 shadow-lg" style={{ background: tierTheme.topBarGrad }}>
+            <button onClick={() => setShowNotifPage(false)} className="p-2 rounded-full bg-white/20 text-white">
               <ArrowLeft size={20} />
             </button>
             <div className="flex-1 min-w-0">
-              <h2 className="font-black text-base text-slate-800">Notifications</h2>
+              <h2 className="font-black text-base text-white">Notifications</h2>
               <p className="text-[11px] text-slate-500">{allNotifications.length} message{allNotifications.length !== 1 ? 's' : ''}</p>
             </div>
           </div>
@@ -15736,7 +15795,7 @@ RULES:
         // bg-white (solid) — earlier `from-amber-50/40` was 40% transparent,
         // letting the Home page's streak ("6/8") bleed through. Solid bg
         // ensures the user sees only ONE page at a time.
-        <div className="fixed inset-0 z-[200] bg-white flex flex-col animate-in slide-in-from-right-full duration-300">
+        <div className="fixed inset-0 z-[200] flex flex-col animate-in slide-in-from-right-full duration-300" style={{ background: tierTheme.profileBg }}>
           {/* === PREMIUM HEADER (study-app gradient) === */}
           <div className="relative sticky top-0 z-10 shadow-lg" style={{ background: tierTheme.topBarGrad }}>
             {/* Decorative pattern overlay */}
