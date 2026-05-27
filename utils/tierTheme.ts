@@ -157,7 +157,7 @@ export const ADMIN_NAMED_THEMES = [
 //   4. settingsThemeColor — admin global color (applied to all tiers)
 //   5. null — use default tierTheme
 export const getEffectiveOverrideColor = (
-  user: Pick<User, 'tempThemeColor' | 'tempThemeColorExpiry' | 'isPremium' | 'subscriptionLevel' | 'subscriptionEndDate'>,
+  user: Pick<User, 'tempThemeColor' | 'tempThemeColorExpiry' | 'isPremium' | 'subscriptionLevel' | 'subscriptionEndDate'> & { personalThemeColor?: string },
   settingsThemeColor?: string,
   tierSettings?: {
     ultraThemeColor?: string;
@@ -166,20 +166,22 @@ export const getEffectiveOverrideColor = (
     adminActiveTheme?: { id: string; name: string; color: string; expiresAt?: string };
   } | null
 ): string | null => {
-  // 1. Personal redeem theme (highest priority)
+  // 1. Personal redeem theme (highest priority — from redeem code, expires)
   if (user.tempThemeColor && user.tempThemeColorExpiry) {
     if (new Date(user.tempThemeColorExpiry) > new Date()) {
       return user.tempThemeColor;
     }
   }
-  // 2. Admin temporary global theme (with expiry check)
+  // 2. User's own permanently chosen theme (from ThemeCustomizer)
+  if (user.personalThemeColor) return user.personalThemeColor;
+  // 3. Admin temporary global theme (with expiry check)
   if (tierSettings?.adminActiveTheme?.color) {
     const theme = tierSettings.adminActiveTheme;
     if (!theme.expiresAt || new Date(theme.expiresAt) > new Date()) {
       return theme.color;
     }
   }
-  // 3. Tier-specific permanent color
+  // 4. Tier-specific permanent color
   if (tierSettings) {
     const tier = getUserTier(user);
     const tierColor =
@@ -188,7 +190,7 @@ export const getEffectiveOverrideColor = (
       tierSettings.freeThemeColor;
     if (tierColor) return tierColor;
   }
-  // 4. Global admin color
+  // 5. Global admin color
   if (settingsThemeColor) return settingsThemeColor;
   return null;
 };

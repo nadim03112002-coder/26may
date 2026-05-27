@@ -2,7 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import { SystemSettings } from '../../types';
 import { NSTA_DEFAULT_FEATURES } from '../../constants';
-import { Save, Lock, Zap, CheckCircle, Settings, Plus, Trash2, RotateCcw, BrainCircuit } from 'lucide-react';
+import { Save, Lock, Zap, CheckCircle, Settings, Plus, Trash2, RotateCcw, BrainCircuit, Palette, ChevronDown, ChevronUp } from 'lucide-react';
+import { ADMIN_NAMED_THEMES } from '../../utils/tierTheme';
+import { LEVEL_INFO } from '../../utils/levelSystem';
 
 interface Props {
     settings: SystemSettings;
@@ -26,6 +28,20 @@ export const NstaFeatureManager: React.FC<Props> = ({ settings, onUpdateSettings
     });
 
     const [activeCategory, setActiveCategory] = useState<string>('ALL');
+    const [showThemeSection, setShowThemeSection] = useState(true);
+
+    // Tier theme colors local state
+    const [tierColors, setTierColors] = useState({
+        free:  settings.freeThemeColor  || '',
+        basic: settings.basicThemeColor || '',
+        ultra: settings.ultraThemeColor || '',
+    });
+
+    // Level-wise theme colors local state (levelColorOverride: { "1": "#hex", ... })
+    const [levelColors, setLevelColors] = useState<Record<string, string>>(
+        (settings as any).levelColorOverride || {}
+    );
+    const [showLevelColors, setShowLevelColors] = useState(false);
 
     // Only show categories that have visible features
     const categories = ['ALL', ...Array.from(new Set(config.filter(f => f.visible !== false).map(f => f.category)))];
@@ -42,10 +58,14 @@ export const NstaFeatureManager: React.FC<Props> = ({ settings, onUpdateSettings
             featureConfigMap[f.id] = f;
         });
 
-        const updatedSettings = {
+        const updatedSettings: SystemSettings = {
             ...settings,
-            featureConfig: featureConfigMap
-        };
+            featureConfig: featureConfigMap,
+            freeThemeColor:  tierColors.free  || undefined,
+            basicThemeColor: tierColors.basic || undefined,
+            ultraThemeColor: tierColors.ultra || undefined,
+            ...(Object.keys(levelColors).length > 0 ? { levelColorOverride: levelColors } : {}),
+        } as any;
 
         // Ensure parent component receives update immediately
         onUpdateSettings(updatedSettings);
@@ -146,6 +166,153 @@ export const NstaFeatureManager: React.FC<Props> = ({ settings, onUpdateSettings
                 </div>
             </div>
 
+
+            {/* ═══ TIER & LEVEL THEME COLORS SECTION ═══ */}
+            <div className="bg-white rounded-2xl border border-violet-100 shadow-sm mb-6 overflow-hidden">
+                <button
+                    onClick={() => setShowThemeSection(v => !v)}
+                    className="w-full flex items-center justify-between px-4 py-3 hover:bg-violet-50 transition-colors"
+                >
+                    <div className="flex items-center gap-2">
+                        <Palette size={18} className="text-violet-600" />
+                        <span className="font-black text-slate-800 text-sm">Tier & Level Theme Colors</span>
+                        <span className="text-[9px] bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full font-bold uppercase">Admin Power</span>
+                    </div>
+                    {showThemeSection ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
+                </button>
+
+                {showThemeSection && (
+                    <div className="px-4 pb-4 border-t border-violet-50 pt-3 space-y-5">
+
+                        {/* ── Tier Colors ── */}
+                        <div>
+                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Subscription Tier Colors (Free / Basic / Ultra)</p>
+                            <div className="grid grid-cols-3 gap-3">
+                                {([
+                                    { key: 'free',  label: 'Free',  emoji: '🎓', accent: '#10b981', bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-800' },
+                                    { key: 'basic', label: 'Basic', emoji: '⭐', accent: '#2563eb', bg: 'bg-blue-50',    border: 'border-blue-200',    text: 'text-blue-800'    },
+                                    { key: 'ultra', label: 'Ultra', emoji: '⚡', accent: '#c8a020', bg: 'bg-amber-50',   border: 'border-amber-200',   text: 'text-amber-800'   },
+                                ] as const).map(({ key, label, emoji, bg, border, text }) => (
+                                    <div key={key} className={`${bg} ${border} border rounded-xl p-2.5 flex flex-col gap-2`}>
+                                        <div className="flex items-center justify-between">
+                                            <span className={`text-[10px] font-black ${text} uppercase`}>{emoji} {label}</span>
+                                            {tierColors[key] && (
+                                                <button
+                                                    onClick={() => setTierColors(p => ({ ...p, [key]: '' }))}
+                                                    className="text-[8px] text-red-400 hover:text-red-600 font-bold"
+                                                    title="Clear color"
+                                                >✕ Clear</button>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center gap-1.5">
+                                            <input
+                                                type="color"
+                                                value={tierColors[key] || '#888888'}
+                                                onChange={e => setTierColors(p => ({ ...p, [key]: e.target.value }))}
+                                                className="w-8 h-8 rounded-lg border-none cursor-pointer shrink-0"
+                                            />
+                                            <input
+                                                type="text"
+                                                value={tierColors[key]}
+                                                onChange={e => setTierColors(p => ({ ...p, [key]: e.target.value }))}
+                                                placeholder="e.g. #3b82f6"
+                                                className="flex-1 text-[9px] font-mono border border-slate-200 rounded-lg px-1.5 py-1 bg-white min-w-0"
+                                            />
+                                        </div>
+                                        {/* Quick preset pills */}
+                                        <div className="flex flex-wrap gap-1">
+                                            {ADMIN_NAMED_THEMES.slice(0, 6).map(t => (
+                                                <button
+                                                    key={t.id}
+                                                    onClick={() => setTierColors(p => ({ ...p, [key]: t.color }))}
+                                                    title={t.name}
+                                                    className="w-4 h-4 rounded-full border border-white/50 shadow-sm shrink-0 active:scale-90 transition-transform"
+                                                    style={{ background: t.color }}
+                                                />
+                                            ))}
+                                        </div>
+                                        {tierColors[key] && (
+                                            <div
+                                                className="text-[8px] font-black text-center py-1 rounded-lg text-white"
+                                                style={{ background: tierColors[key] }}
+                                            >Preview</div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                            <p className="text-[9px] text-slate-400 mt-2">⚡ Ye color us tier ke saare users ko apply hoga. Empty = default tier color.</p>
+                        </div>
+
+                        {/* ── Level-wise Colors ── */}
+                        <div>
+                            <button
+                                onClick={() => setShowLevelColors(v => !v)}
+                                className="w-full flex items-center justify-between bg-slate-50 rounded-xl px-3 py-2 border border-slate-200 hover:bg-slate-100 transition-colors"
+                            >
+                                <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Level-wise Color Override (L1–L15)</span>
+                                <div className="flex items-center gap-1.5">
+                                    <span className="text-[8px] bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full font-bold">ADVANCED</span>
+                                    {showLevelColors ? <ChevronUp size={13} className="text-slate-400" /> : <ChevronDown size={13} className="text-slate-400" />}
+                                </div>
+                            </button>
+
+                            {showLevelColors && (
+                                <div className="mt-3 grid grid-cols-3 gap-2">
+                                    {LEVEL_INFO.map(lvl => (
+                                        <div key={lvl.level} className="bg-slate-50 border border-slate-200 rounded-xl p-2 flex flex-col gap-1.5">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-[9px] font-black text-slate-700">{lvl.emoji} L{lvl.level}</span>
+                                                <span className="text-[8px] text-slate-500 truncate max-w-[60px]">{lvl.label}</span>
+                                            </div>
+                                            <div className="flex items-center gap-1">
+                                                <input
+                                                    type="color"
+                                                    value={levelColors[String(lvl.level)] || lvl.color}
+                                                    onChange={e => setLevelColors(p => ({ ...p, [String(lvl.level)]: e.target.value }))}
+                                                    className="w-7 h-7 rounded-lg border-none cursor-pointer shrink-0"
+                                                />
+                                                <input
+                                                    type="text"
+                                                    value={levelColors[String(lvl.level)] || ''}
+                                                    onChange={e => setLevelColors(p => ({ ...p, [String(lvl.level)]: e.target.value }))}
+                                                    placeholder={lvl.color}
+                                                    className="flex-1 text-[8px] font-mono border border-slate-200 rounded px-1 py-0.5 bg-white min-w-0"
+                                                />
+                                                {levelColors[String(lvl.level)] && (
+                                                    <button
+                                                        onClick={() => setLevelColors(p => { const n = { ...p }; delete n[String(lvl.level)]; return n; })}
+                                                        className="text-red-400 text-[9px] hover:text-red-600 shrink-0 font-black"
+                                                    >✕</button>
+                                                )}
+                                            </div>
+                                            <div
+                                                className="h-1.5 rounded-full"
+                                                style={{ background: levelColors[String(lvl.level)] || lvl.color }}
+                                            />
+                                        </div>
+                                    ))}
+                                    <div className="col-span-3 mt-1">
+                                        <button
+                                            onClick={() => setLevelColors({})}
+                                            className="text-[9px] text-red-400 hover:text-red-600 font-bold"
+                                        >✕ Saare Level Colors Reset Karo</button>
+                                    </div>
+                                </div>
+                            )}
+                            <p className="text-[9px] text-slate-400 mt-2">🎨 Level color tab apply hoga jab koi user us level par ho. Empty = default level color.</p>
+                        </div>
+
+                        <div className="flex justify-end">
+                            <button
+                                onClick={saveChanges}
+                                className="px-5 py-2 bg-violet-600 text-white text-xs font-black rounded-xl hover:bg-violet-700 active:scale-95 transition-all flex items-center gap-2"
+                            >
+                                <Save size={14} /> Theme Colors Save Karo
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
 
             {/* Category Filter - Horizontal Scroll */}
             <div className="flex gap-2 mb-6 overflow-x-auto pb-2 scrollbar-hide touch-pan-x">

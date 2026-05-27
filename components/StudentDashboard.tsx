@@ -215,6 +215,7 @@ import { StudentHistoryModal } from "./StudentHistoryModal";
 import { generateDailyRoutine } from "../utils/routineGenerator";
 import { OfflineDownloads } from "./OfflineDownloads";
 import { ThemeAnimationBuilder } from "./ThemeAnimationBuilder";
+import { ThemeCustomizer } from "./ThemeCustomizer";
 import { saveOfflineItem } from "../utils/offlineStorage";
 import { NotificationPrompt } from "./NotificationPrompt";
 // @ts-ignore
@@ -7566,9 +7567,20 @@ export const StudentDashboard: React.FC<Props> = ({
         </div>
       );
     }
+    if ((activeTab as string) === "THEME_CUSTOMIZER") {
+      return (
+        <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <ThemeCustomizer
+            user={user}
+            onUpdateUser={handleUserUpdate}
+            onBack={() => onTabChange("PROFILE")}
+          />
+        </div>
+      );
+    }
     if (activeTab === "PROFILE") {
       const _pRawScore = user.totalScore || 0;
-      const _pTotalScore = (user.role === 'ADMIN' || user.role === 'SUB_ADMIN') ? 9999999 : _pRawScore;
+      const _pTotalScore = (user.role === 'ADMIN' || user.role === 'SUB_ADMIN') ? 999999999 : _pRawScore;
       const _pLvl = getLevelInfo(_pTotalScore);
 
       const _pProgress = getLevelProgress(_pTotalScore);
@@ -7797,6 +7809,56 @@ export const StudentDashboard: React.FC<Props> = ({
                     </div>
                   ))}
                 </div>
+              </div>
+            );
+          })()}
+
+          {/* ── THEME STATUS CARD ── */}
+          {(() => {
+            const _tTempActive = !!(user.tempThemeColor && user.tempThemeColorExpiry && new Date(user.tempThemeColorExpiry) > new Date());
+            const _tPersonal = !!(user as any).personalThemeColor;
+            const _tActiveColor = _tTempActive ? user.tempThemeColor! : (_tPersonal ? (user as any).personalThemeColor : null);
+            const _tNow = Date.now();
+            const _tLeft = _tTempActive && user.tempThemeColorExpiry ? (() => {
+              const diff = new Date(user.tempThemeColorExpiry!).getTime() - _tNow;
+              if (diff <= 0) return null;
+              const d = Math.floor(diff / 86400000);
+              const h = Math.floor((diff % 86400000) / 3600000);
+              const m = Math.floor((diff % 3600000) / 60000);
+              return d > 0 ? `${d}d ${h}h baki` : `${h}h ${m}m baki`;
+            })() : null;
+            return (
+              <div className="rounded-none mb-2.5" style={{ background: _pCard, border: _pBdrSoft }}>
+                <button
+                  onClick={() => onTabChange('THEME_CUSTOMIZER' as any)}
+                  className={`w-full px-4 py-3.5 flex items-center gap-3 ${_pHovCls} transition-colors`}
+                >
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 relative overflow-hidden"
+                    style={{ background: _tActiveColor ? `${_tActiveColor}25` : `${tierTheme.primary}18`, border: `1px solid ${_tActiveColor || tierTheme.primary}50` }}>
+                    <span className="text-base">🎨</span>
+                    {_tActiveColor && (
+                      <div className="absolute bottom-0 left-0 right-0 h-1.5 rounded-b" style={{ background: _tActiveColor }} />
+                    )}
+                  </div>
+                  <div className="flex-1 text-left min-w-0">
+                    <p className="text-sm font-bold text-white">Theme Studio</p>
+                    {_tTempActive && _tLeft ? (
+                      <p className="text-[10px] mt-0.5 font-bold" style={{ color: tierTheme.primary }}>
+                        🎁 Redeem Theme · ⏳ {_tLeft}
+                      </p>
+                    ) : _tPersonal ? (
+                      <p className="text-[10px] mt-0.5 font-bold" style={{ color: tierTheme.primary }}>
+                        ✨ Custom Theme Active
+                      </p>
+                    ) : (
+                      <p className="text-[10px] mt-0.5 text-white/40">Default theme · Change karo</p>
+                    )}
+                  </div>
+                  {_tActiveColor && (
+                    <div className="w-5 h-5 rounded-full border-2 border-white/30 shrink-0" style={{ background: _tActiveColor }} />
+                  )}
+                  <ChevronRight size={14} className="text-white/30 shrink-0" />
+                </button>
               </div>
             );
           })()}
@@ -8388,7 +8450,7 @@ export const StudentDashboard: React.FC<Props> = ({
 
             {/* Level pill */}
             {(() => {
-              const _ls = user.role === 'ADMIN' || user.role === 'SUB_ADMIN' ? 9999999 : (user.totalScore || 0);
+              const _ls = user.role === 'ADMIN' || user.role === 'SUB_ADMIN' ? 999999999 : (user.totalScore || 0);
               const _li = getLevelInfo(_ls);
               return (
                 <button
@@ -16851,7 +16913,7 @@ RULES:
 
       {/* ═══════════ SCORE / LEVEL PANEL ═══════════ */}
       {showScorePanel && (() => {
-        const totalScore = (user.role === 'ADMIN' || user.role === 'SUB_ADMIN') ? 9999999 : (user.totalScore || 0);
+        const totalScore = (user.role === 'ADMIN' || user.role === 'SUB_ADMIN') ? 999999999 : (user.totalScore || 0);
         const userLvl = getLevelInfo(totalScore);
         const _vIdx = viewedLevelIdx === 0 ? userLvl.level - 1 : viewedLevelIdx - 1;
         const lvl = LEVEL_INFO[_vIdx] ?? userLvl;
