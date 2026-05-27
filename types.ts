@@ -127,6 +127,7 @@ export interface User {
   tempThemeColor?: string; // Temporary app-wide subscription color (from THEME_COLOR redeem code)
   tempThemeColorExpiry?: string; // ISO string — when tempThemeColor expires
   personalThemeColor?: string; // User's own permanently chosen theme color (from ThemeCustomizer)
+  personalTheme?: UserCustomTheme; // Full granular permanent theme
   themeBadgeColor?: string;
   themeAnimationId?: string;
   themePublishedAt?: string;
@@ -678,6 +679,14 @@ export interface SystemSettings {
   basicThemeColor?: string;
   freeThemeColor?: string;
   adminActiveTheme?: { id: string; name: string; color: string; expiresAt?: string };
+  adminAppliedTheme?: {
+    theme: UserCustomTheme;
+    appliedAt: string;
+    expiresAt?: string | null;
+    targetTier: 'all' | 'ultra' | 'basic' | 'free';
+    minLevel?: number | null;
+    maxLevel?: number | null;
+  };
   levelScoreOverride?: Record<string, number>;
   isGlobalFreeMode?: boolean; // NEW: Global Free Mode
   watermarkOpacity?: number; // 0.0 to 1.0
@@ -1479,6 +1488,18 @@ export interface UserCustomTheme {
   accentColor: string;
   textColor: string;
   cardColor: string;
+  topBarStart?: string;
+  topBarEnd?: string;
+  navBg?: string;
+  navActive?: string;
+  navBorder?: string;
+  cardBg?: string;
+  cardBorder?: string;
+  btnStart?: string;
+  btnEnd?: string;
+  textSecondary?: string;
+  accentGlow?: string;
+  progressColor?: string;
   createdAt: string;
   appliedUntil?: string;
   publishedAt?: string;
