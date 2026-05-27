@@ -30,9 +30,11 @@ export const TIER_THEME = {
     navBorder:     'rgba(200,160,32,0.22)',
     navRing:       'rgba(200,160,32,0.24)',
     pillGrad:      'linear-gradient(90deg,#7a5c10,#c8a020,#e6c84a)',
-    topBarGrad:    'linear-gradient(135deg,#080810 0%,#0d0d18 50%,#080810 100%)',
+    topBarGrad:    'linear-gradient(135deg,#050026 0%,#050026 50%,#050026 100%)',
     btnGrad:       'linear-gradient(135deg,#7a5c10,#c8a020)',
     shadowColor:   'rgba(200,160,32,0.32)',
+    profileBg:     '#07051a',
+    profileCardBg: '#100d24',
     label:         'ULTRA',
     emoji:         '⚡',
   },
@@ -49,9 +51,11 @@ export const TIER_THEME = {
     navBorder:     'rgba(37,99,235,0.20)',
     navRing:       'rgba(37,99,235,0.22)',
     pillGrad:      'linear-gradient(90deg,#1d4ed8,#3b82f6,#60a5fa)',
-    topBarGrad:    'linear-gradient(135deg,#080810 0%,#0d0d18 50%,#080810 100%)',
+    topBarGrad:    'linear-gradient(135deg,#060c1a 0%,#0a1535 50%,#060c1a 100%)',
     btnGrad:       'linear-gradient(135deg,#2563eb,#3b82f6)',
     shadowColor:   'rgba(37,99,235,0.28)',
+    profileBg:     '#050d1e',
+    profileCardBg: '#091528',
     label:         'BASIC',
     emoji:         '⭐',
   },
@@ -68,9 +72,11 @@ export const TIER_THEME = {
     navBorder:     'rgba(16,185,129,0.20)',
     navRing:       'rgba(16,185,129,0.22)',
     pillGrad:      'linear-gradient(90deg,#059669,#10b981,#34d399)',
-    topBarGrad:    'linear-gradient(135deg,#080810 0%,#0d0d18 50%,#080810 100%)',
+    topBarGrad:    'linear-gradient(135deg,#e0f7ff 0%,#bae6fd 50%,#e0f7ff 100%)',
     btnGrad:       'linear-gradient(135deg,#059669,#10b981)',
     shadowColor:   'rgba(16,185,129,0.22)',
+    profileBg:     '#050f0a',
+    profileCardBg: '#091510',
     label:         'FREE',
     emoji:         '🎓',
   },
@@ -104,7 +110,6 @@ export const buildOverrideTierTheme = (
     pillGrad:    `linear-gradient(90deg,${hexColor}bb,${hexColor},${hexColor}dd)`,
     btnGrad:     `linear-gradient(135deg,${hexColor}cc,${hexColor})`,
     shadowColor: `rgba(${r},${g},${b},0.32)`,
-    topBarGrad:  `linear-gradient(135deg,rgba(${rd},${gd},${bd},0.85) 0%,rgba(${r},${g},${b},0.65) 50%,rgba(${rd},${gd},${bd},0.85) 100%)`,
   };
 };
 
@@ -123,16 +128,26 @@ export const buildSubColorsFromHex = (hexColor: string) => {
 
 // Get the effective theme override color:
 //   1. user.tempThemeColor (if not expired) — personal redeem code color
-//   2. settingsThemeColor — admin global subscription color
-//   3. null — use default tierTheme
+//   2. Tier-specific color from settings (ultraThemeColor / basicThemeColor / freeThemeColor)
+//   3. settingsThemeColor — admin global color (applied to all tiers)
+//   4. null — use default tierTheme
 export const getEffectiveOverrideColor = (
-  user: { tempThemeColor?: string; tempThemeColorExpiry?: string },
-  settingsThemeColor?: string
+  user: Pick<User, 'tempThemeColor' | 'tempThemeColorExpiry' | 'isPremium' | 'subscriptionLevel' | 'subscriptionEndDate'>,
+  settingsThemeColor?: string,
+  tierSettings?: { ultraThemeColor?: string; basicThemeColor?: string; freeThemeColor?: string } | null
 ): string | null => {
   if (user.tempThemeColor && user.tempThemeColorExpiry) {
     if (new Date(user.tempThemeColorExpiry) > new Date()) {
       return user.tempThemeColor;
     }
+  }
+  if (tierSettings) {
+    const tier = getUserTier(user);
+    const tierColor =
+      tier === 'ultra' ? tierSettings.ultraThemeColor :
+      tier === 'basic' ? tierSettings.basicThemeColor :
+      tierSettings.freeThemeColor;
+    if (tierColor) return tierColor;
   }
   if (settingsThemeColor) return settingsThemeColor;
   return null;

@@ -533,8 +533,8 @@ export const StudentDashboard: React.FC<Props> = ({
   }, [user?.id]);
 
   // ── Tier Theme (Ultra=navy · Basic=blue · Free=sky) ─────────────────────
-  // Priority: user.tempThemeColor (active redeem) > settings.themeColor (admin global) > default tier
-  const _overrideColor = getEffectiveOverrideColor(user, settings?.themeColor);
+  // Priority: user.tempThemeColor (active redeem) > tier-specific (admin) > global > default tier
+  const _overrideColor = getEffectiveOverrideColor(user, settings?.themeColor, settings);
   const tierTheme = _overrideColor
     ? buildOverrideTierTheme(getTierTheme(user), _overrideColor)
     : getTierTheme(user);
@@ -7587,101 +7587,99 @@ export const StudentDashboard: React.FC<Props> = ({
       const _pTotalCredits = (user.credits ?? 0) + (user.bonusCredits ?? 0);
 
       return (
-        <div className="animate-in fade-in zoom-in duration-300 pb-28 min-h-screen" style={{ background: '#0d0d0f' }}>
-
-          {/* ── GREETING HEADER ── */}
-          <div className="px-4 pt-5 pb-3 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-0.5">Welcome back</p>
-              <h1 className="text-xl font-black text-white leading-tight">Hey, {(user.name || 'Student').toUpperCase()}</h1>
-            </div>
-          </div>
+        <div className="animate-in fade-in zoom-in duration-300 pb-28 min-h-screen" style={{ background: tierTheme.profileBg }}>
 
           {/* ── CARD 1: Identity ── */}
-          <div className="rounded-none overflow-hidden mb-2.5" style={{ background: '#181820', border: `1px solid ${tierTheme.primary}2e` }}>
-            {/* Themed top accent line */}
-            <div className="h-[3px] w-full" style={{ background: tierTheme.pillGrad }} />
+          <div className="rounded-none overflow-hidden mb-2.5" style={{ background: tierTheme.profileCardBg, border: `1px solid ${tierTheme.primary}2e` }}>
 
-            <div className="p-4">
-              {/* Avatar + Info row */}
-              <div className="flex items-start gap-3 mb-3">
-                {/* Avatar */}
-                <div className="w-[72px] h-[72px] rounded-2xl flex items-center justify-center text-3xl font-black overflow-hidden shrink-0"
-                  style={{
-                    background: _pLvl.level >= 8 ? `${_pLvl.color}30` : _pLvl.level >= 4 ? `${_pLvl.color}20` : `${tierTheme.primary}1e`,
-                    border: `2px solid ${_pLvl.level >= 4 ? _pLvl.color + '70' : tierTheme.primary + '66'}`,
-                    boxShadow: _pLvl.level >= 11 ? `0 0 32px ${_pLvl.glowColor}, 0 0 60px ${_pLvl.glowColor}44` : _pLvl.level >= 9 ? `0 0 20px ${_pLvl.glowColor}` : 'none',
-                    animation: _pLvl.level >= 10 ? 'topbar-glow-pulse 2s ease-in-out infinite' : 'none',
-                  }}>
-                  {user.photoURL && user.avatarChoice === 'gmail'
-                    ? <img src={user.photoURL} alt="Gmail profile" className="w-full h-full object-cover" />
-                    : settings?.appLogo
-                      ? <img src={settings.appLogo} alt="logo" className="w-full h-full object-cover" />
-                      : <span style={{ color: _pLvl.level >= 4 ? _pLvl.color : tierTheme.primary }}>{(user.name || 'S').charAt(0).toUpperCase()}</span>
-                  }
-                </div>
+            {/* ── Banner / Header area ── */}
+            <div className="relative px-4 pt-5 pb-4 flex flex-col items-center text-center"
+              style={{ background: `linear-gradient(180deg, ${tierTheme.primary}18 0%, transparent 100%)` }}>
 
-                {/* Name + Tier + Date */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <h2 className="text-base font-black text-white truncate leading-tight"
-                      style={{ color: _pLvl.level >= 4 ? (_pLvl.nameColor || _pLvl.color) : '#ffffff' }}>
-                      {(user.name || 'Student').toUpperCase()}
-                    </h2>
-                    <button
-                      onClick={() => { setNewNameInput(user.name); setShowNameChangeModal(true); }}
-                      className="shrink-0 w-5 h-5 rounded-md flex items-center justify-center transition-colors"
-                      style={{ background: 'rgba(255,255,255,0.08)' }}
-                    >
-                      <Edit size={9} className="text-slate-400" />
-                    </button>
-                  </div>
-                  {/* Tier badge */}
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider mb-1" style={{
-                    color: tierTheme.primary,
-                    background: `${tierTheme.primary}26`,
-                    border: `1px solid ${tierTheme.primary}59`,
-                  }}>
-                    {tierTheme.emoji} {_pTierLabel}
-                  </span>
-                  {/* Join date */}
-                  {_pJoinDate && (
-                    <p className="text-[10px] text-slate-500 font-semibold">{_pJoinDate}</p>
-                  )}
-                  {/* Avatar toggle — always visible */}
-                  <div className="flex gap-1 mt-1.5">
-                    <button
-                      onClick={async () => {
-                        if (!user.photoURL) return;
-                        const updated = { ...user, avatarChoice: 'gmail' as const };
-                        handleUserUpdate(updated);
-                        await saveUserToLive(updated);
-                      }}
-                      className={`px-2 py-0.5 rounded-full text-[9px] font-black border transition-all active:scale-95 flex items-center gap-1 ${user.avatarChoice === 'gmail' && user.photoURL ? 'bg-blue-500/20 text-blue-300 border-blue-500/40' : 'border-white/10 text-slate-500'} ${!user.photoURL ? 'opacity-40 cursor-not-allowed' : ''}`}
-                      style={{ background: user.avatarChoice === 'gmail' && user.photoURL ? undefined : 'rgba(255,255,255,0.05)' }}
-                    >📧 Gmail</button>
-                    <button
-                      onClick={async () => {
-                        const updated = { ...user, avatarChoice: 'app' as const };
-                        handleUserUpdate(updated);
-                        await saveUserToLive(updated);
-                      }}
-                      className={`px-2 py-0.5 rounded-full text-[9px] font-black border transition-all active:scale-95 flex items-center gap-1 ${!user.photoURL || user.avatarChoice !== 'gmail' ? 'bg-slate-500/20 text-slate-300 border-slate-500/40' : 'border-white/10 text-slate-500'}`}
-                      style={{ background: !user.photoURL || user.avatarChoice !== 'gmail' ? undefined : 'rgba(255,255,255,0.05)' }}
-                    >🏫 App</button>
-                  </div>
-                </div>
+              {/* Crown top-right */}
+              {_pIsUltra && (
+                <span className="absolute top-3 right-4 text-2xl">👑</span>
+              )}
 
-                {/* Crown (ULTRA) */}
-                {_pIsUltra && (
-                  <span className="text-2xl shrink-0 self-start">👑</span>
-                )}
+              {/* Avatar centered */}
+              <div className="w-20 h-20 rounded-full flex items-center justify-center text-3xl font-black overflow-hidden mb-3"
+                style={{
+                  background: _pLvl.level >= 8 ? `${_pLvl.color}30` : `${tierTheme.primary}22`,
+                  border: `3px solid ${_pLvl.level >= 4 ? _pLvl.color + '90' : tierTheme.primary + '80'}`,
+                  boxShadow: `0 0 20px ${tierTheme.primary}44, 0 4px 24px rgba(0,0,0,0.5)`,
+                  animation: _pLvl.level >= 10 ? 'topbar-glow-pulse 2s ease-in-out infinite' : 'none',
+                }}>
+                {user.photoURL && user.avatarChoice === 'gmail'
+                  ? <img src={user.photoURL} alt="Gmail profile" className="w-full h-full object-cover" />
+                  : settings?.appLogo
+                    ? <img src={settings.appLogo} alt="logo" className="w-full h-full object-cover" />
+                    : <span style={{ color: _pLvl.level >= 4 ? _pLvl.color : tierTheme.primary }}>{(user.name || 'S').charAt(0).toUpperCase()}</span>
+                }
               </div>
 
+              {/* Name + edit */}
+              <div className="flex items-center gap-2 mb-1.5">
+                <h2 className="text-lg font-black leading-tight tracking-wide"
+                  style={{ color: _pLvl.level >= 4 ? (_pLvl.nameColor || _pLvl.color) : '#ffffff' }}>
+                  {(user.name || 'Student').toUpperCase()}
+                </h2>
+                <button
+                  onClick={() => { setNewNameInput(user.name); setShowNameChangeModal(true); }}
+                  className="w-6 h-6 rounded-lg flex items-center justify-center"
+                  style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }}
+                >
+                  <Edit size={10} className="text-slate-300" />
+                </button>
+              </div>
+
+              {/* Tier badge */}
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider mb-2" style={{
+                color: tierTheme.primary,
+                background: `${tierTheme.primary}20`,
+                border: `1px solid ${tierTheme.primary}55`,
+                boxShadow: `0 0 8px ${tierTheme.primary}30`,
+              }}>
+                {tierTheme.emoji} {_pTierLabel}
+              </span>
+
+              {/* Join date */}
+              {_pJoinDate && (
+                <p className="text-[10px] text-slate-400 font-semibold mb-2">{_pJoinDate}</p>
+              )}
+
+              {/* Avatar toggle */}
+              <div className="flex gap-2">
+                <button
+                  onClick={async () => {
+                    if (!user.photoURL) return;
+                    const updated = { ...user, avatarChoice: 'gmail' as const };
+                    handleUserUpdate(updated);
+                    await saveUserToLive(updated);
+                  }}
+                  className={`px-3 py-1 rounded-full text-[10px] font-bold border transition-all active:scale-95 flex items-center gap-1 ${user.avatarChoice === 'gmail' && user.photoURL ? 'text-blue-300 border-blue-500/50' : 'text-slate-400 border-white/10'} ${!user.photoURL ? 'opacity-40 cursor-not-allowed' : ''}`}
+                  style={{ background: user.avatarChoice === 'gmail' && user.photoURL ? 'rgba(59,130,246,0.15)' : 'rgba(255,255,255,0.05)' }}
+                >📧 Gmail</button>
+                <button
+                  onClick={async () => {
+                    const updated = { ...user, avatarChoice: 'app' as const };
+                    handleUserUpdate(updated);
+                    await saveUserToLive(updated);
+                  }}
+                  className={`px-3 py-1 rounded-full text-[10px] font-bold border transition-all active:scale-95 flex items-center gap-1 ${!user.photoURL || user.avatarChoice !== 'gmail' ? 'text-slate-300 border-slate-500/40' : 'text-slate-500 border-white/10'}`}
+                  style={{ background: !user.photoURL || user.avatarChoice !== 'gmail' ? 'rgba(100,116,139,0.15)' : 'rgba(255,255,255,0.04)' }}
+                >🏫 App</button>
+              </div>
+
+              {/* Bottom divider line */}
+              <div className="w-full mt-4 h-[1px]" style={{ background: `linear-gradient(90deg, transparent, ${tierTheme.primary}40, transparent)` }} />
+            </div>
+
+            {/* ── LEVEL + ID section ── */}
+            <div className="px-4 pb-4">
               {/* ── LEVEL ROW ── */}
               <button
                 onClick={() => setShowScorePanel(true)}
-                className="w-full flex items-center gap-4 px-4 py-4 rounded-xl active:scale-[0.98] transition-transform"
+                className="w-full flex items-center gap-4 px-4 py-4 rounded-xl active:scale-[0.98] transition-transform mb-2.5"
                 style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${_pLvl.color}40` }}
               >
                 <Trophy size={22} style={{ color: tierTheme.primary }} className="shrink-0" />
@@ -7706,16 +7704,16 @@ export const StudentDashboard: React.FC<Props> = ({
               </button>
 
               {/* ── USER ID + EMAIL ROW ── */}
-              <div className="mt-2.5 flex gap-2">
+              <div className="flex gap-2">
                 {/* User ID */}
                 <button
                   onClick={() => { try { navigator.clipboard.writeText(user.id); showAlert('User ID copied!', 'SUCCESS'); } catch {} }}
                   className="flex-1 flex items-center gap-2 px-2.5 py-2 rounded-xl active:scale-95 transition-transform"
                   style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
                 >
-                  <span className="text-[9px] font-black text-slate-500 uppercase tracking-wider shrink-0">ID</span>
-                  <span className="text-[10px] font-bold text-slate-400 truncate font-mono">{user.id || '—'}</span>
-                  <Copy size={9} className="text-slate-600 shrink-0 ml-auto" />
+                  <span className="text-[9px] font-black text-slate-300 uppercase tracking-wider shrink-0">ID</span>
+                  <span className="text-[10px] font-bold text-slate-200 truncate font-mono">{user.id || '—'}</span>
+                  <Copy size={9} className="text-slate-400 shrink-0 ml-auto" />
                 </button>
                 {/* Email */}
                 {user.email && (
@@ -7724,9 +7722,9 @@ export const StudentDashboard: React.FC<Props> = ({
                     className="flex-1 flex items-center gap-2 px-2.5 py-2 rounded-xl active:scale-95 transition-transform"
                     style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
                   >
-                    <span className="text-[9px] font-black text-slate-500 uppercase tracking-wider shrink-0">@</span>
-                    <span className="text-[10px] font-bold text-slate-400 truncate">{user.email}</span>
-                    <Copy size={9} className="text-slate-600 shrink-0 ml-auto" />
+                    <span className="text-[9px] font-black text-slate-300 uppercase tracking-wider shrink-0">@</span>
+                    <span className="text-[10px] font-bold text-slate-200 truncate">{user.email}</span>
+                    <Copy size={9} className="text-slate-400 shrink-0 ml-auto" />
                   </button>
                 )}
               </div>
@@ -7736,7 +7734,7 @@ export const StudentDashboard: React.FC<Props> = ({
           {/* ── STATS ROW ── */}
           <div className="px-3 grid grid-cols-3 gap-2 mb-2.5">
             {/* Credits */}
-            <div className="rounded-xl py-3 px-2 text-center" style={{ background: '#181820', border: `1px solid ${tierTheme.primary}40` }}>
+            <div className="rounded-xl py-3 px-2 text-center" style={{ background: tierTheme.profileCardBg, border: `1px solid ${tierTheme.primary}40` }}>
               <div className="flex items-center justify-center gap-1 mb-0.5">
                 <span className="text-base font-black tabular-nums" style={{ color: tierTheme.primary }}>{(user.credits ?? 0).toLocaleString('en-IN')}</span>
                 <Trophy size={11} style={{ color: tierTheme.primary }} />
@@ -7744,17 +7742,17 @@ export const StudentDashboard: React.FC<Props> = ({
               {(user.bonusCredits ?? 0) > 0 && (
                 <div className="text-[8px] font-black tabular-nums" style={{ color: `${tierTheme.primary}99` }}>{user.bonusCredits?.toLocaleString('en-IN')}</div>
               )}
-              <div className="text-[9px] font-bold text-slate-500 uppercase tracking-wide mt-0.5">Credits</div>
+              <div className="text-[9px] font-bold text-slate-300 uppercase tracking-wide mt-0.5">Credits</div>
             </div>
             {/* Streak */}
-            <div onClick={() => setShowStreakPopup(true)} className="rounded-xl py-3 px-2 text-center cursor-pointer active:scale-95 transition-transform" style={{ background: '#181820', border: `1px solid ${tierTheme.primary}40` }}>
+            <div onClick={() => setShowStreakPopup(true)} className="rounded-xl py-3 px-2 text-center cursor-pointer active:scale-95 transition-transform" style={{ background: tierTheme.profileCardBg, border: `1px solid ${tierTheme.primary}40` }}>
               <div className="text-base font-black tabular-nums mb-0.5" style={{ color: tierTheme.primary }}>{user.streak > 0 ? user.streak : '0'}</div>
-              <div className="text-[9px] font-bold text-slate-500 uppercase tracking-wide">Streak</div>
+              <div className="text-[9px] font-bold text-slate-300 uppercase tracking-wide">Streak</div>
             </div>
             {/* Days */}
-            <div className="rounded-xl py-3 px-2 text-center" style={{ background: '#181820', border: `1px solid ${tierTheme.primary}40` }}>
+            <div className="rounded-xl py-3 px-2 text-center" style={{ background: tierTheme.profileCardBg, border: `1px solid ${tierTheme.primary}40` }}>
               <div className="text-base font-black tabular-nums mb-0.5" style={{ color: tierTheme.primary }}>{_pDaysOnApp}</div>
-              <div className="text-[9px] font-bold text-slate-500 uppercase tracking-wide flex items-center justify-center gap-0.5">Days <span>🔥</span></div>
+              <div className="text-[9px] font-bold text-slate-300 uppercase tracking-wide flex items-center justify-center gap-0.5">Days <span>🔥</span></div>
             </div>
           </div>
 
@@ -7769,10 +7767,12 @@ export const StudentDashboard: React.FC<Props> = ({
             const isUrgent = dDays <= 3;
             const cdAccent = isUrgent ? '#ef4444' : tierTheme.primary;
             return (
-              <div className="rounded-none p-4 mb-2.5" style={{ background: '#181820', border: `1px solid ${isUrgent ? 'rgba(239,68,68,0.30)' : tierTheme.primary + '2e'}` }}>
+              <div className="rounded-none p-4 mb-2.5" style={{ background: tierTheme.profileCardBg, border: `1px solid ${isUrgent ? 'rgba(239,68,68,0.30)' : tierTheme.primary + '2e'}` }}>
                 <div className="flex items-center justify-between mb-3">
                   <p className="text-xs font-black text-slate-300 uppercase tracking-wider">Subscription</p>
-                  {isUrgent && <span className="text-[9px] font-black text-red-400 animate-pulse">⚠ EXPIRING SOON</span>}
+                  <span className="text-[10px] font-bold" style={{ color: isUrgent ? '#ef4444' : '#94a3b8' }}>
+                    {isUrgent && '⚠ '}{new Date(user.subscriptionEndDate!).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' })}
+                  </span>
                 </div>
                 <div className="grid grid-cols-4 gap-2">
                   {[
@@ -7783,7 +7783,7 @@ export const StudentDashboard: React.FC<Props> = ({
                   ].map(box => (
                     <div key={box.label} className="rounded-xl py-2 text-center" style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${cdAccent}35` }}>
                       <div className="text-xl font-black tabular-nums leading-tight" style={{ color: cdAccent }}>{box.val}</div>
-                      <div className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">{box.label}</div>
+                      <div className="text-[9px] font-bold text-slate-300 uppercase tracking-widest mt-0.5">{box.label}</div>
                     </div>
                   ))}
                 </div>
@@ -7792,7 +7792,7 @@ export const StudentDashboard: React.FC<Props> = ({
           })()}
 
           {/* ── ACTIONS MENU ── */}
-          <div className="rounded-none overflow-hidden mb-2.5" style={{ background: '#181820', border: '1px solid rgba(255,255,255,0.07)' }}>
+          <div className="rounded-none overflow-hidden mb-2.5" style={{ background: tierTheme.profileCardBg, border: `1px solid ${tierTheme.primary}18` }}>
 
             {/* Admin Panel */}
             {(user.role === 'ADMIN' || user.role === 'SUB_ADMIN' || isImpersonating) && (
@@ -7898,7 +7898,7 @@ export const StudentDashboard: React.FC<Props> = ({
 
           {/* ── LOGOUT ── */}
           {(settings?.isLogoutEnabled !== false || user.role === 'ADMIN' || isImpersonating) && (
-            <div className="rounded-none overflow-hidden mb-3" style={{ background: '#181820', border: '1px solid rgba(239,68,68,0.15)' }}>
+            <div className="rounded-none overflow-hidden mb-3" style={{ background: tierTheme.profileCardBg, border: '1px solid rgba(239,68,68,0.15)' }}>
               <button onClick={onLogout}
                 className="w-full px-4 py-3.5 flex items-center gap-3 hover:bg-red-500/8 active:bg-red-500/12 transition-colors">
                 <div className="w-9 h-9 rounded-xl bg-red-500/12 border border-red-500/20 flex items-center justify-center shrink-0">

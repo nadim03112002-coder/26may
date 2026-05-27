@@ -5491,22 +5491,58 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                                   className="w-full p-2 border rounded-lg"
                               />
                           </div>
-                          <div>
-                              <label className="text-xs font-bold text-slate-600 uppercase block mb-1">Theme Color</label>
-                              <div className="flex gap-2">
-                                  <input 
-                                      type="color" 
-                                      value={localSettings.darkThemeColor || localSettings.themeColor || '#0f172a'} 
-                                      onChange={(e) => setLocalSettings({...localSettings, darkThemeColor: e.target.value, themeColor: e.target.value})}
-                                      className="w-10 h-10 rounded-lg cursor-pointer border-none"
-                                  />
-                                  <input 
-                                      type="text" 
-                                      value={localSettings.lightThemeColor || localSettings.themeColor || '#3b82f6'} 
-                                      onChange={(e) => setLocalSettings({...localSettings, lightThemeColor: e.target.value, themeColor: e.target.value})}
-                                      className="flex-1 p-2 border rounded-lg uppercase"
-                                  />
+                          <div className="md:col-span-2">
+                              <label className="text-xs font-bold text-slate-600 uppercase block mb-2">🎨 App Theme Color — Ek Click Me Sabhi Jagah Change</label>
+                              {/* Named Presets */}
+                              <div className="grid grid-cols-4 gap-2 mb-3">
+                                {[
+                                  { name: 'Gold ⚡',    color: '#c8a020' },
+                                  { name: 'Blue 💙',    color: '#2563eb' },
+                                  { name: 'Purple 💜',  color: '#7c3aed' },
+                                  { name: 'Green 💚',   color: '#059669' },
+                                  { name: 'Red ❤️',     color: '#dc2626' },
+                                  { name: 'Pink 🩷',    color: '#ec4899' },
+                                  { name: 'Cyan 🩵',    color: '#0891b2' },
+                                  { name: 'Orange 🧡',  color: '#ea580c' },
+                                  { name: 'Indigo 🔷',  color: '#4f46e5' },
+                                  { name: 'Teal 🌊',    color: '#0d9488' },
+                                  { name: 'Rose 🌹',    color: '#e11d48' },
+                                  { name: 'Lime 🍋',    color: '#65a30d' },
+                                ].map(preset => {
+                                  const isActive = (localSettings.themeColor || '').toLowerCase() === preset.color.toLowerCase();
+                                  return (
+                                    <button
+                                      key={preset.name}
+                                      onClick={() => setLocalSettings({...localSettings, themeColor: preset.color, darkThemeColor: preset.color, lightThemeColor: preset.color})}
+                                      className={`flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-all ${isActive ? 'border-current scale-105 shadow-md' : 'border-transparent bg-slate-50 hover:bg-slate-100'}`}
+                                      style={isActive ? { borderColor: preset.color, background: `${preset.color}15` } : {}}
+                                    >
+                                      <div className="w-7 h-7 rounded-full border-2 border-white shadow" style={{ background: preset.color }} />
+                                      <span className="text-[9px] font-black text-center leading-tight" style={{ color: isActive ? preset.color : '#64748b' }}>{preset.name}</span>
+                                    </button>
+                                  );
+                                })}
                               </div>
+                              {/* Custom color picker */}
+                              <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-xl border border-slate-200">
+                                <input
+                                  type="color"
+                                  value={localSettings.themeColor || '#2563eb'}
+                                  onChange={(e) => setLocalSettings({...localSettings, themeColor: e.target.value, darkThemeColor: e.target.value, lightThemeColor: e.target.value})}
+                                  className="w-10 h-10 rounded-lg cursor-pointer border-none shrink-0"
+                                />
+                                <div className="flex-1">
+                                  <p className="text-[10px] font-bold text-slate-500 mb-0.5">Custom Color (koi bhi hex)</p>
+                                  <input
+                                    type="text"
+                                    value={localSettings.themeColor || '#2563eb'}
+                                    onChange={(e) => setLocalSettings({...localSettings, themeColor: e.target.value, darkThemeColor: e.target.value, lightThemeColor: e.target.value})}
+                                    className="w-full p-1.5 border rounded-lg text-xs uppercase font-mono bg-white"
+                                  />
+                                </div>
+                                <div className="w-10 h-10 rounded-xl border-2 border-slate-200 shrink-0" style={{ background: localSettings.themeColor || '#2563eb' }} />
+                              </div>
+                              <p className="text-[10px] text-slate-400 mt-1.5">⚡ Ye color in sabhi jagahon par apply hoga: Top Bar · Bottom Nav · Profile Card · Chat · Badges · Borders · Buttons</p>
                           </div>
                           <div className="md:col-span-2">
                               <label className="text-xs font-bold text-slate-600 uppercase block mb-1">Custom Page Video URL</label>
@@ -12779,6 +12815,138 @@ Statement 2"
                           />
                       </div>
                   </div>
+              </div>
+
+              {/* PER-TIER THEME COLORS */}
+              <div className="bg-gradient-to-br from-violet-50 to-pink-50 p-6 rounded-3xl border border-violet-100 space-y-4">
+                  <h4 className="font-bold text-violet-900 flex items-center gap-2 text-lg"><Palette size={20} /> Tier-wise Theme Colors</h4>
+                  <p className="text-xs text-violet-700">Har subscription tier ke liye alag accent color set karo. Yeh global theme se zyada priority lega.</p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {/* ULTRA */}
+                      <div className="bg-white p-4 rounded-xl border border-yellow-200 shadow-sm">
+                          <div className="flex items-center gap-2 mb-3">
+                              <span className="text-lg">⚡</span>
+                              <label className="text-xs font-bold text-yellow-700 uppercase">Ultra Theme</label>
+                              {localSettings.ultraThemeColor && (
+                                  <button onClick={() => setLocalSettings({...localSettings, ultraThemeColor: undefined})} className="ml-auto text-[10px] text-red-400 hover:text-red-600">Reset</button>
+                              )}
+                          </div>
+                          <div className="flex items-center gap-2 mb-2">
+                              <input type="color" value={localSettings.ultraThemeColor || '#c8a020'} onChange={e => setLocalSettings({...localSettings, ultraThemeColor: e.target.value})} className="w-10 h-10 rounded-lg cursor-pointer border-none" />
+                              <input type="text" value={localSettings.ultraThemeColor || ''} onChange={e => setLocalSettings({...localSettings, ultraThemeColor: e.target.value})} placeholder="#c8a020 (default)" className="flex-1 p-2 border rounded-lg text-xs uppercase" />
+                          </div>
+                          <div className="grid grid-cols-3 gap-1">
+                              {['#c8a020','#f59e0b','#e11d48','#7c3aed','#0ea5e9','#10b981'].map(c => (
+                                  <button key={c} onClick={() => setLocalSettings({...localSettings, ultraThemeColor: c})} className="h-6 rounded border-2 transition-all" style={{background: c, borderColor: localSettings.ultraThemeColor === c ? '#1e293b' : 'transparent'}} />
+                              ))}
+                          </div>
+                      </div>
+                      {/* BASIC */}
+                      <div className="bg-white p-4 rounded-xl border border-blue-200 shadow-sm">
+                          <div className="flex items-center gap-2 mb-3">
+                              <span className="text-lg">⭐</span>
+                              <label className="text-xs font-bold text-blue-700 uppercase">Basic Theme</label>
+                              {localSettings.basicThemeColor && (
+                                  <button onClick={() => setLocalSettings({...localSettings, basicThemeColor: undefined})} className="ml-auto text-[10px] text-red-400 hover:text-red-600">Reset</button>
+                              )}
+                          </div>
+                          <div className="flex items-center gap-2 mb-2">
+                              <input type="color" value={localSettings.basicThemeColor || '#2563eb'} onChange={e => setLocalSettings({...localSettings, basicThemeColor: e.target.value})} className="w-10 h-10 rounded-lg cursor-pointer border-none" />
+                              <input type="text" value={localSettings.basicThemeColor || ''} onChange={e => setLocalSettings({...localSettings, basicThemeColor: e.target.value})} placeholder="#2563eb (default)" className="flex-1 p-2 border rounded-lg text-xs uppercase" />
+                          </div>
+                          <div className="grid grid-cols-3 gap-1">
+                              {['#2563eb','#0ea5e9','#7c3aed','#059669','#f97316','#ec4899'].map(c => (
+                                  <button key={c} onClick={() => setLocalSettings({...localSettings, basicThemeColor: c})} className="h-6 rounded border-2 transition-all" style={{background: c, borderColor: localSettings.basicThemeColor === c ? '#1e293b' : 'transparent'}} />
+                              ))}
+                          </div>
+                      </div>
+                      {/* FREE */}
+                      <div className="bg-white p-4 rounded-xl border border-green-200 shadow-sm">
+                          <div className="flex items-center gap-2 mb-3">
+                              <span className="text-lg">🎓</span>
+                              <label className="text-xs font-bold text-green-700 uppercase">Free Theme</label>
+                              {localSettings.freeThemeColor && (
+                                  <button onClick={() => setLocalSettings({...localSettings, freeThemeColor: undefined})} className="ml-auto text-[10px] text-red-400 hover:text-red-600">Reset</button>
+                              )}
+                          </div>
+                          <div className="flex items-center gap-2 mb-2">
+                              <input type="color" value={localSettings.freeThemeColor || '#10b981'} onChange={e => setLocalSettings({...localSettings, freeThemeColor: e.target.value})} className="w-10 h-10 rounded-lg cursor-pointer border-none" />
+                              <input type="text" value={localSettings.freeThemeColor || ''} onChange={e => setLocalSettings({...localSettings, freeThemeColor: e.target.value})} placeholder="#10b981 (default)" className="flex-1 p-2 border rounded-lg text-xs uppercase" />
+                          </div>
+                          <div className="grid grid-cols-3 gap-1">
+                              {['#10b981','#06b6d4','#6ee7b7','#3b82f6','#a855f7','#f59e0b'].map(c => (
+                                  <button key={c} onClick={() => setLocalSettings({...localSettings, freeThemeColor: c})} className="h-6 rounded border-2 transition-all" style={{background: c, borderColor: localSettings.freeThemeColor === c ? '#1e293b' : 'transparent'}} />
+                              ))}
+                          </div>
+                      </div>
+                  </div>
+                  <p className="text-[10px] text-violet-600 bg-violet-50 rounded-lg p-2">💡 Priority order: Student ka personal redeem code color &gt; Yahan set tier color &gt; Global theme color upar</p>
+              </div>
+
+              {/* LEVEL SCORE EDITOR */}
+              <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-6 rounded-3xl border border-amber-100 space-y-4">
+                  <h4 className="font-bold text-amber-900 flex items-center gap-2 text-lg">🏆 Level Score Thresholds</h4>
+                  <p className="text-xs text-amber-700">Har level ke liye minimum score set karo. Khali chhodo = default system value use hogi.</p>
+                  <div className="grid grid-cols-1 gap-2 max-h-96 overflow-y-auto pr-1">
+                      {[
+                          {level:1,label:'Beginner',emoji:'🌱',def:0},
+                          {level:2,label:'Apprentice',emoji:'🌿',def:200},
+                          {level:3,label:'Explorer',emoji:'🔍',def:500},
+                          {level:4,label:'Scholar',emoji:'✨',def:1000},
+                          {level:5,label:'Expert',emoji:'⚡',def:5000},
+                          {level:6,label:'Veteran',emoji:'🔥',def:10000},
+                          {level:7,label:'Master',emoji:'💫',def:20000},
+                          {level:8,label:'GrandMaster',emoji:'💎',def:50000},
+                          {level:9,label:'Titan',emoji:'🌟',def:100000},
+                          {level:10,label:'Mythic',emoji:'👑',def:500000},
+                          {level:11,label:'Supreme',emoji:'🏆',def:2500000},
+                          {level:12,label:'Legend',emoji:'🔮',def:5000000},
+                          {level:13,label:'Immortal',emoji:'⚜️',def:10000000},
+                          {level:14,label:'Divine',emoji:'🌠',def:20000000},
+                          {level:15,label:'Absolute',emoji:'💠',def:50000000},
+                      ].map(({level, label, emoji, def}) => {
+                          const cur = localSettings.levelScoreOverride?.[String(level)];
+                          return (
+                              <div key={level} className="flex items-center gap-3 bg-white rounded-xl px-3 py-2 border border-amber-100">
+                                  <span className="text-lg w-7 text-center">{emoji}</span>
+                                  <div className="w-20 shrink-0">
+                                      <p className="text-xs font-bold text-slate-700">L{level} {label}</p>
+                                      <p className="text-[10px] text-slate-400">Default: {def.toLocaleString()}</p>
+                                  </div>
+                                  <input
+                                      type="number"
+                                      min={0}
+                                      value={cur ?? ''}
+                                      placeholder={String(def)}
+                                      onChange={e => {
+                                          const val = e.target.value;
+                                          const overrides = {...(localSettings.levelScoreOverride || {})};
+                                          if (val === '' || val === undefined) {
+                                              delete overrides[String(level)];
+                                          } else {
+                                              overrides[String(level)] = Number(val);
+                                          }
+                                          setLocalSettings({...localSettings, levelScoreOverride: overrides});
+                                      }}
+                                      className="flex-1 p-2 border rounded-lg text-sm font-bold text-right"
+                                  />
+                                  {cur !== undefined && (
+                                      <button onClick={() => {
+                                          const overrides = {...(localSettings.levelScoreOverride || {})};
+                                          delete overrides[String(level)];
+                                          setLocalSettings({...localSettings, levelScoreOverride: overrides});
+                                      }} className="text-[10px] text-red-400 hover:text-red-600 shrink-0">Reset</button>
+                                  )}
+                              </div>
+                          );
+                      })}
+                  </div>
+                  <button
+                      onClick={() => setLocalSettings({...localSettings, levelScoreOverride: {}})}
+                      className="w-full py-2 rounded-xl border border-amber-200 text-amber-700 text-xs font-bold hover:bg-amber-50"
+                  >
+                      Reset All Levels to Default
+                  </button>
               </div>
 
               <button onClick={() => handleSaveSettings()} className="w-full bg-green-600 text-white font-black py-4 rounded-2xl shadow-lg hover:bg-green-700 transition-all flex items-center justify-center gap-2">
