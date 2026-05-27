@@ -40,6 +40,7 @@ interface Props {
   onUpdateUser: (user: User) => void;
   settings?: SystemSettings;
   initialSyllabusMode?: 'SCHOOL' | 'COMPETITION';
+  initialActiveTab?: 'DEEP_DIVE' | 'PREMIUM';
   directResource?: { url: string, access: string };
   // NEW: Lucent-style cross-tab switch from Notes (PdfView) → MCQ (McqView).
   onSwitchToMcq?: () => void;
@@ -169,7 +170,7 @@ const extractTopicsFromHtml = (html: string): { title: string, content: string }
 };
 
 export const PdfView: React.FC<Props> = ({ 
-    chapter, subject, user, board, classLevel, stream, onBack, onUpdateUser, settings, initialSyllabusMode, directResource, onSwitchToMcq, onSwitchToFlashcard, onImmersiveChange, hideHeader
+    chapter, subject, user, board, classLevel, stream, onBack, onUpdateUser, settings, initialSyllabusMode, initialActiveTab, directResource, onSwitchToMcq, onSwitchToFlashcard, onImmersiveChange, hideHeader
 }) => {
   const [contentData, setContentData] = useState<any>({});
   const [loading, setLoading] = useState(true);
@@ -180,7 +181,7 @@ export const PdfView: React.FC<Props> = ({
   const [pendingPdf, setPendingPdf] = useState<{type: string, price: number, link: string, tts?: string} | null>(null);
   
   // NEW: TAB STATE
-  const [activeTab, setActiveTab] = useState<'DEEP_DIVE' | 'PREMIUM' | 'RESOURCES' | 'TEACHER'>('DEEP_DIVE');
+  const [activeTab, setActiveTab] = useState<'DEEP_DIVE' | 'PREMIUM' | 'RESOURCES' | 'TEACHER'>(initialActiveTab || 'DEEP_DIVE');
   const [sessionUnlockedTabs, setSessionUnlockedTabs] = useState<string[]>([]);
   const [quickRevisionPoints, setQuickRevisionPoints] = useState<{title: string, points: string[]}[]>([]);
   const [currentPremiumEntryIdx, setCurrentPremiumEntryIdx] = useState(0);
@@ -1891,7 +1892,7 @@ export const PdfView: React.FC<Props> = ({
                                    {/* Row 1: back + title */}
                                    <div className="flex items-center gap-2 px-3 pt-2 pb-1">
                                        <button
-                                           onClick={() => { stopSpeech(); setIsAutoPlaying(false); setActiveTab('CONCEPT' as any); }}
+                                           onClick={() => { stopSpeech(); setIsAutoPlaying(false); onBack(); }}
                                            className={`shrink-0 p-1.5 rounded-full transition-colors ${deepDiveViewMode === 'html' ? 'text-white/60 hover:bg-white/10 active:bg-white/15' : 'text-slate-600 hover:bg-slate-100 active:bg-slate-200'}`}
                                            title="Back"
                                            aria-label="Back"
