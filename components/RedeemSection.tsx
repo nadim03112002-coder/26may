@@ -278,6 +278,18 @@ export const RedeemSection: React.FC<Props> = ({ user, onSuccess }) => {
             // Stacks additively with previous boosts
             (updatedUser as any).scoreLimitBoostPercent = prevBoost + limitBoostPct;
             successMessage = `📈 Daily Score Limit Boost! +${limitBoostPct}% limit badh gayi permanently! (Total Boost: ${prevBoost + limitBoostPct}%)`;
+        } else if (targetCode.type === 'THEME_COLOR') {
+            // Handle Temporary App Theme Color
+            const color = (targetCode as any).themeColor || '#3b82f6';
+            const durationHours = (targetCode as any).themeDurationHours || 24;
+            const expiry = new Date(Date.now() + durationHours * 60 * 60 * 1000).toISOString();
+            updatedUser.tempThemeColor = color;
+            updatedUser.tempThemeColorExpiry = expiry;
+            const endDate = new Date(Date.now() + durationHours * 60 * 60 * 1000);
+            const timeLabel = durationHours >= 24
+                ? `${Math.round(durationHours / 24)} din`
+                : `${durationHours} ghante`;
+            successMessage = `🎨 App Theme Color Change! Aapka app ab ${color} color mein ${timeLabel} ke liye glow karega!`;
         } else {
             // Handle Credits (Default)
             const amount = targetCode.amount || 0;

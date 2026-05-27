@@ -1352,7 +1352,9 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
   };
 
   // --- GIFT CODE STATE ---
-  const [newCodeType, setNewCodeType] = useState<'CREDITS' | 'SUBSCRIPTION' | 'DISCOUNT' | 'CONTENT_UNLOCK' | 'TOPBAR_EFFECT_COLOR' | 'TOPBAR_EFFECT_ID' | 'SCORE' | 'SCORE_BOOST' | 'SCORE_LIMIT_BOOST'>('CREDITS');
+  const [newCodeType, setNewCodeType] = useState<'CREDITS' | 'SUBSCRIPTION' | 'DISCOUNT' | 'CONTENT_UNLOCK' | 'TOPBAR_EFFECT_COLOR' | 'TOPBAR_EFFECT_ID' | 'SCORE' | 'SCORE_BOOST' | 'SCORE_LIMIT_BOOST' | 'THEME_COLOR'>('CREDITS');
+  const [newCodeThemeColor, setNewCodeThemeColor] = useState('#6366f1');
+  const [newCodeThemeDurationHours, setNewCodeThemeDurationHours] = useState(24);
   const [newCodeScoreAmount, setNewCodeScoreAmount] = useState(100);
   const [newCodeScoreBoostPercent, setNewCodeScoreBoostPercent] = useState(20);
   const [newCodeScoreBoostHours, setNewCodeScoreBoostHours] = useState(24);
@@ -2199,6 +2201,7 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                   ...(newCodeType === 'CONTENT_UNLOCK' ? { contentId: newCodeContentChapter, contentType: newCodeContentType } : {}),
                   ...(newCodeType === 'TOPBAR_EFFECT_COLOR' ? { effectColor: newCodeEffectColor || '#fbbf24' } : {}),
                   ...(newCodeType === 'TOPBAR_EFFECT_ID' ? { effectId: newCodeEffectId || 'border-runner-cw' } : {}),
+                  ...(newCodeType === 'THEME_COLOR' ? { themeColor: newCodeThemeColor || '#6366f1', themeDurationHours: newCodeThemeDurationHours || 24 } : {}),
                   createdAt: new Date().toISOString(),
                   isRedeemed: false,
                   generatedBy: 'ADMIN',
@@ -15113,6 +15116,7 @@ Statement 2"
                               <option value="CONTENT_UNLOCK">Content Unlock</option>
                               <option value="TOPBAR_EFFECT_COLOR">🎨 Top Bar Color Gift</option>
                               <option value="TOPBAR_EFFECT_ID">✨ Animation Effect Gift</option>
+                              <option value="THEME_COLOR">🌈 Temporary App Theme Color</option>
                           </select>
                           {/* Multi-use toggle */}
                           <div className="flex items-center gap-2 mt-2 p-2 bg-amber-50 rounded-lg border border-amber-200">
@@ -15121,7 +15125,35 @@ Statement 2"
                           </div>
                       </div>
 
-                      {newCodeType === 'TOPBAR_EFFECT_COLOR' ? (
+                      {newCodeType === 'THEME_COLOR' ? (
+                          <div className="flex flex-col gap-2">
+                              <div>
+                                  <label className="text-xs font-bold text-pink-700 uppercase block mb-1">🌈 Theme Color</label>
+                                  <div className="flex items-center gap-2">
+                                      <input
+                                          type="color"
+                                          value={newCodeThemeColor}
+                                          onChange={e => setNewCodeThemeColor(e.target.value)}
+                                          className="w-10 h-10 rounded-lg cursor-pointer border-none"
+                                      />
+                                      <input
+                                          type="text"
+                                          value={newCodeThemeColor}
+                                          onChange={e => setNewCodeThemeColor(e.target.value)}
+                                          className="flex-1 p-2 border border-pink-200 rounded-xl uppercase font-bold text-sm"
+                                          placeholder="#6366f1"
+                                      />
+                                  </div>
+                              </div>
+                              <div>
+                                  <label className="text-xs font-bold text-pink-700 uppercase block mb-1">⏱️ Duration (hours)</label>
+                                  <input type="number" value={newCodeThemeDurationHours} onChange={e => setNewCodeThemeDurationHours(Number(e.target.value))} className="p-3 rounded-xl border border-pink-200 w-32 font-bold" min="1" />
+                              </div>
+                              <div className="p-2 rounded-xl border" style={{ background: newCodeThemeColor + '18', borderColor: newCodeThemeColor + '55' }}>
+                                  <p className="text-[10px] font-bold" style={{ color: newCodeThemeColor }}>Preview: Student ke subscription color (profile card border, buttons, chat) is color se {newCodeThemeDurationHours}h ke liye change ho jayenge.</p>
+                              </div>
+                          </div>
+                      ) : newCodeType === 'TOPBAR_EFFECT_COLOR' ? (
                           <div>
                               <label className="text-xs font-bold text-pink-700 uppercase block mb-1">Shimmer Color</label>
                               <div className="flex items-center gap-2">

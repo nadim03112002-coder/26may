@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { User } from '../types';
+import { buildSubColorsFromHex } from '../utils/tierTheme';
 import { Send, MessageSquare, Shield, Users, X, Trash2, Crown, Zap, Lock, Megaphone, BookOpen, CheckCircle, ThumbsUp, ThumbsDown, Award, Flag, ChevronDown, ChevronUp } from 'lucide-react';
 import { ref, onValue, query, limitToLast, remove, set, get } from 'firebase/database';
 import { rtdb } from '../firebase';
@@ -17,6 +18,7 @@ interface Props {
     defaultTab?: 'GLOBAL' | 'MCQ' | 'SUPPORT';
     hideGlobalTab?: boolean;
     onSpendCoins?: (amount: number) => boolean;
+    themeColor?: string; // Optional override color from admin settings or user redeem code
 }
 
 interface McqDraft {
@@ -28,7 +30,23 @@ interface McqDraft {
 
 const EMPTY_MCQ: McqDraft = { question: '', options: ['', '', '', ''], correctAnswer: 0, explanation: '' };
 
-export const UniversalChat: React.FC<Props> = ({ user, onClose, isAdmin, targetUser, roomId, roomName, allowStudentMcq, initialMcqDraft, defaultTab, hideGlobalTab, onSpendCoins }) => {
+export const UniversalChat: React.FC<Props> = ({ user, onClose, isAdmin, targetUser, roomId, roomName, allowStudentMcq, initialMcqDraft, defaultTab, hideGlobalTab, onSpendCoins, themeColor }) => {
+    // Determine effective color: prop override > subscription tier
+    const _baseSubColor = (user.subscriptionLevel === 'ULTRA' && user.isPremium) ? '#1d4ed8'
+        : (user.subscriptionLevel === 'BASIC' && user.isPremium) ? '#2563eb'
+        : '#0ea5e9';
+    const _effectiveColor = themeColor || _baseSubColor;
+    const { subColor, subColorLight, subColorBorder } = themeColor
+        ? buildSubColorsFromHex(_effectiveColor)
+        : {
+            subColor: _baseSubColor,
+            subColorLight: (user.subscriptionLevel === 'ULTRA' && user.isPremium) ? 'rgba(29,78,216,0.08)'
+                : (user.subscriptionLevel === 'BASIC' && user.isPremium) ? 'rgba(37,99,235,0.08)'
+                : 'rgba(14,165,233,0.08)',
+            subColorBorder: (user.subscriptionLevel === 'ULTRA' && user.isPremium) ? 'rgba(29,78,216,0.30)'
+                : (user.subscriptionLevel === 'BASIC' && user.isPremium) ? 'rgba(37,99,235,0.30)'
+                : 'rgba(14,165,233,0.28)',
+          };
     const [activeTab, setActiveTab] = useState<'GLOBAL' | 'SUPPORT' | 'MCQ'>(defaultTab || (hideGlobalTab ? 'MCQ' : 'GLOBAL'));
     const [mcqVotes, setMcqVotes] = useState<Record<string, Record<string, number>>>({});
     const [mcqDailyCount, setMcqDailyCount] = useState(0);
@@ -385,7 +403,7 @@ export const UniversalChat: React.FC<Props> = ({ user, onClose, isAdmin, targetU
                 {/* Header */}
                 <div className="bg-slate-900 text-white p-4 flex items-center justify-between shrink-0">
                     <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-lg ${roomId ? 'bg-indigo-600' : activeTab === 'GLOBAL' ? 'bg-blue-600' : activeTab === 'MCQ' ? 'bg-violet-600' : 'bg-green-600'}`}>
+                        <div className={`p-2 rounded-lg ${activeTab === 'GLOBAL' ? 'bg-blue-600' : activeTab === 'MCQ' ? '' : 'bg-green-600'}`} style={activeTab === 'MCQ' || roomId ? { background: subColor } : {}}>
                             {roomId ? <MessageSquare size={18} /> : activeTab === 'GLOBAL' ? <Users size={18} /> : activeTab === 'MCQ' ? <BookOpen size={18} /> : <Shield size={18} />}
                         </div>
                         <div>
@@ -413,11 +431,12 @@ export const UniversalChat: React.FC<Props> = ({ user, onClose, isAdmin, targetU
                         )}
                         <button
                             onClick={() => setActiveTab('MCQ')}
-                            className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1 relative ${activeTab === 'MCQ' ? 'bg-white shadow text-violet-600' : 'text-slate-500 hover:text-slate-700'}`}
+                            className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1 relative ${activeTab === 'MCQ' ? 'bg-white shadow' : 'text-slate-500 hover:text-slate-700'}`}
+                            style={activeTab === 'MCQ' ? { color: subColor } : {}}
                         >
                             <BookOpen size={12} /> MCQs
                             {!isAdminOrSub && mcqDailyCount > 0 && (
-                                <span className="absolute -top-0.5 -right-0.5 bg-violet-500 text-white text-[7px] font-black rounded-full px-1 leading-tight">{mcqDailyCount}/10</span>
+                                <span className="absolute -top-0.5 -right-0.5 text-white text-[7px] font-black rounded-full px-1 leading-tight" style={{ background: subColor }}>{mcqDailyCount}/10</span>
                             )}
                         </button>
                         <button
@@ -456,30 +475,30 @@ export const UniversalChat: React.FC<Props> = ({ user, onClose, isAdmin, targetU
                             const rows = Object.values(byUserDay).sort((a, b) => b.dateTs - a.dateTs || b.count - a.count || b.likes - a.likes).slice(0, 10);
                             const medals = ['🥇','🥈','🥉'];
                             return (
-                                <div className="mx-3 mt-3 mb-0 rounded-2xl overflow-hidden border border-violet-200 bg-gradient-to-r from-violet-50 to-purple-50">
+                                <div className="mx-3 mt-3 mb-0 rounded-2xl overflow-hidden" style={{ border: `1px solid ${subColorBorder}`, background: subColorLight }}>
                                     <button className="w-full flex items-center justify-between px-3 py-2" onClick={() => setShowMcqLeaderboard(v => !v)}>
                                         <div className="flex items-center gap-2">
-                                            <Award size={14} className="text-violet-600" />
-                                            <span className="text-[11px] font-black text-violet-800 uppercase tracking-wider">MCQ Leaderboard</span>
+                                            <Award size={14} style={{ color: subColor }} />
+                                            <span className="text-[11px] font-black uppercase tracking-wider" style={{ color: subColor }}>MCQ Leaderboard</span>
                                         </div>
-                                        {showMcqLeaderboard ? <ChevronUp size={14} className="text-violet-600" /> : <ChevronDown size={14} className="text-violet-600" />}
+                                        {showMcqLeaderboard ? <ChevronUp size={14} style={{ color: subColor }} /> : <ChevronDown size={14} style={{ color: subColor }} />}
                                     </button>
                                     {showMcqLeaderboard && (
                                         <div className="px-3 pb-3 space-y-1.5">
-                                            <div className="grid grid-cols-5 text-[8px] font-black text-violet-500 uppercase tracking-wider px-1 pb-1 border-b border-violet-100">
+                                            <div className="grid grid-cols-5 text-[8px] font-black uppercase tracking-wider px-1 pb-1" style={{ color: subColor, borderBottom: `1px solid ${subColorBorder}` }}>
                                                 <span className="col-span-2">Name</span>
                                                 <span className="text-center">Day</span>
                                                 <span className="text-center">MCQs</span>
                                                 <span className="text-center">👍</span>
                                             </div>
                                             {rows.map((row, i) => (
-                                                <div key={`${row.userId}_${row.date}`} className={`grid grid-cols-5 items-center text-[10px] rounded-xl px-2 py-1.5 ${i === 0 ? 'bg-amber-50 border border-amber-200' : i === 1 ? 'bg-slate-50 border border-slate-200' : i === 2 ? 'bg-orange-50 border border-orange-200' : 'bg-white border border-violet-100'}`}>
+                                                <div key={`${row.userId}_${row.date}`} className={`grid grid-cols-5 items-center text-[10px] rounded-xl px-2 py-1.5 ${i === 0 ? 'bg-amber-50 border border-amber-200' : i === 1 ? 'bg-slate-50 border border-slate-200' : i === 2 ? 'bg-orange-50 border border-orange-200' : 'bg-white'}`} style={i >= 3 ? { border: `1px solid ${subColorBorder}` } : {}}>
                                                     <div className="col-span-2 flex items-center gap-1 min-w-0">
                                                         <span className="text-sm leading-none">{medals[i] || '🔹'}</span>
                                                         <span className="font-black text-slate-800 truncate">{row.userName.split(' ')[0]}</span>
                                                     </div>
                                                     <span className="text-center font-bold text-slate-500">{row.date}</span>
-                                                    <span className="text-center font-black text-violet-700">{row.count}</span>
+                                                    <span className="text-center font-black" style={{ color: subColor }}>{row.count}</span>
                                                     <span className="text-center font-bold text-amber-600">{row.likes > 0 ? row.likes : '—'}</span>
                                                 </div>
                                             ))}
@@ -607,8 +626,8 @@ export const UniversalChat: React.FC<Props> = ({ user, onClose, isAdmin, targetU
                                                 </div>
                                             )}
                                             {msg.isPremium && (
-                                                <div className="mb-1 flex items-center gap-1 text-[9px] font-black uppercase tracking-wider text-purple-600">
-                                                    <Crown size={10} className="fill-purple-600" /> Premium
+                                                <div className="mb-1 flex items-center gap-1 text-[9px] font-black uppercase tracking-wider" style={{ color: subColor }}>
+                                                    <Crown size={10} style={{ fill: subColor }} /> Premium
                                                 </div>
                                             )}
                                             {(msg.role === 'ADMIN' || msg.role === 'SUB_ADMIN') && !msg.isPremium && (
@@ -678,8 +697,8 @@ export const UniversalChat: React.FC<Props> = ({ user, onClose, isAdmin, targetU
                                                 return (
                                                     <div className="min-w-[220px] max-w-[295px]">
                                                         <div className="flex items-center gap-1 mb-2">
-                                                            <BookOpen size={11} className={isMe ? 'text-violet-200' : 'text-violet-500'} />
-                                                            <span className={`text-[10px] font-black uppercase tracking-wide ${isMe ? 'text-violet-200' : 'text-violet-600'}`}>MCQ</span>
+                                                            <BookOpen size={11} className={isMe ? 'opacity-70' : ''} style={!isMe ? { color: subColor } : {}} />
+                                                            <span className={`text-[10px] font-black uppercase tracking-wide ${isMe ? 'text-white/70' : ''}`} style={!isMe ? { color: subColor } : {}}>MCQ</span>
                                                             {totalVotes > 0 && <span className={`text-[9px] font-bold ml-auto ${isMe ? 'text-blue-200' : 'text-slate-400'}`}>{totalVotes} jawab</span>}
                                                         </div>
                                                         <p className="font-semibold text-[13px] leading-snug mb-3">{msg.mcqData.question}</p>
@@ -718,7 +737,7 @@ export const UniversalChat: React.FC<Props> = ({ user, onClose, isAdmin, targetU
                                                                 );
                                                             })}
                                                         </div>
-                                                        {!hasVoted && <p className={`mt-1.5 text-[10px] font-bold ${isMe ? 'text-violet-200' : 'text-violet-600/70'}`}>👆 Apna jawab chunein</p>}
+                                                        {!hasVoted && <p className={`mt-1.5 text-[10px] font-bold ${isMe ? 'text-white/60' : ''}`} style={!isMe ? { color: subColor } : {}}>👆 Apna jawab chunein</p>}
                                                         {hasVoted && msg.mcqData.explanation && (
                                                             <p className={`mt-2 text-[10px] italic leading-relaxed ${isMe ? 'text-blue-200' : 'text-slate-500'}`}>💡 {msg.mcqData.explanation}</p>
                                                         )}
@@ -726,7 +745,8 @@ export const UniversalChat: React.FC<Props> = ({ user, onClose, isAdmin, targetU
                                                         <div className="mt-2.5 flex items-center gap-2 flex-wrap">
                                                             <button
                                                                 onClick={() => handleUpvote(msg.id)}
-                                                                className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all active:scale-95 ${myUpvotes.has(msg.id) ? 'bg-violet-600 text-white' : isMe ? 'bg-blue-400/20 text-blue-200 hover:bg-blue-400/30' : 'bg-slate-100 text-slate-600 hover:bg-violet-50 hover:text-violet-600'}`}
+                                                                className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all active:scale-95 ${myUpvotes.has(msg.id) ? 'text-white' : isMe ? 'bg-blue-400/20 text-blue-200 hover:bg-blue-400/30' : 'bg-slate-100 text-slate-600'}`}
+                                                style={myUpvotes.has(msg.id) ? { background: subColor } : (!isMe ? { ['--hover-bg' as any]: subColorLight } : {})}
                                                             >
                                                                 <ThumbsUp size={10} className={myUpvotes.has(msg.id) ? 'fill-white' : ''} />
                                                                 <span>{mcqUpvotes[msg.id] || 0}</span>
@@ -762,7 +782,7 @@ export const UniversalChat: React.FC<Props> = ({ user, onClose, isAdmin, targetU
                         {activeTab === 'MCQ' && (
                         <div className="px-3 pt-2 pb-1 bg-white border-t border-slate-100 shrink-0">
                             {!isAdminOrSub && (
-                                <div className={`mb-1.5 flex items-center justify-between text-[10px] font-bold px-0.5 ${mcqDailyCount >= 10 ? 'text-red-500' : 'text-violet-500'}`}>
+                                <div className={`mb-1.5 flex items-center justify-between text-[10px] font-bold px-0.5 ${mcqDailyCount >= 10 ? 'text-red-500' : ''}`} style={mcqDailyCount < 10 ? { color: subColor } : {}}>
                                     <span>Aaj ke MCQ: {mcqDailyCount}/10</span>
                                     {mcqDailyCount >= 10 ? <span>Limit poori ⛔ Kal aana</span> : <span>{10 - mcqDailyCount} bache</span>}
                                 </div>
@@ -771,7 +791,8 @@ export const UniversalChat: React.FC<Props> = ({ user, onClose, isAdmin, targetU
                                 onClick={() => setShowMcqBuilder(true)}
                                 disabled={!isAdminOrSub && mcqDailyCount >= 10}
                                 title="MCQ bhejo"
-                                className={`w-full py-2.5 rounded-xl border font-bold text-xs transition-all flex items-center justify-center gap-2 ${!isAdminOrSub && mcqDailyCount >= 10 ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed' : 'bg-violet-50 text-violet-700 border-violet-200 hover:bg-violet-100 active:scale-95'}`}
+                                className={`w-full py-2.5 rounded-xl border font-bold text-xs transition-all flex items-center justify-center gap-2 ${!isAdminOrSub && mcqDailyCount >= 10 ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed' : 'active:scale-95'}`}
+                                style={!(!isAdminOrSub && mcqDailyCount >= 10) ? { background: subColorLight, color: subColor, borderColor: subColorBorder } : {}}
                             >
                                 <BookOpen size={16} /> MCQ Bhejo
                             </button>
@@ -868,7 +889,8 @@ export const UniversalChat: React.FC<Props> = ({ user, onClose, isAdmin, targetU
                                         )}
                                         <button
                                             onClick={handleSendMcq}
-                                            className="w-full bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white py-4 rounded-2xl text-sm font-black transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-200"
+                                            className="w-full active:scale-95 text-white py-4 rounded-2xl text-sm font-black transition-all flex items-center justify-center gap-2 shadow-lg"
+                                        style={{ background: subColor }}
                                         >
                                             <Send size={15} /> MCQ Community Mein Bhejo
                                         </button>
@@ -942,7 +964,8 @@ export const UniversalChat: React.FC<Props> = ({ user, onClose, isAdmin, targetU
                         <div className="p-3 pb-6 bg-white border-t border-slate-100 shrink-0 sticky bottom-16 sm:bottom-0 space-y-2">
                             <button
                                 onClick={() => setShowMcqBuilder(true)}
-                                className="w-full flex items-center justify-center gap-2 bg-violet-50 hover:bg-violet-100 text-violet-700 border border-violet-200 px-4 py-2.5 rounded-xl text-xs font-black active:scale-95 transition-all"
+                                className="w-full flex items-center justify-center gap-2 border px-4 py-2.5 rounded-xl text-xs font-black active:scale-95 transition-all"
+                                style={{ background: subColorLight, color: subColor, borderColor: subColorBorder }}
                             >
                                 <BookOpen size={14} /> MCQ Bhejo (Admin)
                             </button>

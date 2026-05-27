@@ -32,6 +32,8 @@ interface LeaderboardUser {
   credits?: number;
   giftedCredits?: number;
   role?: string;
+  photoURL?: string;
+  avatarChoice?: string;
 }
 
 export const LevelLeaderboard: React.FC<Props> = ({ user, settings, onBack }) => {
@@ -63,6 +65,8 @@ export const LevelLeaderboard: React.FC<Props> = ({ user, settings, onBack }) =>
         credits: u.credits || 0,
         giftedCredits: u.giftedCredits || 0,
         role: u.role,
+        photoURL: u.photoURL || '',
+        avatarChoice: u.avatarChoice || 'app',
       });
       const isStudent = (u: LeaderboardUser) => u.role !== 'ADMIN' && u.role !== 'SUB_ADMIN';
 
@@ -268,7 +272,10 @@ export const LevelLeaderboard: React.FC<Props> = ({ user, settings, onBack }) =>
                       border: `1.5px solid ${lvl.color}55`,
                       boxShadow: isTop3 ? `0 0 10px ${lvl.glowColor}` : 'none',
                     }}>
-                    <span style={{ color: lvl.color }}>{(u.name || 'S').charAt(0)}</span>
+                    {u.photoURL && u.avatarChoice === 'gmail'
+                      ? <img src={u.photoURL} alt={u.name} className="w-full h-full object-cover" />
+                      : <span style={{ color: lvl.color }}>{(u.name || 'S').charAt(0)}</span>
+                    }
                   </div>
 
                   {/* Name + Level */}

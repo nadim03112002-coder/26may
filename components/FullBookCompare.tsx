@@ -101,6 +101,22 @@ interface Props {
 
 export const FullBookCompare: React.FC<Props> = ({ settings, user, isLimited = false, freeLimit = 4, onClose, isFocusMode = false }) => {
   const isAdmin = !!(user?.isAdmin);
+  // Effective color: admin settings.themeColor > subscription tier
+  const _overrideColor = (settings as any)?.themeColor as string | undefined;
+  const _baseSubColor = (user?.subscriptionLevel === 'ULTRA' && user?.isPremium) ? '#1d4ed8'
+    : (user?.subscriptionLevel === 'BASIC' && user?.isPremium) ? '#2563eb'
+    : '#0ea5e9';
+  const subColor = _overrideColor || _baseSubColor;
+  const subColorLight = _overrideColor
+    ? (() => { const h=_overrideColor.replace('#','').padEnd(6,'0'); return `rgba(${parseInt(h.slice(0,2),16)},${parseInt(h.slice(2,4),16)},${parseInt(h.slice(4,6),16)},0.08)`; })()
+    : (user?.subscriptionLevel === 'ULTRA' && user?.isPremium) ? 'rgba(29,78,216,0.08)'
+    : (user?.subscriptionLevel === 'BASIC' && user?.isPremium) ? 'rgba(37,99,235,0.08)'
+    : 'rgba(14,165,233,0.08)';
+  const subColorBorder = _overrideColor
+    ? (() => { const h=_overrideColor.replace('#','').padEnd(6,'0'); return `rgba(${parseInt(h.slice(0,2),16)},${parseInt(h.slice(2,4),16)},${parseInt(h.slice(4,6),16)},0.30)`; })()
+    : (user?.subscriptionLevel === 'ULTRA' && user?.isPremium) ? 'rgba(29,78,216,0.30)'
+    : (user?.subscriptionLevel === 'BASIC' && user?.isPremium) ? 'rgba(37,99,235,0.30)'
+    : 'rgba(14,165,233,0.28)';
 
   // ── Search state ──
   const [searchWord, setSearchWord] = useState('');
@@ -526,7 +542,8 @@ export const FullBookCompare: React.FC<Props> = ({ settings, user, isLimited = f
           <div className="flex items-center gap-2 px-3 pt-3 shrink-0">
             <button
               onClick={() => { setTopicResult(null); setTab('search'); }}
-              className="flex items-center gap-1.5 text-[11px] font-black text-violet-600 bg-violet-50 border border-violet-200 px-3 py-1.5 rounded-full active:scale-95 transition-all"
+              className="flex items-center gap-1.5 text-[11px] font-black px-3 py-1.5 rounded-full active:scale-95 transition-all border"
+              style={{ color: subColor, background: subColorLight, borderColor: subColorBorder }}
             >
               <ChevronLeft size={13} /> Wapas
             </button>
@@ -542,7 +559,8 @@ export const FullBookCompare: React.FC<Props> = ({ settings, user, isLimited = f
             </button>
             <button
               onClick={() => setTab('extra')}
-              className={`shrink-0 flex-1 py-2 text-[11px] font-bold rounded-lg transition-all flex items-center justify-center gap-1 ${tab === 'extra' ? 'bg-white shadow text-violet-700' : 'text-slate-500'}`}
+              className={`shrink-0 flex-1 py-2 text-[11px] font-bold rounded-lg transition-all flex items-center justify-center gap-1 ${tab === 'extra' ? 'bg-white shadow' : 'text-slate-500'}`}
+              style={tab === 'extra' ? { color: subColor } : {}}
             >
               <BookOpen size={11} /> Extra ({topicResult.extra.reduce((a, e) => a + e.points.length, 0)})
             </button>
@@ -576,7 +594,8 @@ export const FullBookCompare: React.FC<Props> = ({ settings, user, isLimited = f
                 <button
                   key={sf.id}
                   onClick={() => { setCompreSubject(sf.id); }}
-                  className={`shrink-0 px-3 py-1.5 rounded-full text-[11px] font-black border-2 transition-all ${compreSubject === sf.id ? 'bg-violet-600 text-white border-violet-600 shadow-md' : 'bg-white text-violet-600 border-violet-200 hover:border-violet-400'}`}
+                  className="shrink-0 px-3 py-1.5 rounded-full text-[11px] font-black border-2 transition-all"
+                  style={compreSubject === sf.id ? { background: subColor, color: 'white', borderColor: subColor } : { background: 'white', color: subColor, borderColor: subColorBorder }}
                 >
                   {sf.label}
                 </button>
@@ -585,7 +604,7 @@ export const FullBookCompare: React.FC<Props> = ({ settings, user, isLimited = f
 
             {/* Loading indicator */}
             {compreLoading && (
-              <div className="flex items-center gap-2 px-2 text-[11px] text-indigo-500 font-semibold">
+              <div className="flex items-center gap-2 px-2 text-[11px] font-semibold" style={{ color: subColor }}>
                 <Loader2 size={13} className="animate-spin" />
                 Compre Notes load ho rahi hain…
               </div>
@@ -597,7 +616,7 @@ export const FullBookCompare: React.FC<Props> = ({ settings, user, isLimited = f
                 {compreLoading ? null : allCompreTopics.length > 0 ? (
                   <>
                     <div className="flex items-center justify-between px-1">
-                      <p className="text-[11px] font-black text-violet-700 uppercase tracking-wider">
+                      <p className="text-[11px] font-black uppercase tracking-wider" style={{ color: subColor }}>
                         📚 Saved Topics ({allCompreTopics.length})
                       </p>
                       <p className="text-[10px] text-slate-400">Click karein → Compare dekhein</p>
@@ -610,7 +629,8 @@ export const FullBookCompare: React.FC<Props> = ({ settings, user, isLimited = f
                           <button
                             key={topic.groupId || topic.topicName}
                             onClick={() => handleTopicSelect(topic.topicName, topic.groupId)}
-                            className="w-full text-left bg-white border-2 border-violet-100 hover:border-violet-400 active:scale-[0.98] rounded-2xl px-4 py-3 transition-all shadow-sm group"
+                            className="w-full text-left bg-white border-2 active:scale-[0.98] rounded-2xl px-4 py-3 transition-all shadow-sm group"
+                            style={{ borderColor: subColorBorder }}
                           >
                             <div className="flex items-start justify-between gap-2">
                               <div className="flex-1 min-w-0">
@@ -619,7 +639,7 @@ export const FullBookCompare: React.FC<Props> = ({ settings, user, isLimited = f
                                 </p>
                                 <div className="flex flex-wrap gap-1 mt-2">
                                   {topic.books.map(b => (
-                                    <span key={b} className="text-[10px] font-bold bg-violet-50 text-violet-600 border border-violet-200 px-2 py-0.5 rounded-full">
+                                    <span key={b} className="text-[10px] font-bold border px-2 py-0.5 rounded-full" style={{ background: subColorLight, color: subColor, borderColor: subColorBorder }}>
                                       {b}
                                     </span>
                                   ))}
@@ -627,7 +647,7 @@ export const FullBookCompare: React.FC<Props> = ({ settings, user, isLimited = f
                               </div>
                               <div className="shrink-0 flex flex-col items-end gap-1">
                                 <span className="text-[10px] text-slate-400">{dateStr}</span>
-                                <span className="text-[10px] font-black bg-violet-600 text-white px-2 py-0.5 rounded-full">
+                                <span className="text-[10px] font-black text-white px-2 py-0.5 rounded-full" style={{ background: subColor }}>
                                   {topic.books.length} book{topic.books.length !== 1 ? 's' : ''}
                                 </span>
                               </div>
@@ -653,7 +673,8 @@ export const FullBookCompare: React.FC<Props> = ({ settings, user, isLimited = f
                         <button
                           key={ex}
                           onClick={() => setSearchWord(ex)}
-                          className="px-3 py-1.5 bg-violet-100 text-violet-700 rounded-full text-xs font-bold hover:bg-violet-200 transition-colors"
+                          className="px-3 py-1.5 rounded-full text-xs font-bold transition-colors"
+                          style={{ background: subColorLight, color: subColor }}
                         >
                           {ex}
                         </button>
@@ -683,13 +704,14 @@ export const FullBookCompare: React.FC<Props> = ({ settings, user, isLimited = f
               <>
                 {/* Summary bar */}
                 <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <p className="text-[11px] font-black text-violet-700 uppercase tracking-wider">
+                  <p className="text-[11px] font-black uppercase tracking-wider" style={{ color: subColor }}>
                     {wordSearchResults.reduce((a, r) => a + r.points.length, 0)} points — {wordSearchResults.length} book{wordSearchResults.length !== 1 ? 's' : ''} mein mila
                   </p>
                   {wordSearchResults.length >= 2 && (
                     <button
                       onClick={openWordCompare}
-                      className="flex items-center gap-1.5 bg-violet-600 text-white px-4 py-2 rounded-2xl text-xs font-black hover:bg-violet-700 active:scale-95 transition-all shadow-md"
+                      className="flex items-center gap-1.5 text-white px-4 py-2 rounded-2xl text-xs font-black active:scale-95 transition-all shadow-md"
+                      style={{ background: subColor }}
                     >
                       <GitCompare size={13} /> Compare Books
                     </button>
@@ -700,12 +722,12 @@ export const FullBookCompare: React.FC<Props> = ({ settings, user, isLimited = f
                 {wordSearchResults.map(res => (
                   <div key={res.bookName} className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
                     {/* Book header */}
-                    <div className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-violet-50 to-indigo-50 border-b border-violet-100">
-                      <div className="w-8 h-8 rounded-xl bg-violet-100 flex items-center justify-center shrink-0">
-                        <BookOpen size={15} className="text-violet-600" />
+                    <div className="flex items-center gap-3 px-4 py-3 border-b" style={{ background: subColorLight, borderColor: subColorBorder }}>
+                      <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ background: subColorLight }}>
+                        <BookOpen size={15} style={{ color: subColor }} />
                       </div>
                       <p className="flex-1 text-sm font-black text-slate-800">{res.bookName}</p>
-                      <span className="shrink-0 text-[11px] font-black bg-violet-600 text-white px-2.5 py-1 rounded-full">
+                      <span className="shrink-0 text-[11px] font-black text-white px-2.5 py-1 rounded-full" style={{ background: subColor }}>
                         {res.points.length} points
                       </span>
                     </div>
@@ -714,7 +736,7 @@ export const FullBookCompare: React.FC<Props> = ({ settings, user, isLimited = f
                     <div className="p-3 space-y-1.5">
                       {res.points.map((point, pi) => (
                         <div key={pi} className="flex items-start gap-2 text-xs text-slate-700 leading-relaxed py-1 border-b border-slate-50 last:border-0">
-                          <span className="shrink-0 text-[10px] font-black text-violet-400 mt-0.5 w-5 text-right">{pi + 1}.</span>
+                          <span className="shrink-0 text-[10px] font-black mt-0.5 w-5 text-right" style={{ color: subColor }}>{pi + 1}.</span>
                           <span>{highlight(point, searchWord.trim())}</span>
                         </div>
                       ))}
@@ -809,21 +831,22 @@ export const FullBookCompare: React.FC<Props> = ({ settings, user, isLimited = f
                 <button
                   key={bookName}
                   onClick={() => { setActiveExtraBook(bookName); setExtraPages(prev => ({ ...prev, [bookName]: 0 })); }}
-                  className={`shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-2xl text-[11px] font-black border-2 transition-all ${activeExtraBook === bookName ? 'bg-violet-600 text-white border-violet-600 shadow-md' : 'bg-white text-violet-700 border-violet-200 hover:border-violet-400'}`}
+                  className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-2xl text-[11px] font-black border-2 transition-all"
+                  style={activeExtraBook === bookName ? { background: subColor, color: 'white', borderColor: subColor } : { background: 'white', color: subColor, borderColor: subColorBorder }}
                 >
                   📚 {bookName}
-                  <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${activeExtraBook === bookName ? 'bg-white/20' : 'bg-violet-100'}`}>{points.length}</span>
+                  <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full" style={activeExtraBook === bookName ? { background: 'rgba(255,255,255,0.2)' } : { background: subColorLight }}>{points.length}</span>
                 </button>
               ))}
             </div>
 
             {activeExtraData && (
               <>
-                <div className="bg-violet-50 border border-violet-200 rounded-2xl px-4 py-3 flex items-center gap-3">
-                  <BookOpen size={18} className="text-violet-600 shrink-0" />
+                <div className="rounded-2xl px-4 py-3 flex items-center gap-3 border" style={{ background: subColorLight, borderColor: subColorBorder }}>
+                  <BookOpen size={18} className="shrink-0" style={{ color: subColor }} />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-black text-violet-800">{activeExtraData.bookName}</p>
-                    <p className="text-[10px] text-violet-500">{activeExtraData.points.length} extra — sirf is book mein</p>
+                    <p className="text-sm font-black text-slate-800">{activeExtraData.bookName}</p>
+                    <p className="text-[10px]" style={{ color: subColor }}>{activeExtraData.points.length} extra — sirf is book mein</p>
                   </div>
                   {/* Rotate + Download */}
                   <div className="flex gap-1 shrink-0">
@@ -835,7 +858,7 @@ export const FullBookCompare: React.FC<Props> = ({ settings, user, isLimited = f
                       <RotateCcw size={10} /> Rot
                     </button>
                   </div>
-                  <button onClick={() => handleDownload(activeExtraData.bookName)} className="shrink-0 bg-violet-600 text-white rounded-xl px-3 py-1.5 text-[10px] font-black flex items-center gap-1">
+                  <button onClick={() => handleDownload(activeExtraData.bookName)} className="shrink-0 text-white rounded-xl px-3 py-1.5 text-[10px] font-black flex items-center gap-1" style={{ background: subColor }}>
                     <Download size={11} /> Save
                   </button>
                 </div>
@@ -876,11 +899,11 @@ export const FullBookCompare: React.FC<Props> = ({ settings, user, isLimited = f
                     />
                     {totalPg(activeExtraData.points) > 1 && (
                       <div className="flex items-center justify-between pt-2">
-                        <button disabled={extraCurPage === 0} onClick={() => setExtraPages(prev => ({ ...prev, [activeExtraBook!]: extraCurPage - 1 }))} className="flex items-center gap-1.5 px-5 py-2.5 rounded-2xl bg-violet-100 text-violet-700 font-black text-xs disabled:opacity-30 active:scale-95 transition-all">
+                        <button disabled={extraCurPage === 0} onClick={() => setExtraPages(prev => ({ ...prev, [activeExtraBook!]: extraCurPage - 1 }))} className="flex items-center gap-1.5 px-5 py-2.5 rounded-2xl font-black text-xs disabled:opacity-30 active:scale-95 transition-all" style={{ background: subColorLight, color: subColor }}>
                           <ChevronLeft size={14} /> Prev
                         </button>
                         <span className="text-xs font-bold text-slate-500">{extraCurPage + 1} / {totalPg(activeExtraData.points)}</span>
-                        <button disabled={extraCurPage >= totalPg(activeExtraData.points) - 1} onClick={() => setExtraPages(prev => ({ ...prev, [activeExtraBook!]: extraCurPage + 1 }))} className="flex items-center gap-1.5 px-5 py-2.5 rounded-2xl bg-violet-100 text-violet-700 font-black text-xs disabled:opacity-30 active:scale-95 transition-all">
+                        <button disabled={extraCurPage >= totalPg(activeExtraData.points) - 1} onClick={() => setExtraPages(prev => ({ ...prev, [activeExtraBook!]: extraCurPage + 1 }))} className="flex items-center gap-1.5 px-5 py-2.5 rounded-2xl font-black text-xs disabled:opacity-30 active:scale-95 transition-all" style={{ background: subColorLight, color: subColor }}>
                           Next <ChevronRight size={14} />
                         </button>
                       </div>
@@ -984,15 +1007,15 @@ export const FullBookCompare: React.FC<Props> = ({ settings, user, isLimited = f
               </button>
             </div>
             {topicResult.extra.filter(({ points }) => points.length > 0).map(({ bookName, points }) => (
-              <div key={bookName} className="bg-violet-50 border-2 border-violet-200 rounded-2xl p-4 space-y-2">
+              <div key={bookName} className="border-2 rounded-2xl p-4 space-y-2" style={{ background: subColorLight, borderColor: subColorBorder }}>
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-black text-violet-800">📚 {bookName}</p>
-                    <p className="text-[10px] text-violet-500">{points.length} extra points sirf is book mein</p>
+                    <p className="text-sm font-black text-slate-800">📚 {bookName}</p>
+                    <p className="text-[10px]" style={{ color: subColor }}>{points.length} extra points sirf is book mein</p>
                   </div>
-                  <span className="text-2xl font-black text-violet-500">{points.length}</span>
+                  <span className="text-2xl font-black" style={{ color: subColor }}>{points.length}</span>
                 </div>
-                <button onClick={() => handleDownload(bookName)} className="w-full bg-violet-600 hover:bg-violet-700 text-white py-2.5 rounded-xl text-xs font-black flex items-center justify-center gap-2 active:scale-95 transition-all">
+                <button onClick={() => handleDownload(bookName)} className="w-full text-white py-2.5 rounded-xl text-xs font-black flex items-center justify-center gap-2 active:scale-95 transition-all" style={{ background: subColor }}>
                   <Download size={13} /> {bookName} — Extra Download
                 </button>
               </div>

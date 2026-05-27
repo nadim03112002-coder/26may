@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { BookOpen, HelpCircle, Video, Headphones, BrainCircuit, Trophy, WifiOff, Users } from 'lucide-react';
+import { BookOpen, HelpCircle, Video, Headphones, BrainCircuit, BarChart2, WifiOff, Zap } from 'lucide-react';
 import { APP_VERSION } from '../constants';
 import { getSplashFontById, ensureGoogleFontLoaded } from '../utils/splashFonts';
 
@@ -318,16 +318,16 @@ export const AppLoadingScreen: React.FC<AppLoadingScreenProps> = ({ onComplete, 
               <span className={`font-bold tracking-wide text-center leading-tight ${t.text}`}>Smart<br />Revision</span>
             </div>
             <div className={`flex flex-col items-center justify-center p-6 rounded-2xl ${t.boxBg} border ${t.boxBorder} shadow-lg transition-all duration-500 transform ${stepPhase2 >= 1 ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-8 scale-95'}`}>
-              <Trophy size={32} className={`${iconColor6} mb-3`} />
-              <span className={`font-bold tracking-wide text-center leading-tight ${t.text}`}>Daily<br />Quiz</span>
+              <BarChart2 size={32} className={`${iconColor6} mb-3`} />
+              <span className={`font-bold tracking-wide text-center leading-tight ${t.text}`}>Leader<br />board</span>
             </div>
             <div className={`flex flex-col items-center justify-center p-6 rounded-2xl ${t.boxBg} border ${t.boxBorder} shadow-lg transition-all duration-500 transform ${stepPhase2 >= 2 ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-8 scale-95'}`}>
               <WifiOff size={32} className={`${iconColor7} mb-3`} />
               <span className={`font-bold tracking-wide text-center leading-tight ${t.text}`}>Offline<br />Mode</span>
             </div>
             <div className={`flex flex-col items-center justify-center p-6 rounded-2xl ${t.boxBg} border ${t.boxBorder} shadow-lg transition-all duration-500 transform ${stepPhase2 >= 3 ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-8 scale-95'}`}>
-              <Users size={32} className={`${iconColor8} mb-3`} />
-              <span className={`font-bold tracking-wide text-center leading-tight ${t.text}`}>Teacher<br />Mode</span>
+              <Zap size={32} className={`${iconColor8} mb-3`} />
+              <span className={`font-bold tracking-wide text-center leading-tight ${t.text}`}>Level<br />System</span>
             </div>
           </div>
         </div>
