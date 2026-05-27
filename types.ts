@@ -124,6 +124,8 @@ export interface User {
   streak: number; // Consecutive days
   longestStreak?: number; // All-time highest streak
   topBarEffectColor?: string; // Custom shimmer color gifted via redeem code
+  tempThemeColor?: string; // Temporary app-wide subscription color (from THEME_COLOR redeem code)
+  tempThemeColorExpiry?: string; // ISO string — when tempThemeColor expires
   themeBadgeColor?: string;
   themeAnimationId?: string;
   themePublishedAt?: string;
@@ -1085,7 +1087,7 @@ export interface MCQRewardRule {
 export interface GiftCode {
   id: string;
   code: string;
-  type: 'CREDITS' | 'SUBSCRIPTION' | 'DISCOUNT' | 'CONTENT_UNLOCK' | 'TOPBAR_EFFECT_COLOR' | 'TOPBAR_EFFECT_ID' | 'SCORE' | 'SCORE_BOOST' | 'SCORE_LIMIT_BOOST'; // New: Type of code
+  type: 'CREDITS' | 'SUBSCRIPTION' | 'DISCOUNT' | 'CONTENT_UNLOCK' | 'TOPBAR_EFFECT_COLOR' | 'TOPBAR_EFFECT_ID' | 'SCORE' | 'SCORE_BOOST' | 'SCORE_LIMIT_BOOST' | 'THEME_COLOR'; // New: Type of code
   scoreBoostPercent?: number; // For SCORE_BOOST type
   scoreBoostDurationHours?: number; // Hours the boost lasts
   scoreLimitBoostPercent?: number; // For SCORE_LIMIT_BOOST type — permanent daily limit increase %
@@ -1093,6 +1095,8 @@ export interface GiftCode {
   discountPercent?: number; // For Discount
   effectColor?: string; // For TOPBAR_EFFECT_COLOR — hex color
   effectId?: string; // For TOPBAR_EFFECT_ID — specific animation effect id
+  themeColor?: string; // For THEME_COLOR — hex color for temp app theme
+  themeDurationHours?: number; // For THEME_COLOR — hours the color lasts
   subTier?: 'WEEKLY' | 'MONTHLY' | '3_MONTHLY' | 'YEARLY' | 'LIFETIME' | 'CUSTOM'; // For Subscription
   subLevel?: 'BASIC' | 'ULTRA'; // For Subscription
   contentId?: string; // For Content Unlock

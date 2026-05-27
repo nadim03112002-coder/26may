@@ -79,3 +79,58 @@ export const TIER_THEME = {
 export const getTierTheme = (
   user: Pick<User, 'isPremium' | 'subscriptionLevel' | 'subscriptionEndDate'>
 ) => TIER_THEME[getUserTier(user)];
+
+// Build a patched tier theme using a custom override hex color
+export const buildOverrideTierTheme = (
+  base: typeof TIER_THEME[UserTier],
+  hexColor: string
+) => {
+  const hex = hexColor.replace('#', '').padEnd(6, '0');
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+  return {
+    ...base,
+    primary:     hexColor,
+    mid:         hexColor,
+    border:      `rgba(${r},${g},${b},0.6)`,
+    borderSoft:  `rgba(${r},${g},${b},0.25)`,
+    text:        hexColor,
+    navGlow:     `rgba(${r},${g},${b},0.15)`,
+    navBorder:   `rgba(${r},${g},${b},0.18)`,
+    navRing:     `rgba(${r},${g},${b},0.2)`,
+    pillGrad:    `linear-gradient(90deg,${hexColor}cc,${hexColor})`,
+    btnGrad:     `linear-gradient(135deg,${hexColor}cc,${hexColor})`,
+    shadowColor: `rgba(${r},${g},${b},0.3)`,
+  };
+};
+
+// Build subColor helpers (for UniversalChat / FullBookCompare) from a hex color
+export const buildSubColorsFromHex = (hexColor: string) => {
+  const hex = hexColor.replace('#', '').padEnd(6, '0');
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+  return {
+    subColor:       hexColor,
+    subColorLight:  `rgba(${r},${g},${b},0.08)`,
+    subColorBorder: `rgba(${r},${g},${b},0.30)`,
+  };
+};
+
+// Get the effective theme override color:
+//   1. user.tempThemeColor (if not expired) — personal redeem code color
+//   2. settingsThemeColor — admin global subscription color
+//   3. null — use default tierTheme
+export const getEffectiveOverrideColor = (
+  user: { tempThemeColor?: string; tempThemeColorExpiry?: string },
+  settingsThemeColor?: string
+): string | null => {
+  if (user.tempThemeColor && user.tempThemeColorExpiry) {
+    if (new Date(user.tempThemeColorExpiry) > new Date()) {
+      return user.tempThemeColor;
+    }
+  }
+  if (settingsThemeColor) return settingsThemeColor;
+  return null;
+};

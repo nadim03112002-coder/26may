@@ -752,17 +752,15 @@ export const UserGuide: React.FC<Props> = ({ onClose, user }) => {
                 {filteredSections.map(section => {
                     const isOpen = expanded.has(section.id) || !!q;
                     return (
-                        <div key={section.id} className="rounded-2xl overflow-hidden shadow-sm" style={{ background: C.cardBg, border: `2px solid ${tierGrad.focus}` }}>
+                        <div key={section.id} className="rounded-2xl overflow-hidden shadow-sm" style={{ background: C.cardBg, border: `1px solid ${tierGrad.focus}28` }}>
 
                             {/* ── Section header ── */}
                             <button onClick={() => toggle(section.id)}
-                                className={`w-full flex items-center gap-3 px-4 py-3.5 text-left transition-all relative overflow-hidden${isOpen ? ' guide-section-shimmer' : ''}`}
+                                className="w-full flex items-center gap-3 px-4 py-3.5 text-left transition-all relative overflow-hidden"
                                 style={{
-                                    background: C.cardBg,
-                                    ...(isOpen ? {
-                                        '--gs-mid':  tierGrad.shimmerMid,
-                                        '--gs-peak': tierGrad.shimmerPeak,
-                                    } as React.CSSProperties : {})
+                                    background: isOpen
+                                        ? `linear-gradient(90deg, ${tierGrad.ring} 0%, ${C.cardBg} 100%)`
+                                        : C.cardBg,
                                 }}>
                                 {/* icon */}
                                 <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
@@ -798,7 +796,8 @@ export const UserGuide: React.FC<Props> = ({ onClose, user }) => {
                                                 style={{
                                                     background: isSelected ? C.itemSelBg : C.itemBg,
                                                     borderColor: C.divider,
-                                                    borderLeft: isSelected ? `3px solid ${tierGrad.focus}` : '3px solid transparent',
+                                                    borderLeft: isSelected ? `3px solid ${tierGrad.focus}` : 'none',
+                                                    paddingLeft: isSelected ? '0' : '3px',
                                                 }}>
                                                 {/* item row */}
                                                 <button

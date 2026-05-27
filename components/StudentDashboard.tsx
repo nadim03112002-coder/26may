@@ -185,7 +185,7 @@ import { UniversalInfoPage } from "./UniversalInfoPage";
 import { UniversalChat } from "./UniversalChat";
 import { ExpiryPopup } from "./ExpiryPopup";
 import { SubscriptionHistory } from "./SubscriptionHistory";
-import { getTierTheme } from '../utils/tierTheme';
+import { getTierTheme, buildOverrideTierTheme, getEffectiveOverrideColor } from '../utils/tierTheme';
 import { SearchResult } from "../utils/syllabusSearch";
 import { RevisionHub } from "./RevisionHub"; // NEW
 import { AiHub } from "./AiHub"; // NEW: AI Hub
@@ -530,7 +530,11 @@ export const StudentDashboard: React.FC<Props> = ({
   }, [user?.id]);
 
   // ── Tier Theme (Ultra=navy · Basic=blue · Free=sky) ─────────────────────
-  const tierTheme = getTierTheme(user);
+  // Priority: user.tempThemeColor (active redeem) > settings.themeColor (admin global) > default tier
+  const _overrideColor = getEffectiveOverrideColor(user, settings?.themeColor);
+  const tierTheme = _overrideColor
+    ? buildOverrideTierTheme(getTierTheme(user), _overrideColor)
+    : getTierTheme(user);
 
   // ── HTML Write-Mode Daily Quota (ALL tiers) ──────────────────────────────
   const _subValid      = SubscriptionEngine.isPremium(user); // true only if not expired
@@ -1047,6 +1051,7 @@ export const StudentDashboard: React.FC<Props> = ({
       else if (bc.type === 'CONTENT_UNLOCK') typeLabel = `🔓 Content Unlock`;
       else if (bc.type === 'TOPBAR_EFFECT_COLOR') typeLabel = `🎨 Special Color Effect`;
       else if (bc.type === 'TOPBAR_EFFECT_ID') typeLabel = `✨ Animation Effect`;
+      else if ((bc.type as string) === 'THEME_COLOR') typeLabel = `🌈 Temporary App Theme Color`;
       else if (bc.type === 'SCORE') typeLabel = `⭐ ${(bc as any).scoreAmount || 0} Score Points`;
       else if (bc.type === 'SCORE_BOOST') typeLabel = `🚀 Score Booster +${(bc as any).scoreBoostPercent || 10}% (${(bc as any).scoreBoostDurationHours || 24}h)`;
 
@@ -7559,32 +7564,19 @@ export const StudentDashboard: React.FC<Props> = ({
     if (activeTab === "PROFILE")
       return (
         <div className="animate-in fade-in zoom-in duration-300 pb-24">
-          <div className="px-4 pt-5 space-y-4">
+          <div className="pt-3 space-y-2">
 
             {/* ── CARD 1: Identity ── */}
-            <div className={`rounded-2xl overflow-hidden relative border ${
-              user.subscriptionLevel === 'ULTRA' && user.isPremium
-                ? 'bg-[#0d0d1a] border-purple-900/60'
-                : user.subscriptionLevel === 'BASIC' && user.isPremium
-                  ? 'bg-[#07111f] border-sky-900/50'
-                  : 'bg-[#0f0f0f] border-slate-800'
-            }`}>
+            <div className="overflow-hidden relative mx-4 rounded-2xl border-2 bg-white" style={{
+              borderColor: tierTheme.border
+            }}>
               {/* Accent top line */}
-              <div className={`h-[3px] w-full ${
-                user.subscriptionLevel === 'ULTRA' && user.isPremium
-                  ? 'bg-gradient-to-r from-purple-600 via-pink-500 to-purple-600'
-                  : user.subscriptionLevel === 'BASIC' && user.isPremium
-                    ? 'bg-gradient-to-r from-sky-500 via-cyan-400 to-sky-500'
-                    : 'bg-gradient-to-r from-slate-600 via-slate-500 to-slate-600'
-              }`} />
+              <div className="h-[3px] w-full" style={{ background: tierTheme.pillGrad }} />
 
-              {/* Shimmer overlay */}
+              {/* Subtle corner glow — no animation */}
               {user.isPremium && (
                 <div className="absolute inset-0 pointer-events-none z-[1]"
-                  style={{ background: user.subscriptionLevel === 'ULTRA'
-                    ? 'linear-gradient(105deg,transparent 30%,rgba(168,85,247,0.07) 50%,transparent 70%)'
-                    : 'linear-gradient(105deg,transparent 30%,rgba(56,189,248,0.07) 50%,transparent 70%)',
-                    backgroundSize: '200% 100%', animation: 'shimmer-sweep 3s linear infinite' }} />
+                  style={{ background: `radial-gradient(ellipse 80% 60% at 50% 0%, ${tierTheme.navGlow} 0%, transparent 70%)` }} />
               )}
               {(() => {
                 const _pScore = (user.role === 'ADMIN' || user.role === 'SUB_ADMIN') ? 9999999 : (user.totalScore || 0);
@@ -7612,8 +7604,8 @@ export const StudentDashboard: React.FC<Props> = ({
                   <div className="flex flex-col items-center gap-1.5 shrink-0">
                     <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-black overflow-hidden shadow-lg"
                       style={{
-                        background: _aLvl.level >= 8 ? `${_aLvl.color}35` : _aLvl.level >= 4 ? `${_aLvl.color}22` : user.subscriptionLevel === 'ULTRA' && user.isPremium ? 'rgba(88,28,135,0.6)' : user.subscriptionLevel === 'BASIC' && user.isPremium ? 'rgba(7,17,31,1)' : '#1e293b',
-                        border: `${_aLvl.level >= 9 ? 3 : 2}px solid ${_aLvl.level >= 4 ? _aLvl.color + (_aLvl.level >= 9 ? 'cc' : _aLvl.level >= 8 ? '90' : '60') : '#334155'}`,
+                        background: _aLvl.level >= 8 ? `${_aLvl.color}35` : _aLvl.level >= 4 ? `${_aLvl.color}22` : user.subscriptionLevel === 'ULTRA' && user.isPremium ? 'rgba(200,160,32,0.15)' : user.subscriptionLevel === 'BASIC' && user.isPremium ? 'rgba(7,17,31,1)' : 'rgba(200,160,32,0.10)',
+                        border: `${_aLvl.level >= 9 ? 3 : 2}px solid ${_aLvl.level >= 4 ? _aLvl.color + (_aLvl.level >= 9 ? 'cc' : _aLvl.level >= 8 ? '90' : '60') : (user.subscriptionLevel === 'ULTRA' && user.isPremium ? '#c8a02080' : user.isPremium ? '#334155' : '#c8a02050')}`,
                         boxShadow: _aLvl.level >= 11 ? `0 0 40px ${_aLvl.glowColor}, 0 0 80px ${_aLvl.glowColor}55, inset 0 0 20px ${_aLvl.color}20` : _aLvl.level >= 10 ? `0 0 30px ${_aLvl.glowColor}, 0 0 60px ${_aLvl.glowColor}44` : _aLvl.level >= 9 ? `0 0 24px ${_aLvl.glowColor}, 0 0 48px ${_aLvl.glowColor}33` : _aLvl.level >= 8 ? `0 0 22px ${_aLvl.glowColor}` : _aLvl.level >= 4 ? `0 0 18px ${_aLvl.glowColor}` : 'none',
                         animation: _aLvl.level >= 10 ? 'topbar-glow-pulse 2s ease-in-out infinite' : 'none',
                       }}>
@@ -7651,23 +7643,49 @@ export const StudentDashboard: React.FC<Props> = ({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <h2 className="text-lg font-black truncate leading-tight"
-                        style={{ color: nameColor || 'white' }}>
+                        style={{ color: nameColor || '#1e293b' }}>
                         {user.name}
                       </h2>
                       <button
                         onClick={() => { setNewNameInput(user.name); setShowNameChangeModal(true); }}
-                        className="shrink-0 w-6 h-6 rounded-lg bg-white/8 hover:bg-white/15 flex items-center justify-center transition-colors"
+                        className="shrink-0 w-6 h-6 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors"
                       >
-                        <Edit size={11} className="text-slate-400" />
+                        <Edit size={11} className="text-slate-500" />
                       </button>
                     </div>
+                    {/* Settings mini-panel — inline below name */}
+                    {showProfileSettings && (
+                      <div className="mt-2 mb-1 rounded-xl overflow-hidden" style={{ background: 'rgba(200,160,32,0.07)', border: '1px solid rgba(200,160,32,0.20)' }}>
+                        <button onClick={() => { setShowUserGuide(true); setShowProfileSettings(false); }}
+                          className="w-full px-3 py-2 flex items-center gap-2 hover:bg-[#c8a02010] transition-colors" style={{ borderBottom: '1px solid rgba(200,160,32,0.12)' }}>
+                          <span className="text-xs">📖</span>
+                          <p className="text-xs font-bold text-slate-800">App Guide</p>
+                          <ChevronRight size={11} className="text-slate-400 ml-auto" />
+                        </button>
+                        <button onClick={() => {
+                          const keysToRemove: string[] = [];
+                          for (let i = 0; i < localStorage.length; i++) {
+                            const key = localStorage.key(i);
+                            if (key && key.startsWith(`nst_credit_skip_${user.id}_`)) keysToRemove.push(key);
+                          }
+                          keysToRemove.forEach(k => localStorage.removeItem(k));
+                          showAlert('Settings reset ho gayi!', 'SUCCESS');
+                          setShowProfileSettings(false);
+                        }}
+                          className="w-full px-3 py-2 flex items-center gap-2 hover:bg-[#c8a02010] transition-colors">
+                          <RotateCcw size={11} className="text-[#c8a020]" />
+                          <p className="text-xs font-bold text-slate-800">Reset Settings</p>
+                          <ChevronRight size={11} className="text-slate-400 ml-auto" />
+                        </button>
+                      </div>
+                    )}
                     {/* Tier badge */}
                     <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${
                       user.subscriptionLevel === 'ULTRA' && user.isPremium
-                        ? 'bg-purple-500/20 border-purple-500/40 text-purple-300'
+                        ? 'bg-[#c8a02018] border-[#c8a02055] text-[#c8a020]'
                         : user.subscriptionLevel === 'BASIC' && user.isPremium
                           ? 'bg-sky-500/20 border-sky-500/40 text-sky-300'
-                          : 'bg-slate-700/60 border-slate-600/50 text-slate-400'
+                          : 'bg-[#c8a02010] border-[#c8a02030] text-[#c8a020]'
                     }`}>
                       {user.isPremium ? (() => {
                         const t = user.subscriptionTier;
@@ -7688,9 +7706,18 @@ export const StudentDashboard: React.FC<Props> = ({
                       );
                     })()}
                   </div>
-                  {user.subscriptionLevel === 'ULTRA' && user.isPremium && (
-                    <span className="text-2xl shrink-0">👑</span>
-                  )}
+                  <div className="flex items-center gap-2 shrink-0">
+                    {user.subscriptionLevel === 'ULTRA' && user.isPremium && (
+                      <span className="text-2xl">👑</span>
+                    )}
+                    <button
+                      onClick={() => setShowProfileSettings(v => !v)}
+                      className="w-8 h-8 rounded-xl hover:bg-slate-100 flex items-center justify-center transition-colors"
+                      style={{ background: showProfileSettings ? 'rgba(200,160,32,0.18)' : 'rgba(0,0,0,0.05)' }}
+                    >
+                      <Settings size={17} className={showProfileSettings ? 'text-[#c8a020]' : 'text-slate-500'} />
+                    </button>
+                  </div>
                 </div>
                   );
                 })()}
@@ -7704,44 +7731,44 @@ export const StudentDashboard: React.FC<Props> = ({
                   const progress = getLevelProgress(totalScore);
                   const isUltra = user.isPremium && user.subscriptionLevel === 'ULTRA';
                   const isBasic = user.isPremium && user.subscriptionLevel === 'BASIC';
-                  const cardBg = isUltra ? 'rgba(88,28,135,0.18)' : isBasic ? 'rgba(14,36,64,0.5)' : 'rgba(30,41,59,0.5)';
+                  const cardBg = isUltra ? 'rgba(200,160,32,0.09)' : isBasic ? 'rgba(14,36,64,0.5)' : 'rgba(200,160,32,0.07)';
                   const barColor = isUltra
-                    ? 'linear-gradient(90deg,#7c3aed,#a855f7)'
+                    ? 'linear-gradient(90deg,#7a5c10,#c8a020,#e6c84a)'
                     : isBasic
                       ? 'linear-gradient(90deg,#0ea5e9,#38bdf8)'
-                      : 'linear-gradient(90deg,#475569,#94a3b8)';
-                  const borderColor = isUltra ? 'rgba(139,92,246,0.35)' : isBasic ? 'rgba(56,189,248,0.3)' : 'rgba(100,116,139,0.25)';
-                  const accentColor = isUltra ? '#a855f7' : isBasic ? '#38bdf8' : '#94a3b8';
+                      : 'linear-gradient(90deg,#7a5c10,#c8a020,#e6c84a)';
+                  const borderColor = isUltra ? 'rgba(200,160,32,0.30)' : isBasic ? 'rgba(56,189,248,0.3)' : 'rgba(200,160,32,0.18)';
+                  const accentColor = isUltra ? '#c8a020' : isBasic ? '#38bdf8' : '#c8a020';
                   return (
                     <button
                       onClick={() => setShowScorePanel(true)}
-                      className="w-full mb-4 rounded-2xl overflow-hidden active:scale-[0.98] transition-transform"
-                      style={{ background: cardBg, border: `1px solid ${borderColor}` }}
+                      className="w-full mb-4 rounded-2xl overflow-hidden active:scale-[0.98] transition-transform bg-white"
+                      style={{ border: `1.5px solid ${lvl.color}` }}
                     >
                       <div className="p-3 flex items-center gap-3">
                         <div className="w-11 h-11 rounded-xl flex items-center justify-center text-2xl shrink-0"
-                          style={{ background: `${accentColor}18`, border: `1px solid ${accentColor}30` }}>
+                          style={{ background: `${lvl.color}18`, border: `1px solid ${lvl.color}50` }}>
                           {lvl.emoji}
                         </div>
                         <div className="flex-1 min-w-0 text-left">
                           <div className="flex items-center gap-1.5 mb-0.5">
-                            <span className="text-[11px] font-black text-white">Level {lvl.level} · {lvl.label}</span>
+                            <span className="text-[11px] font-black text-slate-900">Level {lvl.level} · {lvl.label}</span>
                             {lvl.discount > 0 && (
                               <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full"
-                                style={{ background: `${accentColor}28`, color: accentColor, border: `1px solid ${accentColor}40` }}>
+                                style={{ background: `${accentColor}22`, color: accentColor, border: `1px solid ${accentColor}50` }}>
                                 {lvl.discount}% OFF
                               </span>
                             )}
                           </div>
-                          <p className="text-[10px] text-slate-400 mb-1.5">
+                          <p className="text-[10px] text-slate-500 mb-1.5">
                             {(user.role === 'ADMIN' || user.role === 'SUB_ADMIN') ? 'Admin · MAX LEVEL 🏆' : `${rawScore} pts${nextLvl ? ` · ${nextLvl.minScore - rawScore} to ${nextLvl.emoji} L${nextLvl.level}` : ' · MAX LEVEL 🏆'}`}
                           </p>
-                          <div className="h-1.5 bg-white/8 rounded-full overflow-hidden">
+                          <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden">
                             <div className="h-full rounded-full transition-all"
                               style={{ width: `${progress}%`, background: barColor }} />
                           </div>
                         </div>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-slate-600 shrink-0"><polyline points="9 18 15 12 9 6"/></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-slate-400 shrink-0"><polyline points="9 18 15 12 9 6"/></svg>
                       </div>
                     </button>
                   );
@@ -7751,33 +7778,17 @@ export const StudentDashboard: React.FC<Props> = ({
                 {/* Stats row */}
                 <div className="grid grid-cols-3 gap-2 mb-3">
                   {[
-                    { val: ((user.credits ?? 0) + (user.bonusCredits ?? 0)).toLocaleString('en-IN'), label: (user.bonusCredits ?? 0) > 0 ? `Credits +🎁${user.bonusCredits}` : 'Credits', color: 'text-amber-400', onClick: undefined },
-                    { val: user.streak > 0 ? `🔥 ${user.streak}` : '0', label: 'Streak', color: user.streak > 0 ? 'text-orange-400' : 'text-slate-500', onClick: () => setShowStreakPopup(true) },
-                    { val: user.createdAt && !isNaN(new Date(user.createdAt).getTime()) ? Math.floor((Date.now() - new Date(user.createdAt).getTime()) / (1000 * 60 * 60 * 24)) : 0, label: 'Days', color: 'text-slate-300', onClick: undefined },
+                    { val: ((user.credits ?? 0) + (user.bonusCredits ?? 0)).toLocaleString('en-IN'), label: (user.bonusCredits ?? 0) > 0 ? `Credits +🎁${user.bonusCredits}` : 'Credits', color: 'text-[#c8a020]', onClick: undefined },
+                    { val: user.streak > 0 ? `🔥 ${user.streak}` : '0', label: 'Streak', color: user.streak > 0 ? 'text-[#c8a020]' : 'text-slate-500', onClick: () => setShowStreakPopup(true) },
+                    { val: user.createdAt && !isNaN(new Date(user.createdAt).getTime()) ? Math.floor((Date.now() - new Date(user.createdAt).getTime()) / (1000 * 60 * 60 * 24)) : 0, label: 'Days', color: 'text-[#c8a020]', onClick: undefined },
                   ].map(s => (
-                    <div key={s.label} onClick={s.onClick} className={`bg-white/4 rounded-xl py-2.5 px-2 text-center border border-white/6 ${s.onClick ? 'cursor-pointer active:scale-95 transition-transform hover:bg-white/8' : ''}`}>
+                    <div key={s.label} onClick={s.onClick} className={`rounded-xl py-2.5 px-2 text-center border bg-white ${s.onClick ? 'cursor-pointer active:scale-95 transition-transform' : ''}`} style={{ borderColor: (user.subscriptionLevel === 'ULTRA' && user.isPremium) ? '#c8a020' : (user.subscriptionLevel === 'BASIC' && user.isPremium) ? '#0ea5e9' : '#cbd5e1' }}>
                       <div className={`text-lg font-black leading-tight ${s.color}`}>{s.val}</div>
-                      <div className="text-[9px] font-bold text-slate-600 uppercase tracking-wide mt-0.5">{s.label}{s.onClick ? ' 👆' : ''}</div>
+                      <div className="text-[9px] font-bold text-slate-500 uppercase tracking-wide mt-0.5">{s.label}{s.onClick ? ' 👆' : ''}</div>
                     </div>
                   ))}
                 </div>
 
-                {/* Streak badge — shown if streak >= 3 */}
-                {user.streak >= 3 && (
-                  <div className={`mb-3 flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border ${
-                    user.streak >= 30 ? 'bg-red-500/10 border-red-500/30' : user.streak >= 7 ? 'bg-orange-500/10 border-orange-500/30' : 'bg-amber-500/10 border-amber-500/30'
-                  }`}>
-                    <span className="text-2xl">{user.streak >= 30 ? '🏆' : user.streak >= 7 ? '🔥' : '⚡'}</span>
-                    <div>
-                      <p className={`text-sm font-black leading-tight ${user.streak >= 30 ? 'text-red-400' : user.streak >= 7 ? 'text-orange-400' : 'text-amber-400'}`}>
-                        {user.streak} Day Streak!
-                      </p>
-                      <p className="text-[10px] text-slate-500 mt-0.5">
-                        {user.streak >= 30 ? 'Legendary — Keep going!' : user.streak >= 7 ? 'On fire — Don\'t break it!' : 'Great start — Keep it up!'}
-                      </p>
-                    </div>
-                  </div>
-                )}
 
                 {/* Live countdown timer — only if premium, non-lifetime */}
                 {user.isPremium && user.subscriptionEndDate && user.subscriptionTier !== 'LIFETIME' && !isNaN(new Date(user.subscriptionEndDate).getTime()) && (() => {
@@ -7788,7 +7799,7 @@ export const StudentDashboard: React.FC<Props> = ({
                   const dMin  = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
                   const dSec  = Math.floor((diff % (1000 * 60)) / 1000);
                   const isUrgent = dDays <= 3;
-                  const accent = isUrgent ? '#ef4444' : user.subscriptionLevel === 'ULTRA' ? '#a78bfa' : '#60a5fa';
+                  const accent = isUrgent ? '#ef4444' : '#c8a020';
                   const tierDays = user.subscriptionTier === 'WEEKLY' ? 7 : user.subscriptionTier === 'MONTHLY' ? 30 : user.subscriptionTier === '3_MONTHLY' ? 90 : user.subscriptionTier === 'YEARLY' ? 365 : 30;
                   const pct = Math.min(100, Math.round((dDays / tierDays) * 100));
                   return (
@@ -7804,13 +7815,13 @@ export const StudentDashboard: React.FC<Props> = ({
                           { val: String(dMin).padStart(2, '0'), label: 'Min' },
                           { val: String(dSec).padStart(2, '0'), label: 'Sec' },
                         ].map(box => (
-                          <div key={box.label} className="bg-white/4 border border-white/8 rounded-lg py-1.5 text-center">
+                          <div key={box.label} className="rounded-lg py-1.5 text-center bg-white" style={{ border: `1px solid ${(user.subscriptionLevel === 'ULTRA' && user.isPremium) ? '#c8a020' : (user.subscriptionLevel === 'BASIC' && user.isPremium) ? '#0ea5e9' : '#cbd5e1'}` }}>
                             <div className="text-base font-black tabular-nums leading-tight" style={{ color: accent }}>{box.val}</div>
-                            <div className="text-[8px] font-bold text-slate-600 uppercase tracking-widest mt-0.5">{box.label}</div>
+                            <div className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">{box.label}</div>
                           </div>
                         ))}
                       </div>
-                      <div className="w-full h-1.5 rounded-full bg-white/8 overflow-hidden">
+                      <div className="w-full h-1.5 rounded-full bg-slate-200 overflow-hidden">
                         <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: accent }} />
                       </div>
                     </div>
@@ -7820,13 +7831,13 @@ export const StudentDashboard: React.FC<Props> = ({
             </div>
 
             {/* ── CARD 2: Actions ── */}
-            <div className="bg-[#0f0f0f] rounded-2xl border border-slate-800 overflow-hidden">
+            <div className="bg-[#141009] overflow-hidden" style={{ borderTop: '1px solid rgba(200,160,32,0.22)', borderBottom: '1px solid rgba(200,160,32,0.22)' }}>
               {/* Admin Panel */}
               {(user.role === 'ADMIN' || user.role === 'SUB_ADMIN' || isImpersonating) && (
                 <button onClick={handleSwitchToAdmin}
-                  className="w-full px-4 py-3.5 flex items-center gap-3 hover:bg-white/4 active:bg-white/6 transition-colors border-b border-slate-800/80">
-                  <div className="w-9 h-9 rounded-xl bg-amber-500/15 flex items-center justify-center shrink-0">
-                    <Layout size={16} className="text-amber-400" />
+                  className="w-full px-4 py-3.5 flex items-center gap-3 hover:bg-[#c8a02010] active:bg-[#c8a02018] transition-colors" style={{ borderBottom: '1px solid rgba(200,160,32,0.15)' }}>
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(200,160,32,0.13)', border: '1px solid rgba(200,160,32,0.28)' }}>
+                    <Layout size={16} className="text-[#c8a020]" />
                   </div>
                   <div className="flex-1 text-left min-w-0">
                     <p className="text-sm font-bold text-white">Admin Panel</p>
@@ -7836,79 +7847,6 @@ export const StudentDashboard: React.FC<Props> = ({
                 </button>
               )}
 
-              {/* History */}
-              {/* Settings button — opens sub-panel with App Guide, Activity History, Reset Settings */}
-              <button onClick={() => setShowProfileSettings(v => !v)}
-                className="w-full px-4 py-3.5 flex items-center gap-3 hover:bg-white/4 active:bg-white/6 transition-colors border-b border-slate-800/80">
-                <div className="w-9 h-9 rounded-xl bg-slate-500/15 flex items-center justify-center shrink-0">
-                  <Settings size={16} className="text-slate-400" />
-                </div>
-                <div className="flex-1 text-left min-w-0">
-                  <p className="text-sm font-bold text-white">Settings</p>
-                  <p className="text-[11px] text-slate-500">Guide, History, Reset</p>
-                </div>
-                <ChevronRight size={14} className={`text-slate-600 shrink-0 transition-transform duration-200 ${showProfileSettings ? 'rotate-90' : ''}`} />
-              </button>
-
-              {/* Settings sub-panel — expands inline */}
-              {showProfileSettings && (() => {
-                const histAccess = getFeatureAccess('HISTORY_PAGE');
-                const histLocked = !histAccess.hasAccess;
-                return (
-                  <div className="border-b border-slate-800/80 bg-white/[0.02]">
-                    {/* App Guide */}
-                    <button onClick={() => setShowUserGuide(true)}
-                      className="w-full px-6 py-3 flex items-center gap-3 hover:bg-white/4 active:bg-white/6 transition-colors border-b border-slate-800/40">
-                      <div className="w-8 h-8 rounded-lg bg-indigo-500/15 flex items-center justify-center shrink-0">
-                        <span className="text-sm">📖</span>
-                      </div>
-                      <div className="flex-1 text-left min-w-0">
-                        <p className="text-sm font-bold text-white">App Guide</p>
-                        <p className="text-[10px] text-slate-500">Har feature ka guide padhein</p>
-                      </div>
-                      <ChevronRight size={13} className="text-slate-600 shrink-0" />
-                    </button>
-
-                    {/* Activity History */}
-                    {!histAccess.isHidden && (
-                      <button onClick={() => { if (histLocked) { showAlert('🔒 Locked by Admin.', 'ERROR'); return; } onTabChange('HISTORY'); setShowProfileSettings(false); }}
-                        className="w-full px-6 py-3 flex items-center gap-3 hover:bg-white/4 active:bg-white/6 transition-colors border-b border-slate-800/40">
-                        <div className="w-8 h-8 rounded-lg bg-rose-500/15 flex items-center justify-center shrink-0">
-                          <History size={14} className="text-rose-400" />
-                        </div>
-                        <div className="flex-1 text-left min-w-0">
-                          <p className="text-sm font-bold text-white flex items-center gap-2">
-                            Activity History {histLocked && <Lock size={10} className="text-red-400" />}
-                          </p>
-                          <p className="text-[10px] text-slate-500">Tests, sessions & past activity</p>
-                        </div>
-                        <ChevronRight size={13} className="text-slate-600 shrink-0" />
-                      </button>
-                    )}
-
-                    {/* Reset Settings */}
-                    <button onClick={() => {
-                      const keysToRemove: string[] = [];
-                      for (let i = 0; i < localStorage.length; i++) {
-                        const key = localStorage.key(i);
-                        if (key && key.startsWith(`nst_credit_skip_${user.id}_`)) keysToRemove.push(key);
-                      }
-                      keysToRemove.forEach(k => localStorage.removeItem(k));
-                      showAlert('Settings reset ho gayi! Credit popup dobara dikhega.', 'SUCCESS');
-                    }}
-                      className="w-full px-6 py-3 flex items-center gap-3 hover:bg-white/4 active:bg-white/6 transition-colors">
-                      <div className="w-8 h-8 rounded-lg bg-orange-500/15 flex items-center justify-center shrink-0">
-                        <RotateCcw size={14} className="text-orange-400" />
-                      </div>
-                      <div className="flex-1 text-left min-w-0">
-                        <p className="text-sm font-bold text-white">Reset Settings</p>
-                        <p className="text-[10px] text-slate-500">Sab settings default pe reset karo</p>
-                      </div>
-                      <ChevronRight size={13} className="text-slate-600 shrink-0" />
-                    </button>
-                  </div>
-                );
-              })()}
 
               {/* Teacher Store — only visible for actual teachers */}
               {user.role === 'TEACHER' && (
@@ -8189,7 +8127,7 @@ export const StudentDashboard: React.FC<Props> = ({
             {/* Streak pill */}
             <button
               onClick={() => setShowStreakPopup(true)}
-              className={`inline-flex items-center gap-0.5 px-2 py-1 rounded-full text-[11px] font-black shrink-0 active:scale-90 transition-all ${user.streak > 0 ? 'bg-orange-500 text-white shadow shadow-orange-500/50' : 'bg-white/15 text-white/60 border border-white/20'}`}
+              className={`inline-flex items-center gap-0.5 px-2 py-1 rounded-full text-[11px] font-black shrink-0 active:scale-90 transition-all ${user.streak > 0 ? 'bg-white text-orange-500 shadow shadow-orange-500/30' : 'bg-white/15 text-white/60 border border-white/20'}`}
               title={`Login streak: ${user.streak} day${user.streak === 1 ? '' : 's'}`}
             >
               <span className="text-[13px] leading-none">🔥</span>
@@ -11604,6 +11542,7 @@ export const StudentDashboard: React.FC<Props> = ({
               allowStudentMcq={!!settings?.allowStudentCommunityMcq}
               hideGlobalTab={!!settings?.hideGlobalChat}
               onSpendCoins={handleSpendCoins}
+              themeColor={_overrideColor || undefined}
             />
           </div>
         </div>
@@ -11967,6 +11906,7 @@ export const StudentDashboard: React.FC<Props> = ({
               defaultTab="MCQ"
               initialMcqDraft={mcqCommunityDraft}
               onSpendCoins={handleSpendCoins}
+              themeColor={_overrideColor || undefined}
             />
           </div>
         </div>
