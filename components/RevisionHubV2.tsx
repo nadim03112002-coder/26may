@@ -13,6 +13,7 @@
  */
 
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import { VirtualList } from './VirtualList';
 import {
   ArrowLeft, BrainCircuit, BookOpen, Trash2, ChevronRight, Sparkles,
   CheckCircle, ChevronDown, ChevronUp, Calendar, Zap, Info,
@@ -373,8 +374,12 @@ export const RevisionHubV2: React.FC<Props> = ({ user, settings, onBack, onOpenC
     renderBucket: (b: WeakBucket) => React.ReactNode;
   }) => (
     <div className="space-y-3">
-      {groups.map(sg => (
-        <div key={sg.subjectId} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      <VirtualList
+        items={groups}
+        keyExtractor={sg => sg.subjectId}
+        estimatedItemHeight={160}
+        renderItem={sg => (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="px-4 py-2 bg-slate-50 border-b border-slate-100">
             <p className="text-[11px] font-black uppercase tracking-wide text-slate-500">{sg.subjectName}</p>
           </div>
@@ -405,7 +410,8 @@ export const RevisionHubV2: React.FC<Props> = ({ user, settings, onBack, onOpenC
             );
           })}
         </div>
-      ))}
+        )}
+      />
     </div>
   );
 

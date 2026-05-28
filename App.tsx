@@ -34,12 +34,12 @@ const WeeklyTestView = lazy(() => import('./components/WeeklyTestView').then(m =
 const MarksheetCard = lazy(() => import('./components/MarksheetCard').then(m => ({ default: m.MarksheetCard })));
 import { CreditConfirmationModal } from './components/CreditConfirmationModal';
 import { CustomAlert, CustomConfirm } from './components/CustomDialogs';
-// MarksheetCard — lazy loaded above with WeeklyTestView
-// import { DailyChallengePopup } from './components/DailyChallengePopup';
-import { UpdatePopup } from './components/UpdatePopup'; // NEW
+import { UpdatePopup } from './components/UpdatePopup';
+
 import { StreakLoginPopup } from './components/StreakLoginPopup';
-import { ErrorBoundary } from './components/ErrorBoundary'; // NEW
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { logErrorToFirebase, setErrorLoggerUser } from './utils/errorLogger';
+import { initPerfMode } from './utils/performanceMode';
 import { CreditToast } from './components/CreditToast';
 import { generateDailyChallengeQuestions } from './utils/challengeGenerator';
 import { BrainCircuit, Globe, LogOut, LayoutDashboard, BookOpen, Headphones, HelpCircle, Newspaper, KeyRound, Lock, X, ShieldCheck, FileText, UserPlus, EyeOff, WifiOff, Cloud, ArrowLeft, ExternalLink } from 'lucide-react';
@@ -50,6 +50,8 @@ const App: React.FC = () => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   const [isAppLoading, setIsAppLoading] = useState(() => sessionStorage.getItem('nst_has_loaded') !== 'true');
+
+  useEffect(() => { initPerfMode(); }, []);
 
   useEffect(() => {
     if (!isAppLoading) {
@@ -2545,12 +2547,21 @@ const App: React.FC = () => {
   return (
     <ErrorBoundary>
     <div className="min-h-[100dvh] flex flex-col bg-white font-sans relative pt-[env(safe-area-inset-top,24px)] pb-[env(safe-area-inset-bottom,0px)]">
+      {/* SKIP TO CONTENT — keyboard/screen-reader accessibility */}
+      <a href="#main-content" className="skip-to-content">Skip to content</a>
+
       {/* OFFLINE INDICATOR — scrolling marquee ticker, flows above the top bar without covering it */}
       {!isOnline && (
-        <div className="w-full shrink-0 bg-amber-500 text-white overflow-hidden" style={{ height: '22px', zIndex: 9998 }}>
+        <div
+          role="status"
+          aria-live="polite"
+          aria-label="Aap abhi offline hain. Saved content available hai."
+          className="w-full shrink-0 bg-amber-500 text-white overflow-hidden"
+          style={{ height: '22px', zIndex: 9998 }}
+        >
           <div className="offline-marquee flex items-center h-full gap-20 whitespace-nowrap" style={{ animation: 'offlineMarquee 14s linear infinite' }}>
             {[0,1,2,3].map(i => (
-              <span key={i} className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider shrink-0">
+              <span key={i} aria-hidden={i > 0} className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider shrink-0">
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55M5 12.55a10.94 10.94 0 0 1 5.17-2.39M10.71 5.05A16 16 0 0 1 22.56 9M1.42 9a15.91 15.91 0 0 1 4.7-2.88M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01"/></svg>
                 Offline — Saved content available
               </span>
@@ -2783,90 +2794,124 @@ const App: React.FC = () => {
       </header>
       )}
 
-      <main className={`flex-1 w-full max-w-6xl mx-auto ${isFullScreen ? 'p-0' : 'p-4 mb-8'}`}>
+      <main id="main-content" className={`flex-1 w-full max-w-6xl mx-auto ${isFullScreen ? 'p-0' : 'p-4 mb-8'}`}>
         {!state.user ? (
-            <Auth onLogin={handleLogin} logActivity={logActivity} appSettings={state.settings} />
+            <ErrorBoundary fallbackLabel="Login" compact>
+              <Auth onLogin={handleLogin} logActivity={logActivity} appSettings={state.settings} />
+            </ErrorBoundary>
         ) : (
-            <ErrorBoundary>
+            <ErrorBoundary resetKey={state.view}>
             <>
                 {state.view === 'ADMIN_DASHBOARD' && (state.user.role === 'ADMIN' || state.user.role === 'SUB_ADMIN') && (
-                  <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>}>
-                    <AdminDashboard user={state.user} onNavigate={(v) => setState(prev => ({...prev, view: v}))} settings={state.settings} onUpdateSettings={updateSettings} onImpersonate={handleImpersonate} logActivity={logActivity} isDarkMode={darkMode} onToggleDarkMode={setDarkMode} />
-                  </Suspense>
+                  <ErrorBoundary fallbackLabel="Admin Dashboard" resetKey={state.view}>
+                    <Suspense fallback={<div className="min-h-screen flex items-center justify-center" aria-label="Loading admin dashboard" aria-busy="true"><div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>}>
+                      <AdminDashboard user={state.user} onNavigate={(v) => setState(prev => ({...prev, view: v}))} settings={state.settings} onUpdateSettings={updateSettings} onImpersonate={handleImpersonate} logActivity={logActivity} isDarkMode={darkMode} onToggleDarkMode={setDarkMode} />
+                    </Suspense>
+                  </ErrorBoundary>
                 )}
                 
                 {/* ACTIVE WEEKLY TEST OVERRIDE */}
                 {activeWeeklyTest ? (
-                    <Suspense fallback={<div className="flex-1 flex items-center justify-center min-h-screen"><div className="w-10 h-10 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" /></div>}>
-                      <WeeklyTestView
-                          test={activeWeeklyTest}
-                          onComplete={handleWeeklyTestComplete}
-                          onExit={() => {
-                              setConfirmConfig({
-                                  isOpen: true,
-                                  title: "Quit Test?",
-                                  message: "Are you sure you want to quit the ongoing test?",
-                                  onConfirm: () => {
-                                      setActiveWeeklyTest(null);
-                                      setConfirmConfig(prev => ({...prev, isOpen: false}));
-                                  }
-                              });
-                          }}
-                      />
-                    </Suspense>
-                ) : (
-                    state.view === 'STUDENT_DASHBOARD' as any && (
-                        <StudentDashboard 
-                            user={state.user} 
-                            dailyStudySeconds={dailyStudySeconds} 
-                            onSubjectSelect={handleSubjectSelect} 
-                            onRedeemSuccess={u => setState(prev => ({...prev, user: u}))} 
-                            settings={state.settings} 
-                            onStartWeeklyTest={handleStartWeeklyTest} 
-                            activeTab={studentTab} 
-                            onTabChange={setStudentTab} 
-                            setFullScreen={setIsFullScreen} // PASSED PROP
-                            onNavigate={(v) => setState(prev => ({...prev, view: v}))}
-                            isImpersonating={!!state.originalAdmin}
-                            onNavigateToChapter={handleNavigateToChapterFromHistory}
-                            isDarkMode={darkMode}
-                            onToggleDarkMode={setDarkMode}
-                            onLogout={handleLogout}
-                            onRecoverData={() => {
-                                if (cloudUser) {
-                                    setShowCloudRecoveryModal(true);
-                                } else {
-                                    setToastMessage("Your data is already synced and up to date!");
-                                }
+                    <ErrorBoundary fallbackLabel="Weekly Test" resetKey={activeWeeklyTest.id}>
+                      <Suspense fallback={<div className="flex-1 flex items-center justify-center min-h-screen" aria-label="Loading test" aria-busy="true"><div className="w-10 h-10 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" /></div>}>
+                        <WeeklyTestView
+                            test={activeWeeklyTest}
+                            onComplete={handleWeeklyTestComplete}
+                            onExit={() => {
+                                setConfirmConfig({
+                                    isOpen: true,
+                                    title: "Quit Test?",
+                                    message: "Are you sure you want to quit the ongoing test?",
+                                    onConfirm: () => {
+                                        setActiveWeeklyTest(null);
+                                        setConfirmConfig(prev => ({...prev, isOpen: false}));
+                                    }
+                                });
                             }}
                         />
+                      </Suspense>
+                    </ErrorBoundary>
+                ) : (
+                    state.view === 'STUDENT_DASHBOARD' as any && (
+                        <ErrorBoundary fallbackLabel="Student Dashboard" resetKey={studentTab}>
+                          <StudentDashboard 
+                              user={state.user} 
+                              dailyStudySeconds={dailyStudySeconds} 
+                              onSubjectSelect={handleSubjectSelect} 
+                              onRedeemSuccess={u => setState(prev => ({...prev, user: u}))} 
+                              settings={state.settings} 
+                              onStartWeeklyTest={handleStartWeeklyTest} 
+                              activeTab={studentTab} 
+                              onTabChange={setStudentTab} 
+                              setFullScreen={setIsFullScreen}
+                              onNavigate={(v) => setState(prev => ({...prev, view: v}))}
+                              isImpersonating={!!state.originalAdmin}
+                              onNavigateToChapter={handleNavigateToChapterFromHistory}
+                              isDarkMode={darkMode}
+                              onToggleDarkMode={setDarkMode}
+                              onLogout={handleLogout}
+                              onRecoverData={() => {
+                                  if (cloudUser) {
+                                      setShowCloudRecoveryModal(true);
+                                  } else {
+                                      setToastMessage("Your data is already synced and up to date!");
+                                  }
+                              }}
+                          />
+                        </ErrorBoundary>
                     )
                 )}
                 
-                {(!activeWeeklyTest && state.view === 'BOARDS') && <BoardSelection onSelect={handleBoardSelect} onBack={goBack} />}
-                {state.view === 'ONBOARDING' && state.user && <Onboarding user={state.user} onComplete={handleLogin} onLogout={handleLogout} />}
-                {state.view === 'CLASSES' && <ClassSelection selectedBoard={state.selectedBoard} allowedClasses={state.user?.role === 'ADMIN' ? undefined : state.settings.allowedClasses} settings={state.settings} user={state.user} onSelect={handleClassSelect} onBack={goBack} onBoardSwitch={(board) => setState(prev => ({ ...prev, selectedBoard: board, language: board === 'BSEB' ? 'Hindi' : 'English' }))} />}
-                {state.view === 'STREAMS' && <StreamSelection onSelect={handleStreamSelect} onBack={goBack} />}
-                {state.view === 'SUBJECTS' && state.selectedClass && <SubjectSelection classLevel={state.selectedClass} stream={state.selectedStream} board={state.selectedBoard || undefined} onSelect={handleSubjectSelect} onBack={goBack} settings={state.settings} />}
-                {state.view === 'CHAPTERS' && state.selectedSubject && <ChapterSelection chapters={state.chapters} subject={state.selectedSubject} classLevel={state.selectedClass!} loading={state.loading && state.view === 'CHAPTERS'} user={state.user} onSelect={onChapterClick} onBack={goBack}/>}
+                {(!activeWeeklyTest && state.view === 'BOARDS') && (
+                  <ErrorBoundary fallbackLabel="Board Selection" compact>
+                    <BoardSelection onSelect={handleBoardSelect} onBack={goBack} />
+                  </ErrorBoundary>
+                )}
+                {state.view === 'ONBOARDING' && state.user && (
+                  <ErrorBoundary fallbackLabel="Onboarding" compact>
+                    <Onboarding user={state.user} onComplete={handleLogin} onLogout={handleLogout} />
+                  </ErrorBoundary>
+                )}
+                {state.view === 'CLASSES' && (
+                  <ErrorBoundary fallbackLabel="Class Selection" compact>
+                    <ClassSelection selectedBoard={state.selectedBoard} allowedClasses={state.user?.role === 'ADMIN' ? undefined : state.settings.allowedClasses} settings={state.settings} user={state.user} onSelect={handleClassSelect} onBack={goBack} onBoardSwitch={(board) => setState(prev => ({ ...prev, selectedBoard: board, language: board === 'BSEB' ? 'Hindi' : 'English' }))} />
+                  </ErrorBoundary>
+                )}
+                {state.view === 'STREAMS' && (
+                  <ErrorBoundary fallbackLabel="Stream Selection" compact>
+                    <StreamSelection onSelect={handleStreamSelect} onBack={goBack} />
+                  </ErrorBoundary>
+                )}
+                {state.view === 'SUBJECTS' && state.selectedClass && (
+                  <ErrorBoundary fallbackLabel="Subject Selection" compact>
+                    <SubjectSelection classLevel={state.selectedClass} stream={state.selectedStream} board={state.selectedBoard || undefined} onSelect={handleSubjectSelect} onBack={goBack} settings={state.settings} />
+                  </ErrorBoundary>
+                )}
+                {state.view === 'CHAPTERS' && state.selectedSubject && (
+                  <ErrorBoundary fallbackLabel="Chapter Selection" compact>
+                    <ChapterSelection chapters={state.chapters} subject={state.selectedSubject} classLevel={state.selectedClass!} loading={state.loading && state.view === 'CHAPTERS'} user={state.user} onSelect={onChapterClick} onBack={goBack}/>
+                  </ErrorBoundary>
+                )}
                 {state.view === 'LESSON' && state.lessonContent && (
-                    <Suspense fallback={<div className="flex-1 flex items-center justify-center min-h-screen"><div className="w-10 h-10 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" /></div>}>
-                    <LessonView 
-                        content={state.lessonContent} 
-                        subject={state.selectedSubject!} 
-                        classLevel={state.selectedClass!} 
-                        chapter={state.selectedChapter!} 
-                        loading={state.loading && !isStreaming}
-                        onBack={goBack} 
-                        onMCQComplete={handleMCQComplete}
-                        user={state.user}
-                        settings={state.settings}
-                        isStreaming={isStreaming}
-                        onLaunchContent={(c: any) => handleContentGeneration(c.isPremium ? 'NOTES_PREMIUM' : 'NOTES_HTML_FREE', undefined, false, c)}
-                        onToggleAutoTts={handleToggleAutoTts}
-                        onImmersiveChange={setIsLessonImmersive}
-                    />
-                    </Suspense>
+                    <ErrorBoundary fallbackLabel="Lesson" resetKey={state.selectedChapter?.id}>
+                      <Suspense fallback={<div className="flex-1 flex items-center justify-center min-h-screen" aria-label="Loading lesson" aria-busy="true"><div className="w-10 h-10 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" /></div>}>
+                      <LessonView 
+                          content={state.lessonContent} 
+                          subject={state.selectedSubject!} 
+                          classLevel={state.selectedClass!} 
+                          chapter={state.selectedChapter!} 
+                          loading={state.loading && !isStreaming}
+                          onBack={goBack} 
+                          onMCQComplete={handleMCQComplete}
+                          user={state.user}
+                          settings={state.settings}
+                          isStreaming={isStreaming}
+                          onLaunchContent={(c: any) => handleContentGeneration(c.isPremium ? 'NOTES_PREMIUM' : 'NOTES_HTML_FREE', undefined, false, c)}
+                          onToggleAutoTts={handleToggleAutoTts}
+                          onImmersiveChange={setIsLessonImmersive}
+                      />
+                      </Suspense>
+                    </ErrorBoundary>
                 )}
             </>
             </ErrorBoundary>
