@@ -366,6 +366,31 @@
     0%, 100% { opacity: 0.03; }
     50%      { opacity: 0.07; }
 }
+/* ── Profile Name Level Effects ───────────────────────────── */
+@keyframes name-fx-glow {
+  0%, 100% { text-shadow: 0 0 10px var(--name-glow,#fff), 0 0 22px var(--name-glow,#fff); }
+  50%      { text-shadow: 0 0 22px var(--name-glow,#fff), 0 0 46px var(--name-glow,#fff), 0 2px 6px rgba(0,0,0,0.4); }
+}
+@keyframes name-fx-shimmer {
+  0%   { background-position: 200% center; }
+  100% { background-position: -200% center; }
+}
+@keyframes name-fx-rainbow {
+  0%   { filter: hue-rotate(0deg)   brightness(1.15); }
+  50%  { filter: hue-rotate(180deg) brightness(1.30); }
+  100% { filter: hue-rotate(360deg) brightness(1.15); }
+}
+@keyframes name-fx-fire {
+  0%, 100% { filter: brightness(1.0) saturate(1.2); }
+  25%      { filter: brightness(1.45) saturate(1.7) hue-rotate(-14deg); }
+  75%      { filter: brightness(0.85) saturate(1.3) hue-rotate(12deg); }
+}
+@keyframes name-fx-absolute {
+  0%   { filter: hue-rotate(0deg)   brightness(1.2); }
+  33%  { filter: hue-rotate(120deg) brightness(1.45); }
+  66%  { filter: hue-rotate(240deg) brightness(1.35); }
+  100% { filter: hue-rotate(360deg) brightness(1.2); }
+}
 /* Smoke drift */
 @keyframes smoke-drift {
     0%   { transform: translateX(-10%) scaleY(1); opacity: 0.5; }

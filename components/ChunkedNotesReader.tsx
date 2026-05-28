@@ -9,6 +9,14 @@ import { ReadingStylePopover } from './ReadingStylePopover';
 const FONT_SIZES = [13, 15, 17, 20] as const;
 const FONT_SIZE_KEY = 'nst_reading_font_size';
 const FONT_FAMILY_KEY = 'nst_reading_font_family';
+const FONT_WEIGHT_KEY = 'nst_reading_font_weight';
+
+const getStoredFontWeight = (): number => {
+  try {
+    const v = parseInt(localStorage.getItem(FONT_WEIGHT_KEY) || '400', 10);
+    return [400, 600, 800, 900].includes(v) ? v : 400;
+  } catch { return 400; }
+};
 const VOICE_SPEED_KEY = 'nst_tts_speed';
 const VOICE_SPEEDS = [0.75, 1.0, 1.25, 1.5, 1.75, 2.0] as const;
 const SPEED_LABELS = ['0.75x', '1x', '1.25x', '1.5x', '1.75x', '2x'] as const;
@@ -501,6 +509,7 @@ export const ChunkedNotesReader: React.FC<Props> = ({ content, className, langua
   // (the app's normal Inter / system font), which is also what the Reset
   // button restores to.
   const [fontFamilyId, setFontFamilyId] = useState<string | null>(getStoredFontFamilyId);
+  const [fontWeight, setFontWeight] = useState<number>(getStoredFontWeight);
   const [showFontFamilyMenu, setShowFontFamilyMenu] = useState(false);
   const [fontSearch, setFontSearch] = useState('');
   const [fontCategory, setFontCategory] = useState<'all' | 'top10' | 'sans' | 'serif' | 'display' | 'handwriting' | 'mono' | 'indic'>('top10');
@@ -620,6 +629,10 @@ export const ChunkedNotesReader: React.FC<Props> = ({ content, className, langua
       try {
         const id = localStorage.getItem(FONT_FAMILY_KEY);
         setFontFamilyId(id);
+      } catch {}
+      try {
+        const w = parseInt(localStorage.getItem(FONT_WEIGHT_KEY) || '400', 10);
+        if ([400, 600, 800, 900].includes(w)) setFontWeight(w);
       } catch {}
     };
     window.addEventListener('nst-reading-style-changed', sync);
@@ -1309,13 +1322,10 @@ export const ChunkedNotesReader: React.FC<Props> = ({ content, className, langua
                 className="w-full text-left pl-4 pr-10 py-2 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-300"
               >
                 <p
-                  className={`leading-relaxed ${isActive ? 'text-yellow-900 font-semibold' : ''}`}
+                  className={`leading-relaxed ${isActive ? 'text-yellow-900' : ''}`}
                   style={{
                     fontSize: `${fontSize}px`,
-                    // The active (currently-being-read) line keeps its yellow
-                    // highlight colour for clarity. Other lines use the
-                    // parent-supplied override (if any) or the student's
-                    // chosen palette colour for the active theme.
+                    fontWeight: isActive ? Math.max(fontWeight, 600) : fontWeight,
                     color: isActive ? undefined : (textColorOverride || textColor),
                     fontFamily: activeFont?.family,
                   }}

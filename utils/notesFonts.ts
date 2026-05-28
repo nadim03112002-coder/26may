@@ -83,6 +83,166 @@
     "top10": true
   },
   {
+    "id": "noto_sans_devanagari",
+    "label": "Noto Sans Devanagari",
+    "family": "\"Noto Sans Devanagari\", system-ui, sans-serif",
+    "gfontParam": "Noto+Sans+Devanagari:wght@400;500;700;900",
+    "category": "indic",
+    "top10": true
+  },
+  {
+    "id": "baloo_2",
+    "label": "Baloo 2 (Hindi)",
+    "family": "\"Baloo 2\", system-ui, sans-serif",
+    "gfontParam": "Baloo+2:wght@400;500;700;800",
+    "category": "indic",
+    "top10": true
+  },
+  {
+    "id": "kalam",
+    "label": "Kalam (Handwriting Hindi)",
+    "family": "\"Kalam\", cursive, sans-serif",
+    "gfontParam": "Kalam:wght@400;700",
+    "category": "indic",
+    "top10": false
+  },
+  {
+    "id": "tiro_devanagari_hindi",
+    "label": "Tiro Devanagari Hindi",
+    "family": "\"Tiro Devanagari Hindi\", serif",
+    "gfontParam": "Tiro+Devanagari+Hindi:ital,wght@0,400;1,400",
+    "category": "indic",
+    "top10": false
+  },
+  {
+    "id": "rozha_one",
+    "label": "Rozha One (Hindi Bold)",
+    "family": "\"Rozha One\", serif",
+    "gfontParam": "Rozha+One",
+    "category": "indic",
+    "top10": false
+  },
+  {
+    "id": "yatra_one",
+    "label": "Yatra One",
+    "family": "\"Yatra One\", system-ui, sans-serif",
+    "gfontParam": "Yatra+One",
+    "category": "indic",
+    "top10": false
+  },
+  {
+    "id": "martel",
+    "label": "Martel (Hindi Serif)",
+    "family": "\"Martel\", serif",
+    "gfontParam": "Martel:wght@400;700;900",
+    "category": "indic",
+    "top10": false
+  },
+  {
+    "id": "poppins_devanagari",
+    "label": "Rajdhani (Hindi Clean)",
+    "family": "\"Rajdhani\", system-ui, sans-serif",
+    "gfontParam": "Rajdhani:wght@400;500;700",
+    "category": "indic",
+    "top10": false
+  },
+  {
+    "id": "laila",
+    "label": "Laila (Hindi Elegant)",
+    "family": "\"Laila\", serif",
+    "gfontParam": "Laila:wght@400;700",
+    "category": "indic",
+    "top10": false
+  },
+  {
+    "id": "eczar",
+    "label": "Eczar (Hindi/Sanskrit)",
+    "family": "\"Eczar\", serif",
+    "gfontParam": "Eczar:wght@400;600;700;800",
+    "category": "indic",
+    "top10": false
+  },
+  {
+    "id": "teko",
+    "label": "Teko (Bold Hindi Display)",
+    "family": "\"Teko\", sans-serif",
+    "gfontParam": "Teko:wght@400;500;600;700",
+    "category": "indic",
+    "top10": false
+  },
+  {
+    "id": "sarpanch",
+    "label": "Sarpanch (Heavy Hindi)",
+    "family": "\"Sarpanch\", sans-serif",
+    "gfontParam": "Sarpanch:wght@400;600;700;800;900",
+    "category": "indic",
+    "top10": false
+  },
+  {
+    "id": "karma",
+    "label": "Karma (Bold Hindi Serif)",
+    "family": "\"Karma\", serif",
+    "gfontParam": "Karma:wght@400;500;600;700",
+    "category": "indic",
+    "top10": false
+  },
+  {
+    "id": "pragati_narrow",
+    "label": "Pragati Narrow (Condensed Hindi)",
+    "family": "\"Pragati Narrow\", sans-serif",
+    "gfontParam": "Pragati+Narrow:wght@400;700",
+    "category": "indic",
+    "top10": false
+  },
+  {
+    "id": "rasa",
+    "label": "Rasa (Hindi Serif Bold)",
+    "family": "\"Rasa\", serif",
+    "gfontParam": "Rasa:wght@400;500;600;700",
+    "category": "indic",
+    "top10": false
+  },
+  {
+    "id": "tillana",
+    "label": "Tillana (Hindi Display)",
+    "family": "\"Tillana\", cursive",
+    "gfontParam": "Tillana:wght@400;500;600;700;800",
+    "category": "indic",
+    "top10": false
+  },
+  {
+    "id": "arya",
+    "label": "Arya (Clean Bold Hindi)",
+    "family": "\"Arya\", sans-serif",
+    "gfontParam": "Arya:wght@400;700",
+    "category": "indic",
+    "top10": false
+  },
+  {
+    "id": "halant",
+    "label": "Halant (Hindi Semi-Bold)",
+    "family": "\"Halant\", serif",
+    "gfontParam": "Halant:wght@300;400;500;600;700",
+    "category": "indic",
+    "top10": false
+  },
+  {
+    "id": "baloo_bhai_2",
+    "label": "Baloo Bhai 2 (Rounded Bold)",
+    "family": "\"Baloo Bhai 2\", cursive",
+    "gfontParam": "Baloo+Bhai+2:wght@400;500;600;700;800",
+    "category": "indic",
+    "top10": false
+  },
+  {
+    "id": "biryani",
+    "label": "Biryani (Strong Hindi)",
+    "family": "\"Biryani\", sans-serif",
+    "gfontParam": "Biryani:wght@300;400;600;700;800;900",
+    "category": "indic",
+    "top10": false
+  },
+  {
     "id": "source_sans_3",
     "label": "Source Sans 3",
     "family": "\"Source Sans 3\", system-ui, sans-serif",
