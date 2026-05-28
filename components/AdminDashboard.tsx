@@ -10,7 +10,7 @@ import { TOP_BAR_EFFECTS, EFFECT_CATEGORIES, TopBarEffectsLayer } from '../utils
 import { generateSecureRandomString, generateSecureRandomId } from '../utils/cryptoUtils';
 import { saveChapterData, bulkSaveLinks, checkFirebaseConnection, saveSystemSettings, subscribeToUsers, rtdb, saveUserToLive, db, getChapterData, saveCustomSyllabus, deleteCustomSyllabus, subscribeToUniversalAnalysis, saveAiInteraction, saveSecureKeys, getSecureKeys, subscribeToApiUsage, subscribeToDrafts, resetAllContent, subscribeToDemands, updateDemandStatus, subscribeGlobalChat, subscribeSupportChat, deleteGlobalMessage, deleteSupportMessage, subscribeAllSupportThreads, sendGlobalMessage, sendSupportMessage, subscribeToCompareAnalytics, deleteCompareAnalyticsByQuery, addCompreBookNote, deleteCompreBookNote, getCompreBookNotes, updateCompreBookNote } from '../firebase'; // IMPORT FIREBASE
 import { ref, set, onValue, update, push, get } from "firebase/database";
-import { doc, deleteDoc, setDoc } from "firebase/firestore";
+import { doc, deleteDoc, setDoc, getDocs, collection, writeBatch, deleteField } from "firebase/firestore";
 import { storage } from '../utils/storage';
 import { SimpleRichTextEditor } from './SimpleRichTextEditor';
 import { ImageCropper } from './ImageCropper';
@@ -435,7 +435,10 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
   const chatGlobalBottomRef = React.useRef<HTMLDivElement>(null);
   const chatDmBottomRef = React.useRef<HTMLDivElement>(null);
   const [giftCodes, setGiftCodes] = useState<GiftCode[]>([]);
-  const [teacherCodes, setTeacherCodes] = useState<TeacherCode[]>([]); // NEW: Teacher Codes
+  const [teacherCodes, setTeacherCodes] = useState<TeacherCode[]>([]);
+  const [resetThemeLoading, setResetThemeLoading] = useState(false);
+  const [resetThemeResult, setResetThemeResult] = useState<{count: number; status: 'success'|'error'; msg?: string} | null>(null);
+  const [resetThemeConfirm, setResetThemeConfirm] = useState(false);
 
   // --- DATABASE EDITOR ---
   const [dbKey, setDbKey] = useState('nst_users');
@@ -13009,6 +13012,97 @@ Statement 2"
                   </div>
                   <p className="text-[10px] text-violet-600 bg-violet-50 rounded-lg p-2">💡 Priority order: Student ka personal redeem code color &gt; Yahan set tier color &gt; Global theme color upar</p>
               </div>
+
+              {/* RESET ALL USER THEMES */}
+              {(() => {
+                const handleResetAllThemes = async () => {
+                  setResetThemeLoading(true);
+                  setResetThemeResult(null);
+                  try {
+                    const snapshot = await getDocs(collection(db, 'users'));
+                    const toReset = snapshot.docs.filter(d => {
+                      const data = d.data();
+                      return data.personalTheme || data.personalThemeColor || data.tempThemeColor;
+                    });
+
+                    let count = 0;
+                    const BATCH_SIZE = 400;
+                    for (let i = 0; i < toReset.length; i += BATCH_SIZE) {
+                      const batch = writeBatch(db);
+                      toReset.slice(i, i + BATCH_SIZE).forEach(docSnap => {
+                        batch.update(doc(db, 'users', docSnap.id), {
+                          personalTheme: deleteField(),
+                          personalThemeColor: deleteField(),
+                          tempThemeColor: deleteField(),
+                          tempThemeColorExpiry: deleteField(),
+                        });
+                        count++;
+                      });
+                      await batch.commit();
+                    }
+
+                    setResetThemeResult({ count, status: 'success' });
+                    setResetThemeConfirm(false);
+                  } catch (err: any) {
+                    setResetThemeResult({ count: 0, status: 'error', msg: err?.message || 'Error hua' });
+                  } finally {
+                    setResetThemeLoading(false);
+                  }
+                };
+
+                return (
+                  <div className="bg-gradient-to-br from-red-50 to-rose-50 p-6 rounded-3xl border border-red-200 space-y-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-red-100 border border-red-200 flex items-center justify-center shrink-0">
+                        <RotateCcw size={18} className="text-red-600" />
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-bold text-red-900 text-base">Sabka Theme Normal Karo</h4>
+                        <p className="text-xs text-red-600 mt-0.5">Jo bhi users ne apna personal theme set kiya hai, unka theme delete ho jayega aur sab default tier theme pe aa jayenge.</p>
+                      </div>
+                    </div>
+
+                    {resetThemeResult && (
+                      <div className={`p-3 rounded-xl border text-sm font-bold flex items-center gap-2 ${resetThemeResult.status === 'success' ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-100 border-red-300 text-red-700'}`}>
+                        {resetThemeResult.status === 'success'
+                          ? <><CheckCircle size={16} /> {resetThemeResult.count} users ka theme reset ho gaya ✅</>
+                          : <><AlertTriangle size={16} /> Error: {resetThemeResult.msg}</>
+                        }
+                      </div>
+                    )}
+
+                    {!resetThemeConfirm ? (
+                      <button
+                        onClick={() => setResetThemeConfirm(true)}
+                        disabled={resetThemeLoading}
+                        className="w-full py-3 px-4 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-bold text-sm flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-50"
+                      >
+                        <RotateCcw size={16} />
+                        Sabka Theme Reset Karo
+                      </button>
+                    ) : (
+                      <div className="bg-white rounded-2xl border border-red-200 p-4 space-y-3">
+                        <p className="text-sm font-bold text-red-800 text-center">⚠️ Confirm karo — Sabka personal theme delete ho jayega!</p>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setResetThemeConfirm(false)}
+                            className="flex-1 py-2.5 rounded-xl bg-slate-100 text-slate-700 font-bold text-sm hover:bg-slate-200 transition-all"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={handleResetAllThemes}
+                            disabled={resetThemeLoading}
+                            className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-60"
+                          >
+                            {resetThemeLoading ? <><Loader2 size={14} className="animate-spin" /> Reset ho raha hai...</> : <><RotateCcw size={14} /> Haan, Reset Karo</>}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* LEVEL SCORE EDITOR */}
               <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-6 rounded-3xl border border-amber-100 space-y-4">

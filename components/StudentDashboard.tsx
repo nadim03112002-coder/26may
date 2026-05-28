@@ -32,7 +32,7 @@ import {
   auth,
 } from "../firebase";
 import type { ContentTypeStats, ContentIndexMap } from "../firebase";
-import { doc, onSnapshot } from "firebase/firestore";
+import { doc, onSnapshot, updateDoc, deleteField } from "firebase/firestore";
 import { ref, query, limitToLast, onValue, set } from "firebase/database";
 import { GoogleAuthProvider, signInWithPopup, setPersistence, browserLocalPersistence } from "firebase/auth";
 import {
@@ -768,27 +768,25 @@ export const StudentDashboard: React.FC<Props> = ({
   const [activeSessionClass, setActiveSessionClass] = useState<string | null>(
     null,
   );
-  // Persisted board choice — once the student manually picks CBSE/BSEB, that
-  // choice becomes their default on the next visit (per device).
+  // Persisted board choice — localStorage (fast, per-device) + Firestore (cross-device sync).
+  // Priority: localStorage → user.board (Firestore) → "CBSE"
   const BOARD_CHOICE_KEY = "nst_board_choice_v1";
-  const [activeSessionBoard, _setActiveSessionBoardRaw] = useState<
-    "CBSE" | "BSEB" | null
-  >(() => {
+  const [activeSessionBoard, _setActiveSessionBoardRaw] = useState<"CBSE" | "BSEB">(() => {
     try {
       const v = localStorage.getItem(BOARD_CHOICE_KEY);
       if (v === "CBSE" || v === "BSEB") return v;
     } catch {}
-    return null;
+    // Fallback: Firestore user.board (loaded at login, cross-device)
+    if ((user as any).board === "BSEB") return "BSEB";
+    return "CBSE";
   });
-  const setActiveSessionBoard = (v: "CBSE" | "BSEB" | null) => {
+  const setActiveSessionBoard = (v: "CBSE" | "BSEB") => {
     _setActiveSessionBoardRaw(v);
-    try {
-      if (v === "CBSE" || v === "BSEB") {
-        localStorage.setItem(BOARD_CHOICE_KEY, v);
-      } else {
-        localStorage.removeItem(BOARD_CHOICE_KEY);
-      }
-    } catch {}
+    try { localStorage.setItem(BOARD_CHOICE_KEY, v); } catch {}
+    // Also save to Firestore so choice persists on new devices
+    const updated = { ...user, board: v };
+    handleUserUpdate(updated);
+    saveUserToLive(updated);
   };
   const [showBoardPromptForClass, setShowBoardPromptForClass] = useState<
     string | null
@@ -1600,6 +1598,7 @@ export const StudentDashboard: React.FC<Props> = ({
   const [storeSubTab, setStoreSubTab] = useState<'STORE' | 'CREDITS'>('STORE');
   const [inboxTab, setInboxTab] = useState<'MESSAGES' | 'UPDATES' | 'REWARDS' | 'HISTORY' | 'RULES'>('UPDATES');
   const [profileWhite, setProfileWhite] = useState(() => localStorage.getItem(`nst_pw_${user.id}`) === '1');
+  const [nameFxOff, setNameFxOff] = useState(() => { try { return localStorage.getItem('nst_name_fx_off') === '1'; } catch { return false; } });
   const [rewardSubTab, setRewardSubTab] = useState<'EARNED' | 'RULES' | 'HISTORY'>('EARNED');
   const [rewardHistorySeenCount, setRewardHistorySeenCount] = useState<number>(() => {
     const saved = localStorage.getItem(`nst_reward_hist_seen_${user?.id || ''}`);
@@ -1825,7 +1824,7 @@ export const StudentDashboard: React.FC<Props> = ({
     const body = encodeURIComponent(
       `Student Details:\nName: ${user.name}\nUID: ${user.id}\nEmail: ${user.email}\n\nIssue Description:\n`,
     );
-    window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
+    window.open(`mailto:${email}?subject=${subject}&body=${body}`, '_self');
   };
 
   const [showRequestModal, setShowRequestModal] = useState(false);
@@ -7645,6 +7644,56 @@ export const StudentDashboard: React.FC<Props> = ({
         ? Math.floor((Date.now() - new Date(user.createdAt).getTime()) / (1000 * 60 * 60 * 24))
         : 0;
       const _pTotalCredits = (user.credits ?? 0) + (user.bonusCredits ?? 0);
+
+      // ── Level-based name effect ──────────────────────────────────────
+      const _nameStyle = ((): React.CSSProperties => {
+        const lvl = _pLvl.level;
+        const col = _pLvl.nameColor || _pLvl.color;
+        const glow = _pLvl.glowColor;
+        if (profileWhite || nameFxOff) {
+          return { color: lvl >= 4 ? col : (profileWhite ? '#1e293b' : '#ffffff') };
+        }
+        if (lvl <= 2) return { color: '#ffffff' };
+        if (lvl <= 4) return { color: col, textShadow: `0 0 14px ${glow}` };
+        if (lvl <= 6) return {
+          color: col,
+          animation: 'name-fx-glow 2.2s ease-in-out infinite',
+          ['--name-glow' as any]: glow,
+        };
+        // Gradient text definitions per level
+        const grads: Record<number, string> = {
+          7:  'linear-gradient(135deg,#c084fc,#a855f7,#7c3aed,#c084fc)',
+          8:  'linear-gradient(135deg,#fde68a,#f59e0b,#d97706,#fde68a)',
+          9:  'linear-gradient(135deg,#fde047,#eab308,#facc15,#fde047)',
+          10: 'linear-gradient(135deg,#fb923c,#f59e0b,#fbbf24,#fb923c)',
+          11: 'linear-gradient(135deg,#34d399,#06b6d4,#818cf8,#c084fc,#34d399)',
+          12: 'linear-gradient(135deg,#a78bfa,#c084fc,#f472b6,#a78bfa)',
+          13: 'linear-gradient(135deg,#f9a8d4,#ec4899,#f43f5e,#ef4444,#f9a8d4)',
+          14: 'linear-gradient(135deg,#fda4af,#f43f5e,#ef4444,#f97316,#fda4af)',
+          15: 'linear-gradient(135deg,#ffffff,#a5f3fc,#c4b5fd,#f9a8d4,#ffffff)',
+        };
+        const anim7_8  = 'name-fx-shimmer 4s linear infinite';
+        const anim9_10 = 'name-fx-shimmer 3s linear infinite, name-fx-rainbow 7s ease infinite';
+        const anim11_12= 'name-fx-shimmer 2.5s linear infinite, name-fx-rainbow 5s ease infinite';
+        const anim13_14= 'name-fx-shimmer 2s linear infinite, name-fx-fire 1.8s ease-in-out infinite';
+        const anim15   = 'name-fx-shimmer 1.8s linear infinite, name-fx-absolute 4s ease infinite';
+        const animMap: Record<number, string> = {
+          7: anim7_8, 8: anim7_8,
+          9: anim9_10, 10: anim9_10,
+          11: anim11_12, 12: anim11_12,
+          13: anim13_14, 14: anim13_14,
+          15: anim15,
+        };
+        return {
+          background: grads[lvl] || `linear-gradient(135deg,${col},${col}88,${col})`,
+          backgroundSize: '200% auto',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          backgroundClip: 'text',
+          animation: animMap[lvl] || anim7_8,
+        } as React.CSSProperties;
+      })();
+
       const _pw       = profileWhite;
       const _pBg      = _pw ? '#f0f4f8' : tierTheme.profileBg;
       const _pCard    = _pw ? '#ffffff' : tierTheme.profileCardBg;
@@ -7653,6 +7702,16 @@ export const StudentDashboard: React.FC<Props> = ({
       const _pBdrMain = _pw ? '1px solid rgba(0,0,0,0.07)' : `1px solid ${tierTheme.primary}2e`;
       const _pBdrSoft = _pw ? '1px solid rgba(0,0,0,0.07)' : `1px solid ${tierTheme.primary}18`;
       const _pHovCls  = _pw ? 'hover:bg-black/5 active:bg-black/8' : 'hover:bg-white/5 active:bg-white/8';
+      const _pTxt     = _pw ? 'text-slate-800' : 'text-white';
+      const _pTxtSub  = _pw ? 'text-slate-500' : 'text-white/50';
+      const _pTxtMuted = _pw ? 'text-slate-400' : 'text-white/30';
+      const _pTxtColor = _pw ? '#1e293b' : '#ffffff';
+      const _pTxtSubColor = _pw ? '#64748b' : 'rgba(255,255,255,0.50)';
+      const _pTxtMutedColor = _pw ? '#94a3b8' : 'rgba(255,255,255,0.30)';
+      const _pRowBg   = _pw ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.04)';
+      const _pRowBdr  = _pw ? '1px solid rgba(0,0,0,0.07)' : '1px solid rgba(255,255,255,0.08)';
+      const _pIconBg  = _pw ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.08)';
+      const _pIconBdr = _pw ? '1px solid rgba(0,0,0,0.10)' : '1px solid rgba(255,255,255,0.10)';
 
       return (
         <div className="animate-in fade-in zoom-in duration-300 pb-28 min-h-screen" data-pw={_pw ? "1" : "0"} style={{ background: _pBg }}>
@@ -7660,86 +7719,164 @@ export const StudentDashboard: React.FC<Props> = ({
           {/* ── CARD 1: Identity ── */}
           <div className="rounded-none overflow-hidden mb-2.5" style={{ background: _pCard, border: _pBdrMain }}>
 
-            {/* ── Banner / Header area ── */}
-            <div className="relative px-4 pt-5 pb-4 flex flex-col items-center text-center"
-              style={{ background: `linear-gradient(180deg, ${tierTheme.primary}18 0%, transparent 100%)` }}>
+            {/* ── Profile Header ── */}
+            <div className="relative overflow-hidden" style={{
+              background: _pw
+                ? `linear-gradient(160deg, #e0f2fe 0%, #f0f9ff 40%, #ffffff 100%)`
+                : `linear-gradient(160deg, ${tierTheme.primary}20 0%, ${tierTheme.primary}08 45%, transparent 100%)`,
+              paddingTop: 32,
+              paddingBottom: 24,
+            }}>
 
-              {/* Crown top-right */}
-              {_pIsUltra && (
-                <span className="absolute top-3 right-4 text-2xl">👑</span>
+              {/* Background mesh dots — decorative */}
+              {!_pw && (
+                <svg className="absolute inset-0 w-full h-full opacity-[0.06] pointer-events-none" xmlns="http://www.w3.org/2000/svg">
+                  <defs>
+                    <pattern id="pdots" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
+                      <circle cx="2" cy="2" r="1.2" fill={tierTheme.primary} />
+                    </pattern>
+                  </defs>
+                  <rect width="100%" height="100%" fill="url(#pdots)" />
+                </svg>
               )}
 
-              {/* Avatar centered */}
-              <div className="w-20 h-20 rounded-full flex items-center justify-center text-3xl font-black overflow-hidden mb-3"
-                style={{
-                  background: _pLvl.level >= 8 ? `${_pLvl.color}30` : `${tierTheme.primary}22`,
-                  border: `3px solid ${_pLvl.level >= 4 ? _pLvl.color + '90' : tierTheme.primary + '80'}`,
-                  boxShadow: `0 0 20px ${tierTheme.primary}44, 0 4px 24px rgba(0,0,0,0.5)`,
-                  animation: _pLvl.level >= 10 ? 'topbar-glow-pulse 2s ease-in-out infinite' : 'none',
-                }}>
-                {user.photoURL && user.avatarChoice === 'gmail'
-                  ? <img src={user.photoURL} alt="Gmail profile" className="w-full h-full object-cover" />
-                  : settings?.appLogo
-                    ? <img src={settings.appLogo} alt="logo" className="w-full h-full object-cover" />
-                    : <span style={{ color: _pLvl.level >= 4 ? _pLvl.color : tierTheme.primary }}>{(user.name || 'S').charAt(0).toUpperCase()}</span>
-                }
+              {/* Top-right: Crown for Ultra */}
+              {_pIsUltra && (
+                <div className="absolute top-3 right-4 flex items-center gap-1">
+                  <span className="text-[22px] drop-shadow" style={{ filter: `drop-shadow(0 0 8px gold)` }}>👑</span>
+                </div>
+              )}
+
+              {/* Top-left: Admin chip */}
+              {(user.role === 'ADMIN' || user.role === 'SUB_ADMIN') && (
+                <div className="absolute top-3 left-4">
+                  <span className="text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-widest"
+                    style={{ background: `${tierTheme.primary}22`, color: tierTheme.primary, border: `1px solid ${tierTheme.primary}55` }}>
+                    {user.role === 'ADMIN' ? '⚙ Admin' : '⚙ Sub-Admin'}
+                  </span>
+                </div>
+              )}
+
+              {/* ─── Avatar ─── */}
+              <div className="flex justify-center mb-4">
+                <div className="relative">
+                  {/* Outer glow halo */}
+                  <div className="absolute -inset-1.5 rounded-full pointer-events-none" style={{
+                    background: `conic-gradient(from 0deg, ${tierTheme.primary}00, ${tierTheme.primary}cc, ${tierTheme.primary}00)`,
+                    animation: _pLvl.level >= 6 ? 'spin 4s linear infinite' : 'none',
+                    borderRadius: '50%',
+                  }} />
+                  {/* Inner ring */}
+                  <div className="absolute -inset-0.5 rounded-full pointer-events-none" style={{
+                    background: `${_pCard}`,
+                    borderRadius: '50%',
+                  }} />
+                  {/* Avatar image */}
+                  <div className="relative w-[88px] h-[88px] rounded-full overflow-hidden flex items-center justify-center" style={{
+                    background: `linear-gradient(145deg, ${tierTheme.primary}40, ${tierTheme.primary}10)`,
+                    border: `2.5px solid ${_pLvl.level >= 4 ? _pLvl.color + 'cc' : tierTheme.primary + 'cc'}`,
+                    boxShadow: `0 0 0 1px ${tierTheme.primary}30, 0 8px 32px ${tierTheme.primary}40, 0 2px 8px rgba(0,0,0,0.5)`,
+                  }}>
+                    {user.photoURL && user.avatarChoice === 'gmail'
+                      ? <img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" />
+                      : settings?.appLogo
+                        ? <img src={settings.appLogo} alt="logo" className="w-full h-full object-cover" />
+                        : <span className="text-4xl font-black select-none" style={{ color: _pLvl.level >= 4 ? _pLvl.color : tierTheme.primary }}>
+                            {(user.name || 'S').charAt(0).toUpperCase()}
+                          </span>
+                    }
+                  </div>
+                </div>
               </div>
 
-              {/* Name + edit */}
-              <div className="flex items-center gap-2 mb-1.5">
-                <h2 className="text-lg font-black leading-tight tracking-wide"
-                  style={{ color: _pLvl.level >= 4 ? (_pLvl.nameColor || _pLvl.color) : '#ffffff' }}>
+              {/* ─── Name row ─── */}
+              <div className="flex items-center justify-center gap-2 px-8 mb-2">
+                <h2 className="font-black text-[22px] leading-none tracking-[0.06em] truncate" style={_nameStyle}>
                   {(user.name || 'Student').toUpperCase()}
                 </h2>
                 <button
                   onClick={() => { setNewNameInput(user.name); setShowNameChangeModal(true); }}
-                  className="w-6 h-6 rounded-lg flex items-center justify-center"
-                  style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }}
-                >
-                  <Edit size={10} className="text-slate-300" />
+                  className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center active:scale-90 transition-all"
+                  style={{
+                    background: _pw ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.10)',
+                    border: `1px solid ${_pw ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.20)'}`,
+                  }}>
+                  <Edit size={11} style={{ color: _pw ? '#475569' : '#cbd5e1' }} />
                 </button>
               </div>
 
-              {/* Tier badge */}
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider mb-2" style={{
-                color: tierTheme.primary,
-                background: `${tierTheme.primary}20`,
-                border: `1px solid ${tierTheme.primary}55`,
-                boxShadow: `0 0 8px ${tierTheme.primary}30`,
-              }}>
-                {tierTheme.emoji} {_pTierLabel}
-              </span>
-
-              {/* Join date */}
-              {_pJoinDate && (
-                <p className="text-[10px] text-white/60 font-semibold mb-2">{_pJoinDate}</p>
-              )}
-
-              {/* Avatar toggle */}
-              <div className="flex gap-2">
-                <button
-                  onClick={async () => {
-                    if (!user.photoURL) return;
-                    const updated = { ...user, avatarChoice: 'gmail' as const };
-                    handleUserUpdate(updated);
-                    await saveUserToLive(updated);
-                  }}
-                  className={`px-3 py-1 rounded-full text-[10px] font-bold border transition-all active:scale-95 flex items-center gap-1 ${user.avatarChoice === 'gmail' && user.photoURL ? 'text-blue-300 border-blue-500/50' : 'text-slate-400 border-white/10'} ${!user.photoURL ? 'opacity-40 cursor-not-allowed' : ''}`}
-                  style={{ background: user.avatarChoice === 'gmail' && user.photoURL ? 'rgba(59,130,246,0.15)' : 'rgba(255,255,255,0.05)' }}
-                >📧 Gmail</button>
-                <button
-                  onClick={async () => {
-                    const updated = { ...user, avatarChoice: 'app' as const };
-                    handleUserUpdate(updated);
-                    await saveUserToLive(updated);
-                  }}
-                  className={`px-3 py-1 rounded-full text-[10px] font-bold border transition-all active:scale-95 flex items-center gap-1 ${!user.photoURL || user.avatarChoice !== 'gmail' ? 'text-slate-300 border-slate-500/40' : 'text-slate-500 border-white/10'}`}
-                  style={{ background: !user.photoURL || user.avatarChoice !== 'gmail' ? 'rgba(100,116,139,0.15)' : 'rgba(255,255,255,0.04)' }}
-                >🏫 App</button>
+              {/* ─── Tier badge ─── */}
+              <div className="flex justify-center mb-3">
+                <span className="inline-flex items-center gap-1.5 px-5 py-[5px] rounded-full text-[11px] font-black tracking-[0.14em] uppercase" style={{
+                  background: _pw ? `${tierTheme.primary}18` : tierTheme.pillGrad,
+                  color: _pw ? tierTheme.primary : '#ffffff',
+                  border: `1px solid ${tierTheme.primary}55`,
+                  boxShadow: `0 4px 18px ${tierTheme.primary}44`,
+                }}>
+                  {tierTheme.emoji}&nbsp;{_pTierLabel}
+                </span>
               </div>
 
-              {/* Bottom divider line */}
-              <div className="w-full mt-4 h-[1px]" style={{ background: `linear-gradient(90deg, transparent, ${tierTheme.primary}40, transparent)` }} />
+              {/* ─── Join date ─── */}
+              {_pJoinDate && (
+                <div className="flex items-center justify-center gap-1 mb-4" style={{ color: _pTxtSubColor }}>
+                  <span className="text-[11px]">📅</span>
+                  <span className="text-[11px] font-semibold tracking-wide">{_pJoinDate}</span>
+                </div>
+              )}
+
+              {/* ─── Avatar source segmented control ─── */}
+              <div className="flex justify-center">
+                <div className="inline-flex rounded-2xl p-[3px]" style={{
+                  background: _pw ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.07)',
+                  border: `1px solid ${_pw ? 'rgba(0,0,0,0.10)' : 'rgba(255,255,255,0.12)'}`,
+                }}>
+                  <button
+                    onClick={async () => {
+                      if (!user.photoURL) return;
+                      const updated = { ...user, avatarChoice: 'gmail' as const };
+                      handleUserUpdate(updated);
+                      await saveUserToLive(updated);
+                    }}
+                    disabled={!user.photoURL}
+                    className="px-4 py-1.5 rounded-xl text-[11px] font-bold transition-all active:scale-95 flex items-center gap-1.5"
+                    style={{
+                      background: user.avatarChoice === 'gmail' && user.photoURL
+                        ? (_pw ? '#ffffff' : 'rgba(59,130,246,0.30)')
+                        : 'transparent',
+                      color: user.avatarChoice === 'gmail' && user.photoURL
+                        ? (_pw ? '#1d4ed8' : '#93c5fd')
+                        : (_pw ? '#94a3b8' : 'rgba(255,255,255,0.35)'),
+                      boxShadow: user.avatarChoice === 'gmail' && user.photoURL ? '0 2px 8px rgba(0,0,0,0.18)' : 'none',
+                      opacity: !user.photoURL ? 0.35 : 1,
+                    }}>
+                    📧 Gmail
+                  </button>
+                  <button
+                    onClick={async () => {
+                      const updated = { ...user, avatarChoice: 'app' as const };
+                      handleUserUpdate(updated);
+                      await saveUserToLive(updated);
+                    }}
+                    className="px-4 py-1.5 rounded-xl text-[11px] font-bold transition-all active:scale-95 flex items-center gap-1.5"
+                    style={{
+                      background: !user.photoURL || user.avatarChoice !== 'gmail'
+                        ? (_pw ? '#ffffff' : `${tierTheme.primary}30`)
+                        : 'transparent',
+                      color: !user.photoURL || user.avatarChoice !== 'gmail'
+                        ? (_pw ? tierTheme.primary : '#e2e8f0')
+                        : (_pw ? '#94a3b8' : 'rgba(255,255,255,0.35)'),
+                      boxShadow: (!user.photoURL || user.avatarChoice !== 'gmail') ? '0 2px 8px rgba(0,0,0,0.18)' : 'none',
+                    }}>
+                    🏫 App
+                  </button>
+                </div>
+              </div>
+
+              {/* Bottom shimmer line */}
+              <div className="absolute bottom-0 left-0 right-0 h-[1.5px]" style={{
+                background: `linear-gradient(90deg, transparent 0%, ${tierTheme.primary}80 50%, transparent 100%)`,
+              }} />
             </div>
 
             {/* ── LEVEL + ID section ── */}
@@ -7748,12 +7885,12 @@ export const StudentDashboard: React.FC<Props> = ({
               <button
                 onClick={() => setShowScorePanel(true)}
                 className="w-full flex items-center gap-4 px-4 py-4 rounded-xl active:scale-[0.98] transition-transform mb-2.5"
-                style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${_pLvl.color}40` }}
+                style={{ background: _pRowBg, border: `1px solid ${_pLvl.color}40` }}
               >
                 <Trophy size={22} style={{ color: tierTheme.primary }} className="shrink-0" />
                 <div className="flex-1 min-w-0 text-left">
                   <div className="flex items-center gap-2 mb-1.5">
-                    <span className="text-sm font-black text-white">Level {_pLvl.level} · {_pLvl.label}</span>
+                    <span className={`text-sm font-black ${_pTxt}`}>Level {_pLvl.level} · {_pLvl.label}</span>
                     {(user.role === 'ADMIN' || user.role === 'SUB_ADMIN') && (
                       <span className="text-[9px] font-bold text-slate-400">(Admin)</span>
                     )}
@@ -7777,10 +7914,10 @@ export const StudentDashboard: React.FC<Props> = ({
                 <button
                   onClick={() => { try { navigator.clipboard.writeText(user.id); showAlert('User ID copied!', 'SUCCESS'); } catch {} }}
                   className="flex-1 flex items-center gap-2 px-2.5 py-2 rounded-xl active:scale-95 transition-transform"
-                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+                  style={{ background: _pRowBg, border: _pRowBdr }}
                 >
-                  <span className="text-[9px] font-black text-slate-300 uppercase tracking-wider shrink-0">ID</span>
-                  <span className="text-[10px] font-bold text-slate-200 truncate font-mono">{user.id || '—'}</span>
+                  <span className={`text-[9px] font-black uppercase tracking-wider shrink-0 ${_pTxtSub}`}>ID</span>
+                  <span className={`text-[10px] font-bold truncate font-mono ${_pTxt}`}>{user.id || '—'}</span>
                   <Copy size={9} className="text-slate-400 shrink-0 ml-auto" />
                 </button>
                 {/* Email */}
@@ -7788,10 +7925,10 @@ export const StudentDashboard: React.FC<Props> = ({
                   <button
                     onClick={() => { try { navigator.clipboard.writeText(user.email!); showAlert('Email copied!', 'SUCCESS'); } catch {} }}
                     className="flex-1 flex items-center gap-2 px-2.5 py-2 rounded-xl active:scale-95 transition-transform"
-                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+                    style={{ background: _pRowBg, border: _pRowBdr }}
                   >
-                    <span className="text-[9px] font-black text-slate-300 uppercase tracking-wider shrink-0">@</span>
-                    <span className="text-[10px] font-bold text-slate-200 truncate">{user.email}</span>
+                    <span className={`text-[9px] font-black uppercase tracking-wider shrink-0 ${_pTxtSub}`}>@</span>
+                    <span className={`text-[10px] font-bold truncate ${_pTxt}`}>{user.email}</span>
                     <Copy size={9} className="text-slate-400 shrink-0 ml-auto" />
                   </button>
                 )}
@@ -7810,17 +7947,17 @@ export const StudentDashboard: React.FC<Props> = ({
               {(user.bonusCredits ?? 0) > 0 && (
                 <div className="text-[8px] font-black tabular-nums" style={{ color: `${tierTheme.primary}99` }}>{user.bonusCredits?.toLocaleString('en-IN')}</div>
               )}
-              <div className="text-[9px] font-bold text-white/70 uppercase tracking-wide mt-0.5">Credits</div>
+              <div className={`text-[9px] font-bold uppercase tracking-wide mt-0.5 ${_pTxtSub}`}>Credits</div>
             </div>
             {/* Streak */}
             <div onClick={() => setShowStreakPopup(true)} className="rounded-xl py-3 px-2 text-center cursor-pointer active:scale-95 transition-transform" style={{ background: _pCardSt, border: `1px solid ${tierTheme.primary}40` }}>
               <div className="text-base font-black tabular-nums mb-0.5" style={{ color: tierTheme.primary }}>{user.streak > 0 ? user.streak : '0'}</div>
-              <div className="text-[9px] font-bold text-white/70 uppercase tracking-wide">Streak</div>
+              <div className={`text-[9px] font-bold uppercase tracking-wide ${_pTxtSub}`}>Streak</div>
             </div>
             {/* Days */}
             <div className="rounded-xl py-3 px-2 text-center" style={{ background: _pCardSt, border: `1px solid ${tierTheme.primary}40` }}>
               <div className="text-base font-black tabular-nums mb-0.5" style={{ color: tierTheme.primary }}>{_pDaysOnApp}</div>
-              <div className="text-[9px] font-bold text-white/70 uppercase tracking-wide flex items-center justify-center gap-0.5">Days <span>🔥</span></div>
+              <div className={`text-[9px] font-bold uppercase tracking-wide flex items-center justify-center gap-0.5 ${_pTxtSub}`}>Days <span>🔥</span></div>
             </div>
           </div>
 
@@ -7837,7 +7974,7 @@ export const StudentDashboard: React.FC<Props> = ({
             return (
               <div className="rounded-none p-4 mb-2.5" style={{ background: _pCard, border: `1px solid ${isUrgent ? 'rgba(239,68,68,0.30)' : tierTheme.primary + '2e'}` }}>
                 <div className="flex items-center justify-between mb-3">
-                  <p className="text-xs font-black text-white uppercase tracking-wider">Subscription</p>
+                  <p className={`text-xs font-black uppercase tracking-wider ${_pTxt}`}>Subscription</p>
                   <span className="text-[10px] font-bold" style={{ color: isUrgent ? '#ef4444' : '#94a3b8' }}>
                     {isUrgent && '⚠ '}{new Date(user.subscriptionEndDate!).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' })}
                   </span>
@@ -7849,9 +7986,9 @@ export const StudentDashboard: React.FC<Props> = ({
                     { val: String(dMin).padStart(2, '0'), label: 'Min' },
                     { val: String(dSec).padStart(2, '0'), label: 'Sec' },
                   ].map(box => (
-                    <div key={box.label} className="rounded-xl py-2 text-center" style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${cdAccent}35` }}>
+                    <div key={box.label} className="rounded-xl py-2 text-center" style={{ background: _pRowBg, border: `1px solid ${cdAccent}35` }}>
                       <div className="text-xl font-black tabular-nums leading-tight" style={{ color: cdAccent }}>{box.val}</div>
-                      <div className="text-[9px] font-bold text-slate-300 uppercase tracking-widest mt-0.5">{box.label}</div>
+                      <div className={`text-[9px] font-bold uppercase tracking-widest mt-0.5 ${_pTxtSub}`}>{box.label}</div>
                     </div>
                   ))}
                 </div>
@@ -7900,7 +8037,7 @@ export const StudentDashboard: React.FC<Props> = ({
             ) : _tPersonalTheme ? (
               <p className="text-[10px] mt-0.5 font-bold" style={{ color: tierTheme.primary }}>✨ Custom Theme Active</p>
             ) : (
-              <p className="text-[10px] mt-0.5 text-white/40">Default theme</p>
+              <p className={`text-[10px] mt-0.5 ${_pTxtMuted}`}>Default theme</p>
             );
             if (_isAdminUser) {
               return (
@@ -7911,11 +8048,11 @@ export const StudentDashboard: React.FC<Props> = ({
                   >
                     {themeCard}
                     <div className="flex-1 text-left min-w-0">
-                      <p className="text-sm font-bold text-white">Theme Studio</p>
+                      <p className={`text-sm font-bold ${_pTxt}`}>Theme Studio</p>
                       {themeLabel}
                     </div>
-                    {_tDisplayColor && <div className="w-5 h-5 rounded-full border-2 border-white/30 shrink-0" style={{ background: _tDisplayColor }} />}
-                    <ChevronRight size={14} className="text-white/30 shrink-0" />
+                    {_tDisplayColor && <div className="w-5 h-5 rounded-full border-2 shrink-0" style={{ background: _tDisplayColor, borderColor: _pTxtMutedColor }} />}
+                    <ChevronRight size={14} style={{ color: _pTxtMutedColor }} className="shrink-0" />
                   </button>
                 </div>
               );
@@ -7925,10 +8062,10 @@ export const StudentDashboard: React.FC<Props> = ({
                 <div className="rounded-none mb-2.5 px-4 py-3.5 flex items-center gap-3" style={{ background: _pCard, border: _pBdrSoft }}>
                   {themeCard}
                   <div className="flex-1 text-left min-w-0">
-                    <p className="text-sm font-bold text-white">Aapka Theme</p>
+                    <p className={`text-sm font-bold ${_pTxt}`}>Aapka Theme</p>
                     {themeLabel}
                   </div>
-                  {_tDisplayColor && <div className="w-5 h-5 rounded-full border-2 border-white/30 shrink-0" style={{ background: _tDisplayColor }} />}
+                  {_tDisplayColor && <div className="w-5 h-5 rounded-full border-2 shrink-0" style={{ background: _tDisplayColor, borderColor: _pTxtMutedColor }} />}
                 </div>
               );
             }
@@ -7941,26 +8078,26 @@ export const StudentDashboard: React.FC<Props> = ({
             {/* Admin Panel */}
             {(user.role === 'ADMIN' || user.role === 'SUB_ADMIN' || isImpersonating) && (
               <button onClick={handleSwitchToAdmin}
-                className="w-full px-4 py-3.5 flex items-center gap-3 hover:bg-white/5 active:bg-white/8 transition-colors"
+                className={`w-full px-4 py-3.5 flex items-center gap-3 ${_pHovCls} transition-colors`}
                 style={{ borderBottom: _pSep }}>
                 <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${tierTheme.primary}20`, border: `1px solid ${tierTheme.primary}40` }}>
                   <Layout size={16} style={{ color: tierTheme.primary }} />
                 </div>
-                <p className="flex-1 text-sm font-bold text-white text-left">Admin Panel</p>
-                <ChevronRight size={14} className="text-white/30 shrink-0" />
+                <p className={`flex-1 text-sm font-bold text-left ${_pTxt}`}>Admin Panel</p>
+                <ChevronRight size={14} style={{ color: _pTxtMutedColor }} className="shrink-0" />
               </button>
             )}
 
             {/* Teacher Store */}
             {user.role === 'TEACHER' && (
               <button onClick={() => onTabChange('TEACHER_STORE' as any)}
-                className="w-full px-4 py-3.5 flex items-center gap-3 hover:bg-white/5 active:bg-white/8 transition-colors"
+                className={`w-full px-4 py-3.5 flex items-center gap-3 ${_pHovCls} transition-colors`}
                 style={{ borderBottom: _pSep }}>
                 <div className="w-9 h-9 rounded-xl bg-violet-500/15 border border-violet-500/25 flex items-center justify-center shrink-0">
                   <Layout size={16} className="text-violet-400" />
                 </div>
-                <p className="flex-1 text-sm font-bold text-white text-left">Teacher Store</p>
-                <ChevronRight size={14} className="text-white/30 shrink-0" />
+                <p className={`flex-1 text-sm font-bold text-left ${_pTxt}`}>Teacher Store</p>
+                <ChevronRight size={14} style={{ color: _pTxtMutedColor }} className="shrink-0" />
               </button>
             )}
 
@@ -7989,48 +8126,116 @@ export const StudentDashboard: React.FC<Props> = ({
                     }
                   }
                 }}
-                className="w-full px-4 py-3.5 flex items-center gap-3 hover:bg-white/5 active:bg-white/8 transition-colors"
+                className={`w-full px-4 py-3.5 flex items-center gap-3 ${_pHovCls} transition-colors`}
                 style={{ borderBottom: _pSep }}>
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-white/8 border border-white/10">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: _pIconBg, border: _pIconBdr }}>
                   <span className="text-base leading-none">🔗</span>
                 </div>
                 <div className="flex-1 text-left">
-                  <p className="text-sm font-bold text-white">Link Google Account</p>
+                  <p className={`text-sm font-bold ${_pTxt}`}>Link Google Account</p>
                   {user.linkedGoogleEmail
                     ? <p className="text-[10px] text-emerald-400 font-semibold mt-0.5">✓ Linked: {user.linkedGoogleEmail}</p>
-                    : <p className="text-[10px] text-white/50 mt-0.5">Google se bhi login kar sako ek hi account pe</p>
+                    : <p className={`text-[10px] mt-0.5 ${_pTxtSub}`}>Google se bhi login kar sako ek hi account pe</p>
                   }
                 </div>
                 {user.linkedGoogleEmail
                   ? <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">Linked</span>
-                  : <ChevronRight size={14} className="text-white/30 shrink-0" />
+                  : <ChevronRight size={14} style={{ color: _pTxtMutedColor }} className="shrink-0" />
                 }
               </button>
             )}
 
-            {/* White Profile Toggle */}
+            {/* ── Theme Override Toggle ── */}
+            {(() => {
+              // useDefaultTheme !== false  →  LOCKED (default safe state, admin can't override)
+              // useDefaultTheme === false  →  UNLOCKED (user opted in to receive admin themes)
+              const _adminAllowed = (user as any).useDefaultTheme === false;
+              return (
+                <button
+                  onClick={async () => {
+                    try {
+                      const uRef = doc(db, 'users', user.id);
+                      if (_adminAllowed) {
+                        // Lock back to default — remove the explicit opt-in
+                        await updateDoc(uRef, { useDefaultTheme: deleteField() });
+                        const updated = { ...user } as any;
+                        delete updated.useDefaultTheme;
+                        handleUserUpdate(updated);
+                        showAlert('🔒 App default theme lock ho gaya! Admin themes ab override nahi karenge.', 'SUCCESS');
+                      } else {
+                        // Allow admin themes
+                        await updateDoc(uRef, { useDefaultTheme: false });
+                        const updated = { ...user, useDefaultTheme: false } as any;
+                        handleUserUpdate(updated);
+                        showAlert('🔓 Admin themes allow kar diye! Admin jo theme set kare woh aapko milegi.', 'SUCCESS');
+                      }
+                    } catch {
+                      showAlert('❌ Theme setting update nahi hui', 'ERROR');
+                    }
+                  }}
+                  className={`w-full px-4 py-3.5 flex items-center gap-3 ${_pHovCls} transition-colors`}
+                  style={{ borderBottom: _pSep }}>
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{
+                    background: _adminAllowed ? 'rgba(245,158,11,0.15)' : `${tierTheme.primary}18`,
+                    border: `1px solid ${_adminAllowed ? 'rgba(245,158,11,0.40)' : tierTheme.primary + '40'}`,
+                  }}>
+                    <span className="text-base leading-none">{_adminAllowed ? '🔓' : '🔒'}</span>
+                  </div>
+                  <div className="flex-1 text-left">
+                    <p className={`text-sm font-bold ${_pTxt}`}>
+                      {_adminAllowed ? 'Admin Themes: ON' : 'App Default Theme'}
+                    </p>
+                    <p className={`text-[10px] mt-0.5 ${_pTxtSub}`}>
+                      {_adminAllowed
+                        ? 'Admin jo theme broadcast kare woh aapko milegi — tap karke lock karo'
+                        : 'Aapka tier ka default theme chal raha hai — admin override nahi kar sakta'}
+                    </p>
+                  </div>
+                  {/* Toggle pill */}
+                  <div className="shrink-0 w-10 h-5 rounded-full relative transition-all"
+                    style={{ background: _adminAllowed ? 'rgba(245,158,11,0.70)' : 'rgba(255,255,255,0.12)' }}>
+                    <div className="absolute top-0.5 w-4 h-4 rounded-full transition-all"
+                      style={{
+                        background: '#fff',
+                        left: _adminAllowed ? '1.375rem' : '0.125rem',
+                        boxShadow: '0 1px 4px rgba(0,0,0,0.3)',
+                      }} />
+                  </div>
+                </button>
+              );
+            })()}
+
+            {/* ── Name Effect Toggle ── */}
             <button
               onClick={() => {
-                const next = !profileWhite;
-                setProfileWhite(next);
-                localStorage.setItem(`nst_pw_${user.id}`, next ? '1' : '0');
+                const next = !nameFxOff;
+                setNameFxOff(next);
+                try { localStorage.setItem('nst_name_fx_off', next ? '1' : '0'); } catch {}
               }}
               className={`w-full px-4 py-3.5 flex items-center gap-3 ${_pHovCls} transition-colors`}
               style={{ borderBottom: _pSep }}>
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                style={{ background: _pw ? 'rgba(251,191,36,0.15)' : `${tierTheme.primary}18`, border: `1px solid ${_pw ? 'rgba(251,191,36,0.35)' : tierTheme.primary + '35'}` }}>
-                <Sun size={16} style={{ color: _pw ? '#f59e0b' : tierTheme.primary }} />
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{
+                background: nameFxOff ? _pIconBg : `${_pLvl.color}22`,
+                border: `1px solid ${nameFxOff ? 'rgba(255,255,255,0.10)' : _pLvl.color + '55'}`,
+              }}>
+                <span className="text-base leading-none">{nameFxOff ? '✏️' : '✨'}</span>
               </div>
               <div className="flex-1 text-left">
-                <p className="text-sm font-bold text-white text-left">{_pw ? '🌙 Dark Profile' : '☀️ White Profile'}</p>
-                <p className="text-[10px] mt-0.5" style={{ color: _pw ? '#64748b' : 'rgba(255,255,255,0.45)' }}>
-                  {_pw ? 'Dark mode pe wapas jao' : 'Profile ka background white karo'}
+                <p className={`text-sm font-bold ${_pTxt}`}>Name Effect</p>
+                <p className={`text-[10px] mt-0.5 ${_pTxtSub}`}>
+                  {nameFxOff
+                    ? `Plain text — ${_pLvl.emoji} Level ${_pLvl.level} effect off hai`
+                    : `${_pLvl.emoji} Level ${_pLvl.level} (${_pLvl.label}) — animated effect chal raha hai`}
                 </p>
               </div>
-              <div className="w-11 h-6 rounded-full relative transition-colors shrink-0"
-                style={{ background: profileWhite ? '#f59e0b' : 'rgba(255,255,255,0.2)' }}>
-                <div className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-md transition-transform"
-                  style={{ transform: profileWhite ? 'translateX(20px)' : 'translateX(2px)' }} />
+              <div className="shrink-0 w-10 h-5 rounded-full relative transition-all"
+                style={{ background: nameFxOff ? 'rgba(255,255,255,0.12)' : `${_pLvl.color}bb` }}>
+                <div className="absolute top-0.5 w-4 h-4 rounded-full transition-all"
+                  style={{
+                    background: '#fff',
+                    left: nameFxOff ? '0.125rem' : '1.375rem',
+                    boxShadow: '0 1px 4px rgba(0,0,0,0.3)',
+                  }} />
               </div>
             </button>
 
@@ -8045,24 +8250,24 @@ export const StudentDashboard: React.FC<Props> = ({
                 keysToRemove.forEach(k => localStorage.removeItem(k));
                 showAlert('Settings reset ho gayi!', 'SUCCESS');
               }}
-              className="w-full px-4 py-3.5 flex items-center gap-3 hover:bg-white/5 active:bg-white/8 transition-colors"
+              className={`w-full px-4 py-3.5 flex items-center gap-3 ${_pHovCls} transition-colors`}
               style={{ borderBottom: _pSep }}>
               <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${tierTheme.primary}18`, border: `1px solid ${tierTheme.primary}35` }}>
                 <RotateCcw size={16} style={{ color: tierTheme.primary }} />
               </div>
-              <p className="flex-1 text-sm font-bold text-white text-left">Reset Settings</p>
-              <ChevronRight size={14} className="text-white/30 shrink-0" />
+              <p className={`flex-1 text-sm font-bold text-left ${_pTxt}`}>Reset Settings</p>
+              <ChevronRight size={14} style={{ color: _pTxtMutedColor }} className="shrink-0" />
             </button>
 
             {/* App Guide */}
             <button onClick={() => setShowUserGuide(true)}
-              className="w-full px-4 py-3.5 flex items-center gap-3 hover:bg-white/5 active:bg-white/8 transition-colors"
+              className={`w-full px-4 py-3.5 flex items-center gap-3 ${_pHovCls} transition-colors`}
               style={{ borderBottom: _pSep }}>
               <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.25)' }}>
                 <Smartphone size={16} className="text-blue-400" />
               </div>
-              <p className="flex-1 text-sm font-bold text-white text-left">App Guide</p>
-              <ChevronRight size={14} className="text-white/30 shrink-0" />
+              <p className={`flex-1 text-sm font-bold text-left ${_pTxt}`}>App Guide</p>
+              <ChevronRight size={14} style={{ color: _pTxtMutedColor }} className="shrink-0" />
             </button>
           </div>
 
@@ -8081,7 +8286,7 @@ export const StudentDashboard: React.FC<Props> = ({
           )}
 
           {/* Footer */}
-          <p className="text-center text-[10px] text-white/40 pb-2">
+          <p className={`text-center text-[10px] pb-2 ${_pTxtMuted}`}>
             v{APP_VERSION} · By {settings?.developerName?.trim() || 'Nadim Anwar'}
           </p>
 

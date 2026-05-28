@@ -592,6 +592,8 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
             personalTheme:      themeObj,
             personalThemeColor: theme.btnStart,
         };
+        // User explicitly set a custom theme — clear the "lock to default" flag
+        delete (updated as any).useDefaultTheme;
 
         onUpdateUser(updated);
         try { await saveUserToLive(updated); } catch {}
@@ -694,6 +696,7 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
         const updated: User = { ...user };
         delete (updated as any).personalTheme;
         delete (updated as any).personalThemeColor;
+        delete (updated as any).useDefaultTheme;   // undefined = locked by default, no need to store true
         onUpdateUser(updated);
         try { await saveUserToLive(updated); } catch {}
         setSaving(false);

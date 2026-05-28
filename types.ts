@@ -128,6 +128,7 @@ export interface User {
   tempThemeColorExpiry?: string; // ISO string — when tempThemeColor expires
   personalThemeColor?: string; // User's own permanently chosen theme color (from ThemeCustomizer)
   personalTheme?: UserCustomTheme; // Full granular permanent theme
+  useDefaultTheme?: boolean; // User explicitly chose default tier theme — skip all admin overrides
   themeBadgeColor?: string;
   themeAnimationId?: string;
   themePublishedAt?: string;

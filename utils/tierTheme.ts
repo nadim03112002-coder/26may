@@ -61,22 +61,22 @@ export const TIER_THEME = {
   },
   free: {
     tier: 'free' as UserTier,
-    primary:       '#10b981',
-    mid:           '#34d399',
-    light:         '#d1fae5',
-    border:        '#6ee7b7',
-    borderSoft:    '#a7f3d0',
-    text:          '#065f46',
-    soft:          '#ecfdf5',
-    navGlow:       'rgba(16,185,129,0.14)',
-    navBorder:     'rgba(16,185,129,0.20)',
-    navRing:       'rgba(16,185,129,0.22)',
-    pillGrad:      'linear-gradient(90deg,#059669,#10b981,#34d399)',
-    topBarGrad:    'linear-gradient(135deg,#e0f7ff 0%,#bae6fd 50%,#e0f7ff 100%)',
-    btnGrad:       'linear-gradient(135deg,#059669,#10b981)',
-    shadowColor:   'rgba(16,185,129,0.22)',
-    profileBg:     '#050f0a',
-    profileCardBg: '#091510',
+    primary:       '#0ea5e9',
+    mid:           '#38bdf8',
+    light:         '#e0f2fe',
+    border:        '#7dd3fc',
+    borderSoft:    '#bae6fd',
+    text:          '#0369a1',
+    soft:          '#f0f9ff',
+    navGlow:       'rgba(14,165,233,0.14)',
+    navBorder:     'rgba(14,165,233,0.20)',
+    navRing:       'rgba(14,165,233,0.22)',
+    pillGrad:      'linear-gradient(90deg,#0284c7,#0ea5e9,#38bdf8)',
+    topBarGrad:    'linear-gradient(135deg,#e0f2fe 0%,#bae6fd 50%,#e0f2fe 100%)',
+    btnGrad:       'linear-gradient(135deg,#0284c7,#0ea5e9)',
+    shadowColor:   'rgba(14,165,233,0.22)',
+    profileBg:     '#04111a',
+    profileCardBg: '#071c2e',
     label:         'FREE',
     emoji:         '🎓',
   },
@@ -116,8 +116,8 @@ export const buildOverrideTierTheme = (
     btnGrad:      `linear-gradient(135deg,${hexColor}cc,${hexColor})`,
     shadowColor:  `rgba(${r},${g},${b},0.32)`,
     topBarGrad:   `linear-gradient(135deg,rgb(${rD},${gD},${bD}) 0%,rgb(${rM},${gM},${bM}) 50%,rgb(${rD},${gD},${bD}) 100%)`,
-    profileBg:    `rgb(${rBg},${gBg},${bBg})`,
-    profileCardBg:`rgb(${rCBg},${gCBg},${bCBg})`,
+    profileBg:    base.profileBg,
+    profileCardBg: base.profileCardBg,
   };
 };
 
@@ -195,12 +195,14 @@ export const buildGranularTierTheme = (
 
 // Get the effective theme override color:
 //   1. user.tempThemeColor (if not expired) — personal redeem code color
-//   2. adminActiveTheme.color (if not expired) — admin temporary global theme
-//   3. Tier-specific color from settings (ultraThemeColor / basicThemeColor / freeThemeColor)
-//   4. settingsThemeColor — admin global color (applied to all tiers)
-//   5. null — use default tierTheme
+//   2. user.personalThemeColor — user's own chosen color (permanent)
+//   2b. user.useDefaultTheme === true — user explicitly locked to default, skip all admin overrides
+//   3. adminActiveTheme.color (if not expired) — admin temporary global theme
+//   4. Tier-specific color from settings (ultraThemeColor / basicThemeColor / freeThemeColor)
+//   5. settingsThemeColor — admin global color (applied to all tiers)
+//   6. null — use default tierTheme
 export const getEffectiveOverrideColor = (
-  user: Pick<User, 'tempThemeColor' | 'tempThemeColorExpiry' | 'isPremium' | 'subscriptionLevel' | 'subscriptionEndDate'> & { personalThemeColor?: string },
+  user: Pick<User, 'tempThemeColor' | 'tempThemeColorExpiry' | 'isPremium' | 'subscriptionLevel' | 'subscriptionEndDate' | 'useDefaultTheme'> & { personalThemeColor?: string },
   settingsThemeColor?: string,
   tierSettings?: {
     ultraThemeColor?: string;
@@ -217,6 +219,9 @@ export const getEffectiveOverrideColor = (
   }
   // 2. User's own permanently chosen theme (from ThemeCustomizer)
   if (user.personalThemeColor) return user.personalThemeColor;
+  // 2b. By default every user is shielded from admin overrides.
+  //     Admin themes only reach a user when they have EXPLICITLY opted in (useDefaultTheme === false).
+  if (user.useDefaultTheme !== false) return null;
   // 3. Admin temporary global theme (with expiry check)
   if (tierSettings?.adminActiveTheme?.color) {
     const theme = tierSettings.adminActiveTheme;

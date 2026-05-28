@@ -12,7 +12,22 @@ import {
 const FONT_SIZES = [13, 15, 17, 20] as const;
 const FONT_SIZE_KEY = 'nst_reading_font_size';
 const FONT_FAMILY_KEY = 'nst_reading_font_family';
+export const FONT_WEIGHT_KEY = 'nst_reading_font_weight';
 export const READING_STYLE_EVENT = 'nst-reading-style-changed';
+
+const WEIGHT_OPTIONS = [
+  { value: 400, label: 'Normal', short: 'N' },
+  { value: 600, label: '3× Bold', short: '3B' },
+  { value: 800, label: '5× Bold', short: '5B' },
+  { value: 900, label: 'Black', short: '●' },
+] as const;
+
+const readStoredWeight = (): number => {
+  try {
+    const v = parseInt(localStorage.getItem(FONT_WEIGHT_KEY) || '400', 10);
+    return WEIGHT_OPTIONS.find(w => w.value === v) ? v : 400;
+  } catch { return 400; }
+};
 
 export const dispatchReadingStyleChange = () => {
   try {
@@ -55,6 +70,7 @@ const CATEGORY_TABS: Array<[string, string]> = [
 export const ReadingStylePopover: React.FC<Props> = ({ isOpen, onClose }) => {
   const [fontIdx, setFontIdx] = useState<number>(readStoredIdx);
   const [fontFamilyId, setFontFamilyId] = useState<string | null>(readStoredFamilyId);
+  const [fontWeight, setFontWeightState] = useState<number>(readStoredWeight);
   const [fontSearch, setFontSearch] = useState('');
   const [fontCategory, setFontCategory] = useState<
     'top10' | 'all' | 'sans' | 'serif' | 'display' | 'handwriting' | 'mono' | 'indic'
@@ -67,6 +83,7 @@ export const ReadingStylePopover: React.FC<Props> = ({ isOpen, onClose }) => {
     if (!isOpen) return;
     setFontIdx(readStoredIdx());
     setFontFamilyId(readStoredFamilyId());
+    setFontWeightState(readStoredWeight());
   }, [isOpen]);
 
   const activeFont: ReadingFont | null = useMemo(
@@ -109,6 +126,13 @@ export const ReadingStylePopover: React.FC<Props> = ({ isOpen, onClose }) => {
     try {
       if (navigator.vibrate) navigator.vibrate(20);
     } catch {}
+  };
+
+  const pickWeight = (w: number) => {
+    setFontWeightState(w);
+    try { localStorage.setItem(FONT_WEIGHT_KEY, String(w)); } catch {}
+    dispatchReadingStyleChange();
+    try { if (navigator.vibrate) navigator.vibrate(15); } catch {}
   };
 
   if (!isOpen) return null;
@@ -162,6 +186,7 @@ export const ReadingStylePopover: React.FC<Props> = ({ isOpen, onClose }) => {
             style={{
               fontFamily: activeFont?.family || undefined,
               fontSize: `${FONT_SIZES[fontIdx]}px`,
+              fontWeight,
             }}
           >
             The mitochondria is the powerhouse of the cell.
@@ -214,6 +239,39 @@ export const ReadingStylePopover: React.FC<Props> = ({ isOpen, onClose }) => {
               <span style={{ fontSize: '17px', lineHeight: 1 }}>A</span>
               <span className="text-sm ml-0.5">+</span>
             </button>
+          </div>
+        </div>
+
+        {/* Text Weight / Boldness */}
+        <div className="px-4 pt-3 pb-3 border-b border-slate-100">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+              Boldness
+            </span>
+            {fontWeight !== 400 && (
+              <button
+                onClick={() => pickWeight(400)}
+                className="flex items-center gap-1 text-[11px] font-bold text-rose-600 hover:text-rose-700"
+              >
+                <RotateCcw size={11} /> Reset
+              </button>
+            )}
+          </div>
+          <div className="flex gap-2">
+            {WEIGHT_OPTIONS.map(opt => (
+              <button
+                key={opt.value}
+                onClick={() => pickWeight(opt.value)}
+                className={`flex-1 py-2 rounded-lg text-[11px] transition border ${
+                  fontWeight === opt.value
+                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border-transparent'
+                }`}
+                style={{ fontWeight: opt.value }}
+              >
+                {opt.label}
+              </button>
+            ))}
           </div>
         </div>
 
