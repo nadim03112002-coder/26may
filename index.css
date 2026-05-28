@@ -7,31 +7,93 @@
    admin theme panel controls the visual language from one place.
    ══════════════════════════════════════════════════════════════ */
 :root {
-  /* Radius scale */
+  /* ── Radius scale ─────────────────────────────────── */
+  --nst-r-xs:  4px;
   --nst-r-sm:  6px;
   --nst-r-md:  10px;
   --nst-r-lg:  14px;
   --nst-r-xl:  20px;
+  --nst-r-2xl: 28px;
+  --nst-r-full: 9999px;
 
-  /* Shadow scale */
+  /* ── Shadow scale ─────────────────────────────────── */
+  --nst-shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.05);
   --nst-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.07), 0 1px 2px rgba(0, 0, 0, 0.05);
   --nst-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.10), 0 2px 4px rgba(0, 0, 0, 0.06);
   --nst-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.13), 0 4px 8px rgba(0, 0, 0, 0.07);
+  --nst-shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.18), 0 8px 16px rgba(0, 0, 0, 0.10);
+  --nst-shadow-modal: 0 24px 64px rgba(0, 0, 0, 0.28), 0 8px 24px rgba(0, 0, 0, 0.14);
 
-  /* Spacing scale */
-  --nst-spacing-xs: 6px;
-  --nst-spacing-sm: 12px;
-  --nst-spacing-md: 16px;
-  --nst-spacing-lg: 24px;
+  /* ── Spacing scale ────────────────────────────────── */
+  --nst-spacing-2xs: 2px;
+  --nst-spacing-xs:  6px;
+  --nst-spacing-sm:  12px;
+  --nst-spacing-md:  16px;
+  --nst-spacing-lg:  24px;
+  --nst-spacing-xl:  32px;
+  --nst-spacing-2xl: 48px;
 
-  /* Brand / surface / typography */
-  --nst-color-brand:   #3b82f6;   /* overridden at runtime by App.tsx theme hook */
-  --nst-color-brand-5: rgba(59, 130, 246, 0.05);
+  /* ── Typography scale ─────────────────────────────── */
+  --nst-text-2xs:  9px;
+  --nst-text-xs:   10px;
+  --nst-text-sm:   12px;
+  --nst-text-base: 14px;
+  --nst-text-md:   16px;
+  --nst-text-lg:   18px;
+  --nst-text-xl:   22px;
+  --nst-text-2xl:  28px;
+
+  /* ── Animation durations ──────────────────────────── */
+  --nst-dur-instant: 80ms;
+  --nst-dur-fast:    150ms;
+  --nst-dur-base:    250ms;
+  --nst-dur-slow:    400ms;
+  --nst-dur-slower:  600ms;
+  --nst-dur-page:    350ms;
+
+  /* ── Easing curves ────────────────────────────────── */
+  --nst-ease-out:    cubic-bezier(0.0, 0.0, 0.2, 1);
+  --nst-ease-in-out: cubic-bezier(0.4, 0.0, 0.2, 1);
+  --nst-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* ── Z-index layers ───────────────────────────────── */
+  --nst-z-base:     0;
+  --nst-z-above:    10;
+  --nst-z-sticky:   100;
+  --nst-z-dropdown: 200;
+  --nst-z-modal:    500;
+  --nst-z-toast:    700;
+  --nst-z-sheet:    800;
+  --nst-z-overlay:  900;
+  --nst-z-top:      1000;
+
+  /* ── Semantic colors ──────────────────────────────── */
+  --nst-color-success:       #10b981;
+  --nst-color-success-soft:  rgba(16, 185, 129, 0.12);
+  --nst-color-warning:       #f59e0b;
+  --nst-color-warning-soft:  rgba(245, 158, 11, 0.12);
+  --nst-color-error:         #ef4444;
+  --nst-color-error-soft:    rgba(239, 68,  68,  0.12);
+  --nst-color-info:          #3b82f6;
+  --nst-color-info-soft:     rgba(59,  130, 246, 0.12);
+
+  /* ── Brand / surface / typography ────────────────── */
+  --nst-color-brand:    #3b82f6;   /* overridden at runtime by App.tsx theme hook */
+  --nst-color-brand-5:  rgba(59, 130, 246, 0.05);
   --nst-color-brand-10: rgba(59, 130, 246, 0.10);
-  --nst-color-surface: #ffffff;
-  --nst-color-border:  #e2e8f0;
-  --nst-color-text:    #1e293b;
-  --nst-color-muted:   #64748b;
+  --nst-color-brand-20: rgba(59, 130, 246, 0.20);
+  --nst-color-surface:  #ffffff;
+  --nst-color-border:   #e2e8f0;
+  --nst-color-text:     #1e293b;
+  --nst-color-muted:    #64748b;
+  --nst-color-subtle:   #94a3b8;
+
+  /* ── Performance: GPU-composited transitions ──────── */
+  --nst-transition-color:     color var(--nst-dur-fast) var(--nst-ease-out),
+                              background-color var(--nst-dur-fast) var(--nst-ease-out),
+                              border-color var(--nst-dur-fast) var(--nst-ease-out);
+  --nst-transition-transform: transform var(--nst-dur-base) var(--nst-ease-spring),
+                              opacity var(--nst-dur-base) var(--nst-ease-out);
 }
 
 /* Dark-mode token overrides — applied via .dark-mode on <html> */

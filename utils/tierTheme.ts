@@ -88,14 +88,18 @@ export const getTierTheme = (
 
 export const buildOverrideTierTheme = (
   base: typeof TIER_THEME[UserTier],
-  hexColor: string
+  hexColor: string,
+  tier?: UserTier
 ) => {
   const hex = hexColor.replace('#', '').padEnd(6, '0');
   const r = parseInt(hex.substring(0, 2), 16);
   const g = parseInt(hex.substring(2, 4), 16);
   const b = parseInt(hex.substring(4, 6), 16);
-  const rD = Math.round(r * 0.12), gD = Math.round(g * 0.12), bD = Math.round(b * 0.12);
-  const rM = Math.round(r * 0.20), gM = Math.round(g * 0.20), bM = Math.round(b * 0.20);
+  // Tier-aware luminosity: free=lighter, basic=medium, ultra=darkest
+  const darkMult = tier === 'free' ? 0.32 : tier === 'basic' ? 0.18 : 0.12;
+  const midMult  = tier === 'free' ? 0.55 : tier === 'basic' ? 0.30 : 0.20;
+  const rD = Math.round(r * darkMult), gD = Math.round(g * darkMult), bD = Math.round(b * darkMult);
+  const rM = Math.round(r * midMult),  gM = Math.round(g * midMult),  bM = Math.round(b * midMult);
   const rBg = Math.max(Math.round(r * 0.07), 3);
   const gBg = Math.max(Math.round(g * 0.07), 3);
   const bBg = Math.max(Math.round(b * 0.07), 3);

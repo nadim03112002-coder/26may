@@ -482,9 +482,7 @@ export const StudentDashboard: React.FC<Props> = ({
   onLogout,
   onRecoverData,
 }) => {
-  const analysisLogs = JSON.parse(
-    localStorage.getItem("nst_universal_analysis_logs") || "[]",
-  );
+  const analysisLogs = (() => { try { return JSON.parse(localStorage.getItem("nst_universal_analysis_logs") || "[]"); } catch { return []; } })();
   const isGameEnabled = settings?.isGameEnabled !== false;
 
   const handleTabChangeWrapper = (tab: any) => {
@@ -569,7 +567,7 @@ export const StudentDashboard: React.FC<Props> = ({
         : _adminGlobalActive && _adminGlobal
           ? buildGranularTierTheme(getTierTheme(user), _adminGlobal.theme)
           : _overrideColor
-            ? buildOverrideTierTheme(getTierTheme(user), _overrideColor)
+            ? buildOverrideTierTheme(getTierTheme(user), _overrideColor, getUserTier(user))
             : getTierTheme(user);
 
   // ── HTML Write-Mode Daily Quota (ALL tiers) ──────────────────────────────
@@ -1058,7 +1056,8 @@ export const StudentDashboard: React.FC<Props> = ({
     if (!settings?.broadcastRedeemCodes?.length || !user?.id) return;
     const now = Date.now();
     const deliveredKey = `nst_broadcast_delivered_${user.id}`;
-    const delivered: string[] = JSON.parse(localStorage.getItem(deliveredKey) || '[]');
+    let delivered: string[] = [];
+    try { delivered = JSON.parse(localStorage.getItem(deliveredKey) || '[]'); } catch {}
     const newDeliveries: string[] = [];
     let updatedInbox = [...(user.inbox || [])];
     let changed = false;
@@ -1401,7 +1400,8 @@ export const StudentDashboard: React.FC<Props> = ({
   ) => {
     try {
       const key = `nst_app_notifications_${user.id}`;
-      const existing: any[] = JSON.parse(localStorage.getItem(key) || "[]");
+      let existing: any[] = [];
+      try { existing = JSON.parse(localStorage.getItem(key) || "[]"); } catch {}
       const now = Date.now();
       const dup = existing.find(
         (n: any) =>
@@ -1480,9 +1480,9 @@ export const StudentDashboard: React.FC<Props> = ({
     return () => unsub();
   }, [user.id]);
 
-  const [testAttempts, setTestAttempts] = useState<Record<string, any>>(
-    JSON.parse(localStorage.getItem(`nst_test_attempts_${user.id}`) || "{}"),
-  );
+  const [testAttempts, setTestAttempts] = useState<Record<string, any>>(() => {
+    try { return JSON.parse(localStorage.getItem(`nst_test_attempts_${user.id}`) || "{}"); } catch { return {}; }
+  });
   const globalMessage = localStorage.getItem("nst_global_message");
   const [activeExternalApp, setActiveExternalApp] = useState<string | null>(
     null,
@@ -1600,6 +1600,9 @@ export const StudentDashboard: React.FC<Props> = ({
   const [inboxTab, setInboxTab] = useState<'MESSAGES' | 'UPDATES' | 'REWARDS' | 'HISTORY' | 'RULES'>('UPDATES');
   const [profileWhite, setProfileWhite] = useState(() => localStorage.getItem(`nst_pw_${user.id}`) === '1');
   const [nameFxOff, setNameFxOff] = useState(() => { try { return localStorage.getItem('nst_name_fx_off') === '1'; } catch { return false; } });
+  const [cardFxOff, setCardFxOff] = useState(() => { try { return localStorage.getItem('nst_card_fx_off') === '1'; } catch { return false; } });
+  const [displayLevel, setDisplayLevel] = useState<number | null>(() => { try { const v = localStorage.getItem('nst_display_level'); return v ? parseInt(v, 10) : null; } catch { return null; } });
+  const [showLevelChooser, setShowLevelChooser] = useState(false);
   const [rewardSubTab, setRewardSubTab] = useState<'EARNED' | 'RULES' | 'HISTORY'>('EARNED');
   const [rewardHistorySeenCount, setRewardHistorySeenCount] = useState<number>(() => {
     const saved = localStorage.getItem(`nst_reward_hist_seen_${user?.id || ''}`);
@@ -3931,9 +3934,8 @@ export const StudentDashboard: React.FC<Props> = ({
             subscriptionEndDate: endDate,
             isPremium: true,
           };
-          const storedUsers = JSON.parse(
-            localStorage.getItem("nst_users") || "[]",
-          );
+          let storedUsers: User[] = [];
+          try { storedUsers = JSON.parse(localStorage.getItem("nst_users") || "[]"); } catch {}
           const idx = storedUsers.findIndex((u: User) => u.id === user.id);
           if (idx !== -1) storedUsers[idx] = updatedUser;
           localStorage.setItem("nst_users", JSON.stringify(storedUsers));
@@ -4147,7 +4149,8 @@ export const StudentDashboard: React.FC<Props> = ({
     // Also keep legacy 'nst_users' updated just in case it's used elsewhere
     const storedUsersStr = localStorage.getItem("nst_users");
     if (storedUsersStr) {
-      const storedUsers = JSON.parse(storedUsersStr);
+      let storedUsers: User[] = [];
+      try { storedUsers = JSON.parse(storedUsersStr); } catch {}
       const userIdx = storedUsers.findIndex(
         (u: User) => u.id === updatedUser.id,
       );
@@ -7629,6 +7632,13 @@ export const StudentDashboard: React.FC<Props> = ({
       const _pTotalScore = (user.role === 'ADMIN' || user.role === 'SUB_ADMIN') ? 999999999 : _pRawScore;
       const _pLvl = getLevelInfo(_pTotalScore);
 
+      // Resolved display level — user can choose any unlocked level's visual effect
+      const _displayLvl = (() => {
+        if (!displayLevel) return _pLvl;
+        const clamped = Math.min(displayLevel, _pLvl.level);
+        return LEVEL_INFO[Math.max(0, clamped - 1)] || _pLvl;
+      })();
+
       const _pProgress = getLevelProgress(_pTotalScore);
       const _pIsUltra = user.isPremium && user.subscriptionLevel === 'ULTRA';
       const _pTierLabel = (() => {
@@ -7646,11 +7656,11 @@ export const StudentDashboard: React.FC<Props> = ({
         : 0;
       const _pTotalCredits = (user.credits ?? 0) + (user.bonusCredits ?? 0);
 
-      // ── Level-based name effect ──────────────────────────────────────
+      // ── Level-based name effect (uses _displayLvl so user can pick any unlocked level's style) ──
       const _nameStyle = ((): React.CSSProperties => {
-        const lvl = _pLvl.level;
-        const col = _pLvl.nameColor || _pLvl.color;
-        const glow = _pLvl.glowColor;
+        const lvl = _displayLvl.level;
+        const col = _displayLvl.nameColor || _displayLvl.color;
+        const glow = _displayLvl.glowColor;
         if (profileWhite || nameFxOff) {
           return { color: lvl >= 4 ? col : (profileWhite ? '#1e293b' : '#ffffff') };
         }
@@ -7764,7 +7774,7 @@ export const StudentDashboard: React.FC<Props> = ({
                   {/* Outer glow halo */}
                   <div className="absolute -inset-1.5 rounded-full pointer-events-none" style={{
                     background: `conic-gradient(from 0deg, ${tierTheme.primary}00, ${tierTheme.primary}cc, ${tierTheme.primary}00)`,
-                    animation: _pLvl.level >= 6 ? 'spin 4s linear infinite' : 'none',
+                    animation: !cardFxOff && _displayLvl.level >= 6 ? 'spin 4s linear infinite' : 'none',
                     borderRadius: '50%',
                   }} />
                   {/* Inner ring */}
@@ -7775,14 +7785,14 @@ export const StudentDashboard: React.FC<Props> = ({
                   {/* Avatar image */}
                   <div className="relative w-[88px] h-[88px] rounded-full overflow-hidden flex items-center justify-center" style={{
                     background: `linear-gradient(145deg, ${tierTheme.primary}40, ${tierTheme.primary}10)`,
-                    border: `2.5px solid ${_pLvl.level >= 4 ? _pLvl.color + 'cc' : tierTheme.primary + 'cc'}`,
+                    border: `2.5px solid ${!cardFxOff && _displayLvl.level >= 4 ? _displayLvl.color + 'cc' : tierTheme.primary + 'cc'}`,
                     boxShadow: `0 0 0 1px ${tierTheme.primary}30, 0 8px 32px ${tierTheme.primary}40, 0 2px 8px rgba(0,0,0,0.5)`,
                   }}>
                     {user.photoURL && user.avatarChoice === 'gmail'
                       ? <img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" />
                       : settings?.appLogo
                         ? <img src={settings.appLogo} alt="logo" className="w-full h-full object-cover" />
-                        : <span className="text-4xl font-black select-none" style={{ color: _pLvl.level >= 4 ? _pLvl.color : tierTheme.primary }}>
+                        : <span className="text-4xl font-black select-none" style={{ color: !cardFxOff && _displayLvl.level >= 4 ? _displayLvl.color : tierTheme.primary }}>
                             {(user.name || 'S').charAt(0).toUpperCase()}
                           </span>
                     }
@@ -8240,6 +8250,64 @@ export const StudentDashboard: React.FC<Props> = ({
               </div>
             </button>
 
+            {/* ── Card Effect Toggle ── */}
+            <button
+              onClick={() => {
+                const next = !cardFxOff;
+                setCardFxOff(next);
+                try { localStorage.setItem('nst_card_fx_off', next ? '1' : '0'); } catch {}
+              }}
+              className={`w-full px-4 py-3.5 flex items-center gap-3 ${_pHovCls} transition-colors`}
+              style={{ borderBottom: _pSep }}>
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{
+                background: cardFxOff ? _pIconBg : `${_displayLvl.color}22`,
+                border: `1px solid ${cardFxOff ? 'rgba(255,255,255,0.10)' : _displayLvl.color + '55'}`,
+              }}>
+                <span className="text-base leading-none">{cardFxOff ? '🃏' : '💠'}</span>
+              </div>
+              <div className="flex-1 text-left">
+                <p className={`text-sm font-bold ${_pTxt}`}>Card Effect</p>
+                <p className={`text-[10px] mt-0.5 ${_pTxtSub}`}>
+                  {cardFxOff
+                    ? `Profile card plain hai — glow/border off`
+                    : `${_displayLvl.emoji} Level ${_displayLvl.level} card glow/border on`}
+                </p>
+              </div>
+              <div className="shrink-0 w-10 h-5 rounded-full relative transition-all"
+                style={{ background: cardFxOff ? 'rgba(255,255,255,0.12)' : `${_displayLvl.color}bb` }}>
+                <div className="absolute top-0.5 w-4 h-4 rounded-full transition-all"
+                  style={{
+                    background: '#fff',
+                    left: cardFxOff ? '0.125rem' : '1.375rem',
+                    boxShadow: '0 1px 4px rgba(0,0,0,0.3)',
+                  }} />
+              </div>
+            </button>
+
+            {/* ── Level Style Chooser ── */}
+            {_pLvl.level >= 2 && (
+              <button
+                onClick={() => setShowLevelChooser(true)}
+                className={`w-full px-4 py-3.5 flex items-center gap-3 ${_pHovCls} transition-colors`}
+                style={{ borderBottom: _pSep }}>
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{
+                  background: `${_displayLvl.color}22`,
+                  border: `1px solid ${_displayLvl.color}55`,
+                }}>
+                  <span className="text-base leading-none">{_displayLvl.emoji}</span>
+                </div>
+                <div className="flex-1 text-left">
+                  <p className={`text-sm font-bold ${_pTxt}`}>Level Style</p>
+                  <p className={`text-[10px] mt-0.5 ${_pTxtSub}`}>
+                    {displayLevel && displayLevel !== _pLvl.level
+                      ? `${_displayLvl.emoji} L${_displayLvl.level} (${_displayLvl.label}) — customized`
+                      : `${_displayLvl.emoji} L${_displayLvl.level} (${_displayLvl.label}) — current level`}
+                  </p>
+                </div>
+                <ChevronRight size={14} style={{ color: _pTxtMutedColor }} className="shrink-0" />
+              </button>
+            )}
+
             {/* Reset Settings */}
             <button
               onClick={() => {
@@ -8290,6 +8358,78 @@ export const StudentDashboard: React.FC<Props> = ({
           <p className={`text-center text-[10px] pb-2 ${_pTxtMuted}`}>
             v{APP_VERSION} · By {settings?.developerName?.trim() || 'Nadim Anwar'}
           </p>
+
+          {/* ── Level Style Chooser Sheet ── */}
+          {showLevelChooser && (
+            <div className="fixed inset-0 flex items-end" style={{ zIndex: 900, background: 'rgba(0,0,0,0.72)' }}
+              onClick={() => setShowLevelChooser(false)}>
+              <div className="w-full rounded-t-2xl overflow-hidden" style={{ maxHeight: '72vh', background: _pCard, border: `1px solid ${tierTheme.primary}28` }}
+                onClick={e => e.stopPropagation()}>
+
+                {/* Header */}
+                <div className="sticky top-0 px-4 pt-4 pb-3 flex items-center justify-between" style={{ background: _pCard, borderBottom: _pSep }}>
+                  <div>
+                    <p className={`font-black text-[15px] ${_pTxt}`}>Level Style Chooser</p>
+                    <p className={`text-[10px] mt-0.5 ${_pTxtSub}`}>Kisi bhi unlock level ka naam/card effect choose karo</p>
+                  </div>
+                  <button onClick={() => setShowLevelChooser(false)} className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.10)' }}>
+                    <X size={14} style={{ color: _pTxtSubColor }} />
+                  </button>
+                </div>
+
+                {/* Level grid — scrollable */}
+                <div className="overflow-y-auto" style={{ maxHeight: 'calc(72vh - 100px)' }}>
+                  <div className="p-3 grid grid-cols-3 gap-2">
+                    {LEVEL_INFO.filter(li => li.level <= _pLvl.level).map(li => {
+                      const isSelected = (displayLevel ?? _pLvl.level) === li.level;
+                      return (
+                        <button key={li.level}
+                          onClick={() => {
+                            const newLvl = li.level === _pLvl.level && !displayLevel ? null : li.level === _pLvl.level ? null : li.level;
+                            setDisplayLevel(newLvl);
+                            try {
+                              if (newLvl) localStorage.setItem('nst_display_level', String(newLvl));
+                              else localStorage.removeItem('nst_display_level');
+                            } catch {}
+                            setShowLevelChooser(false);
+                          }}
+                          className="flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl transition-all active:scale-95"
+                          style={{
+                            background: isSelected ? `${li.color}25` : 'rgba(255,255,255,0.05)',
+                            border: isSelected ? `1.5px solid ${li.color}88` : '1.5px solid rgba(255,255,255,0.07)',
+                          }}>
+                          <span className="text-[22px] leading-none">{li.emoji}</span>
+                          <span className="text-[9px] font-black uppercase tracking-wider leading-none" style={{ color: li.nameColor || li.color }}>{li.label}</span>
+                          <span className="text-[8px] font-semibold" style={{ color: _pTxtSubColor }}>L{li.level}</span>
+                          {isSelected && (
+                            <span className="text-[7px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: `${li.color}44`, color: li.color }}>
+                              Active
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Reset button */}
+                  {displayLevel && (
+                    <div className="px-4 pb-4">
+                      <button
+                        onClick={() => {
+                          setDisplayLevel(null);
+                          try { localStorage.removeItem('nst_display_level'); } catch {}
+                          setShowLevelChooser(false);
+                        }}
+                        className="w-full py-2.5 rounded-xl text-xs font-bold transition-all"
+                        style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: _pTxtSubColor }}>
+                        Reset → Current Level ({_pLvl.emoji} L{_pLvl.level} {_pLvl.label})
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
         </div>
       );

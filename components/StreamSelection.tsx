@@ -14,10 +14,12 @@ export const StreamSelection: React.FC<Props> = ({ onSelect, onBack }) => {
   React.useEffect(() => {
       const s = localStorage.getItem('nst_system_settings');
       if (s) {
-          const settings = JSON.parse(s) as SystemSettings;
-          if (settings.allowedStreams && settings.allowedStreams.length > 0) {
+          try {
+            const settings = JSON.parse(s) as SystemSettings;
+            if (settings.allowedStreams && settings.allowedStreams.length > 0) {
               setAllowedStreams(settings.allowedStreams);
-          }
+            }
+          } catch {}
       }
   }, []);
 

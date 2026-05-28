@@ -126,6 +126,15 @@
       ".write": "auth != null"
     },
 
+    "error_logs": {
+      ".read": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'ADMIN' || root.child('nst_users').child(auth.uid).child('role').val() === 'ADMIN' || root.child('users').child(auth.uid).child('role').val() === 'SUB_ADMIN' || root.child('nst_users').child(auth.uid).child('role').val() === 'SUB_ADMIN')",
+      ".indexOn": ["timestamp"],
+      "$logId": {
+        ".write": "auth != null",
+        ".validate": "newData.hasChildren(['message', 'type', 'severity', 'timestamp']) || !newData.exists()"
+      }
+    },
+
     "ai_interactions": {
       ".read": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'ADMIN' || root.child('nst_users').child(auth.uid).child('role').val() === 'ADMIN' || root.child('users').child(auth.uid).child('role').val() === 'SUB_ADMIN' || root.child('nst_users').child(auth.uid).child('role').val() === 'SUB_ADMIN')",
       "$uid": {

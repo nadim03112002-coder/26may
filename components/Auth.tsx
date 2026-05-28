@@ -80,7 +80,7 @@ export const Auth: React.FC<Props> = ({ onLogin, logActivity, appSettings }) => 
 
   useEffect(() => {
       const s = localStorage.getItem('nst_system_settings');
-      if (s) setSettings(JSON.parse(s));
+      if (s) { try { setSettings(JSON.parse(s)); } catch {} }
   }, []);
 
   // Timer Effect

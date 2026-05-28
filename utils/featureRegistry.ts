@@ -926,6 +926,18 @@ export const ALL_FEATURES: Feature[] = [
         color: 'violet'
     },
     {
+        id: 'ADMIN_ERROR_LOGS',
+        label: 'Error Logs',
+        group: 'ADVANCED',
+        surfaceLevel: 3,
+        adminVisible: true,
+        adminTab: 'ERROR_LOGS',
+        icon: 'ShieldAlert',
+        color: 'red',
+        requiresSuperAdmin: true,
+        description: 'Real-time app error notice board — users ka crash kya hua, kab, kahan.'
+    },
+    {
         id: 'ADMIN_HELP',
         label: 'Help Guide',
         group: 'ADVANCED',

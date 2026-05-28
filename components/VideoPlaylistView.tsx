@@ -63,7 +63,8 @@ export const VideoPlaylistView: React.FC<Props> = ({
                   timestamp: new Date().toISOString()
               };
               
-              const storedUser = JSON.parse(localStorage.getItem('nst_current_user') || '{}');
+              let storedUser: any = {};
+              try { storedUser = JSON.parse(localStorage.getItem('nst_current_user') || '{}'); } catch {}
               if (storedUser && storedUser.id === user.id) {
                   const newUsage = [historyEntry, ...(storedUser.usageHistory || [])].slice(0, 100); // Keep last 100
                   const updatedUser = { ...storedUser, usageHistory: newUsage };
@@ -98,7 +99,7 @@ export const VideoPlaylistView: React.FC<Props> = ({
       let data = await getChapterData(key);
       if (!data) {
           const stored = localStorage.getItem(key);
-          if (stored) data = JSON.parse(stored);
+          if (stored) { try { data = JSON.parse(stored); } catch {} }
       }
       
       setContentData(data); // Store for AI Image

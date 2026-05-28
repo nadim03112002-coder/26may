@@ -39,6 +39,7 @@ import { CustomAlert, CustomConfirm } from './components/CustomDialogs';
 import { UpdatePopup } from './components/UpdatePopup'; // NEW
 import { StreakLoginPopup } from './components/StreakLoginPopup';
 import { ErrorBoundary } from './components/ErrorBoundary'; // NEW
+import { logErrorToFirebase, setErrorLoggerUser } from './utils/errorLogger';
 import { CreditToast } from './components/CreditToast';
 import { generateDailyChallengeQuestions } from './utils/challengeGenerator';
 import { BrainCircuit, Globe, LogOut, LayoutDashboard, BookOpen, Headphones, HelpCircle, Newspaper, KeyRound, Lock, X, ShieldCheck, FileText, UserPlus, EyeOff, WifiOff, Cloud, ArrowLeft, ExternalLink } from 'lucide-react';
@@ -704,6 +705,34 @@ const App: React.FC = () => {
           }
       }
   }, [state.user?.id, state.user?.lastLoginRewardDate, state.originalAdmin]);
+
+  // --- GLOBAL ERROR HANDLERS (app crash prevention) ---
+  useEffect(() => {
+    const handleWindowError = (event: ErrorEvent) => {
+      logErrorToFirebase(event.error || new Error(event.message || 'Unknown runtime error'), {
+        type: 'runtime',
+      }).catch(() => {});
+    };
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      const err = event.reason instanceof Error ? event.reason : new Error(String(event.reason ?? 'Unhandled Promise Rejection'));
+      logErrorToFirebase(err, { type: 'promise' }).catch(() => {});
+    };
+    window.addEventListener('error', handleWindowError);
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+    return () => {
+      window.removeEventListener('error', handleWindowError);
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+    };
+  }, []);
+
+  // Sync current user into errorLogger so logs include who crashed
+  useEffect(() => {
+    if (state.user) {
+      setErrorLoggerUser(state.user.id, state.user.name ?? null, state.user.role ?? null);
+    } else {
+      setErrorLoggerUser(null, null, null);
+    }
+  }, [state.user?.id, state.user?.name, state.user?.role]);
 
   // --- ONLINE/OFFLINE DETECTOR & SYNC ---
   useEffect(() => {
@@ -1385,7 +1414,8 @@ const App: React.FC = () => {
       };
 
       const storedLogs = localStorage.getItem('nst_activity_log');
-      const logs: ActivityLogEntry[] = storedLogs ? JSON.parse(storedLogs) : [];
+      let logs: ActivityLogEntry[] = [];
+      try { logs = storedLogs ? JSON.parse(storedLogs) : []; } catch { logs = []; }
       // Keep last 500 logs
       const updatedLogs = [...logs, newLog].slice(-500); 
       localStorage.setItem('nst_activity_log', JSON.stringify(updatedLogs));
@@ -1773,7 +1803,7 @@ const App: React.FC = () => {
         let contentData = await getChapterData(mainKey);
         if (!contentData) {
             const stored = localStorage.getItem(mainKey);
-            if (stored) contentData = JSON.parse(stored);
+            if (stored) { try { contentData = JSON.parse(stored); } catch {} }
         }
 
         let actualContent = '';
@@ -2057,7 +2087,8 @@ const App: React.FC = () => {
                 // Sync to LocalStorage list
                 const storedUsers = localStorage.getItem('nst_users');
                 if (storedUsers) {
-                    const allUsers = JSON.parse(storedUsers);
+                    let allUsers: User[] = [];
+                    try { allUsers = JSON.parse(storedUsers); } catch {}
                     const idx = allUsers.findIndex((u:User) => u.id === updatedUser.id);
                     if (idx !== -1) {
                         allUsers[idx] = updatedUser;
@@ -2212,7 +2243,8 @@ const App: React.FC = () => {
 
     // 1. Local Backup
     const key = `nst_test_attempts_${state.user.id}`;
-    const attempts = JSON.parse(localStorage.getItem(key) || '{}');
+    let attempts: Record<string, unknown> = {};
+    try { attempts = JSON.parse(localStorage.getItem(key) || '{}'); } catch {}
     attempts[activeWeeklyTest.id] = attempt;
     localStorage.setItem(key, JSON.stringify(attempts));
 

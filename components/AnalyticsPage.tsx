@@ -99,7 +99,8 @@ export const AnalyticsPage: React.FC<Props> = ({ user, onBack, settings, onNavig
 
           const historyStr = localStorage.getItem('nst_user_history');
           if (historyStr) {
-              const localHistory = JSON.parse(historyStr);
+              let localHistory: any[] = [];
+              try { localHistory = JSON.parse(historyStr); } catch {}
               // Match by analytics ID (which is result ID)
               const localMatch = localHistory.find((h: any) => h.analytics && h.analytics.id === attemptId);
               if (localMatch && localMatch.mcqData) {
