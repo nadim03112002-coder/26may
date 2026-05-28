@@ -239,6 +239,7 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
   const [powerTab, setPowerTab] = useState<'LIMITS' | 'PLAN_MATRIX' | 'FEATURE_LISTS'>('LIMITS');
   const [customBloggerCode, setCustomBloggerCode] = useState('');
   const [showVisibilityControls, setShowVisibilityControls] = useState(false); // NEW: Master Visibility Toggle
+  const [showDesignTokens, setShowDesignTokens] = useState(false);
   const [mcqGenCount, setMcqGenCount] = useState(20); // NEW: Custom MCQ Quantity
 
   // --- API KEY TESTING STATE ---
@@ -5546,6 +5547,74 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                                 <div className="w-10 h-10 rounded-xl border-2 border-slate-200 shrink-0" style={{ background: localSettings.themeColor || '#2563eb' }} />
                               </div>
                               <p className="text-[10px] text-slate-400 mt-1.5">⚡ Ye color in sabhi jagahon par apply hoga: Top Bar · Bottom Nav · Profile Card · Chat · Badges · Borders · Buttons</p>
+
+                              {/* ── DESIGN TOKENS LIVE PREVIEW ── */}
+                              <div className="mt-3">
+                                <button
+                                  onClick={() => setShowDesignTokens(p => !p)}
+                                  className="flex items-center gap-2 text-[11px] font-black text-violet-600 hover:text-violet-800 transition-colors"
+                                >
+                                  <Palette size={13} />
+                                  <span>Design Tokens Live Preview</span>
+                                  <span className="text-[10px] text-slate-400 font-normal ml-1">{showDesignTokens ? '▲ hide' : '▼ show'}</span>
+                                </button>
+                                {showDesignTokens && (() => {
+                                  const brand = localSettings.themeColor || '#3b82f6';
+                                  const tokenList = [
+                                    { label: 'Brand Color', type: 'color', val: brand, cssVar: '--nst-color-brand' },
+                                    { label: 'Surface', type: 'color', val: '#ffffff', cssVar: '--nst-color-surface' },
+                                    { label: 'Border', type: 'color', val: '#e2e8f0', cssVar: '--nst-color-border' },
+                                    { label: 'Radius SM', type: 'radius', val: '6px', cssVar: '--nst-r-sm' },
+                                    { label: 'Radius MD', type: 'radius', val: '10px', cssVar: '--nst-r-md' },
+                                    { label: 'Radius LG', type: 'radius', val: '14px', cssVar: '--nst-r-lg' },
+                                    { label: 'Radius XL', type: 'radius', val: '20px', cssVar: '--nst-r-xl' },
+                                    { label: 'Shadow SM', type: 'shadow', val: '0 1px 3px rgba(0,0,0,.07)', cssVar: '--nst-shadow-sm' },
+                                    { label: 'Shadow MD', type: 'shadow', val: '0 4px 12px rgba(0,0,0,.10)', cssVar: '--nst-shadow-md' },
+                                    { label: 'Shadow LG', type: 'shadow', val: '0 8px 24px rgba(0,0,0,.13)', cssVar: '--nst-shadow-lg' },
+                                    { label: 'Spacing XS', type: 'spacing', val: '6px', cssVar: '--nst-spacing-xs' },
+                                    { label: 'Spacing SM', type: 'spacing', val: '12px', cssVar: '--nst-spacing-sm' },
+                                    { label: 'Spacing MD', type: 'spacing', val: '16px', cssVar: '--nst-spacing-md' },
+                                    { label: 'Spacing LG', type: 'spacing', val: '24px', cssVar: '--nst-spacing-lg' },
+                                  ];
+                                  return (
+                                    <div className="mt-2 p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2 animate-in fade-in duration-200">
+                                      <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Active CSS Custom Properties</p>
+                                      <div className="grid grid-cols-2 gap-1.5">
+                                        {tokenList.map(t => (
+                                          <div key={t.cssVar} className="flex items-center gap-2 bg-white rounded-lg p-2 border border-slate-100">
+                                            {t.type === 'color' && (
+                                              <div className="w-6 h-6 rounded-md border border-slate-200 shrink-0"
+                                                style={{ background: t.cssVar === '--nst-color-brand' ? brand : t.val }} />
+                                            )}
+                                            {t.type === 'radius' && (
+                                              <div className="w-6 h-6 border-2 border-violet-400 shrink-0" style={{ borderRadius: t.val }} />
+                                            )}
+                                            {t.type === 'shadow' && (
+                                              <div className="w-6 h-6 bg-white rounded-md shrink-0" style={{ boxShadow: t.val }} />
+                                            )}
+                                            {t.type === 'spacing' && (
+                                              <div className="w-6 h-6 flex items-center justify-center shrink-0">
+                                                <div className="bg-violet-200 h-1 rounded" style={{ width: t.val }} />
+                                              </div>
+                                            )}
+                                            <div className="min-w-0">
+                                              <p className="text-[9px] font-black text-slate-700 truncate">{t.label}</p>
+                                              <p className="text-[8px] text-slate-400 font-mono truncate">{t.cssVar}</p>
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                      <div className="mt-2 p-2 bg-white rounded-lg border border-slate-100">
+                                        <p className="text-[9px] font-black text-slate-500 mb-1.5">Card Previews (live token classes)</p>
+                                        <div className="flex gap-2 flex-wrap">
+                                          <div className="nst-card p-2 text-[9px] font-bold text-slate-600 flex-1 min-w-[80px]">nst-card</div>
+                                          <div className="nst-card-brand p-2 text-[9px] font-bold text-slate-600 flex-1 min-w-[80px]">nst-card-brand</div>
+                                          <div className="nst-chapter-card p-2 text-[9px] font-bold text-slate-600 flex-1 min-w-[80px]">nst-chapter-card</div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })()}</div>
                           </div>
                           <div className="md:col-span-2">
                               <label className="text-xs font-bold text-slate-600 uppercase block mb-1">Custom Page Video URL</label>

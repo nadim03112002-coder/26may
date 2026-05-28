@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { useDebounce } from "../utils/useDebounce";
 import { DownloadApp, DownloadAppStore, SystemSettings } from "../types";
 import {
   Download,
@@ -63,6 +64,7 @@ const detectStore = (url: string): DownloadAppStore => {
 
 export const AppStore: React.FC<Props> = ({ settings }) => {
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 300);
 
   const apps: DownloadApp[] = useMemo(
     () => settings?.downloadApps || [],
@@ -70,14 +72,14 @@ export const AppStore: React.FC<Props> = ({ settings }) => {
   );
 
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const q = debouncedSearch.trim().toLowerCase();
     if (!q) return apps;
     return apps.filter(
       (a) =>
         (a.name || "").toLowerCase().includes(q) ||
         (a.description || "").toLowerCase().includes(q),
     );
-  }, [apps, search]);
+  }, [apps, debouncedSearch]);
 
   const handleDownload = (app: DownloadApp) => {
     const url = (app.downloadUrl || "").trim();

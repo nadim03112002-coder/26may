@@ -1314,15 +1314,15 @@ export const McqView: React.FC<Props> = ({
                                           {cq.options.map((opt: string, oi: number) => {
                                               const isCorrect = oi === cq.correctAnswer;
                                               const isSelected = cqSelected === oi;
-                                              let cls = 'w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold border-2 transition-all flex items-center gap-2 ';
+                                              let cls = 'nst-mcq-option w-full text-left px-3 py-2.5 text-xs font-bold flex items-center gap-2 ';
                                               if (listSubmitted && cqSelected !== undefined) {
-                                                  if (isCorrect) cls += 'bg-emerald-50 border-emerald-300 text-emerald-800';
-                                                  else if (isSelected) cls += 'bg-rose-50 border-rose-300 text-rose-800';
-                                                  else cls += 'bg-slate-50 border-slate-200 text-slate-400 opacity-60';
+                                                  if (isCorrect) cls += 'nst-mcq-correct';
+                                                  else if (isSelected) cls += 'nst-mcq-wrong';
+                                                  else cls += 'nst-mcq-dimmed';
                                               } else if (isSelected && !listSubmitted) {
-                                                  cls += 'bg-indigo-50 border-indigo-400 text-indigo-800';
+                                                  cls += 'nst-mcq-selected';
                                               } else {
-                                                  cls += 'bg-white border-slate-200 text-slate-700 hover:border-indigo-300 hover:bg-indigo-50 cursor-pointer';
+                                                  cls += 'cursor-pointer';
                                               }
                                               return (
                                                   <button

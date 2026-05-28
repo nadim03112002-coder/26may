@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
+import { useDebounce } from '../utils/useDebounce';
 import { X, Search, BookOpen, GitCompare, TrendingUp, ChevronRight, List, Flame } from 'lucide-react';
 import type { NoteSearchResult } from '../utils/noteSearcher';
 import type { LucentNoteEntry, HomeworkItem } from '../types';
@@ -27,6 +28,7 @@ export const TopicDirectoryView: React.FC<Props> = ({
   onClose,
 }) => {
   const [query, setQuery] = useState('');
+  const debouncedQuery = useDebounce(query, 300);
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -125,14 +127,14 @@ export const TopicDirectoryView: React.FC<Props> = ({
 
   // Filtered list
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = debouncedQuery.trim().toLowerCase();
     if (!q) return allTopics;
     return allTopics.filter(t => t.name.toLowerCase().includes(q));
-  }, [allTopics, query]);
+  }, [allTopics, debouncedQuery]);
 
   // Alphabetical groups (only when not filtering)
   const groups = useMemo(() => {
-    if (query.trim()) return null;
+    if (debouncedQuery.trim()) return null;
     const map = new Map<string, TopicEntry[]>();
     filtered.forEach(t => {
       const first = t.name[0]?.toUpperCase() || '#';
@@ -143,7 +145,7 @@ export const TopicDirectoryView: React.FC<Props> = ({
       map.get(key)!.push(t);
     });
     return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
-  }, [filtered, query]);
+  }, [filtered, debouncedQuery]);
 
   const allLetters = useMemo(() => groups?.map(([k]) => k) || [], [groups]);
 
@@ -209,7 +211,7 @@ export const TopicDirectoryView: React.FC<Props> = ({
       </div>
 
       {/* A-Z jump bar — only when not searching */}
-      {!query.trim() && allLetters.length > 4 && (
+      {!debouncedQuery.trim() && allLetters.length > 4 && (
         <div className="bg-white border-b border-slate-100 shrink-0 px-4 py-1.5 overflow-x-auto">
           <div className="flex gap-1.5 w-max">
             {allLetters.map(letter => (
@@ -232,7 +234,7 @@ export const TopicDirectoryView: React.FC<Props> = ({
       <div className="flex-1 overflow-y-auto pb-8">
 
         {/* Trending section — only when not searching */}
-        {!query.trim() && trendingTopics.length > 0 && (
+        {!debouncedQuery.trim() && trendingTopics.length > 0 && (
           <div className="px-4 pt-4 pb-2">
             <div className="flex items-center gap-2 mb-3">
               <Flame size={14} className="text-amber-500" />
@@ -266,12 +268,12 @@ export const TopicDirectoryView: React.FC<Props> = ({
         )}
 
         {/* Filtered results (search active) */}
-        {query.trim() && (
+        {debouncedQuery.trim() && (
           <div className="px-4 pt-3 space-y-2">
             {filtered.length === 0 ? (
               <div className="text-center py-16">
                 <Search size={36} className="text-slate-200 mx-auto mb-3" />
-                <p className="text-sm font-black text-slate-500">"{query}" se koi topic nahi mila</p>
+                <p className="text-sm font-black text-slate-500">"{debouncedQuery}" se koi topic nahi mila</p>
                 <p className="text-xs text-slate-400 mt-1">Aur words try karein</p>
               </div>
             ) : (
@@ -288,7 +290,7 @@ export const TopicDirectoryView: React.FC<Props> = ({
         )}
 
         {/* Alphabetical grouped list (no search) */}
-        {!query.trim() && groups && groups.map(([letter, topics]) => (
+        {!debouncedQuery.trim() && groups && groups.map(([letter, topics]) => (
           <div key={letter} id={`topic-section-${letter}`} className="px-4 pt-5">
             <div className="flex items-center gap-2 mb-2">
               <div className="w-7 h-7 rounded-lg bg-violet-600 text-white text-xs font-black flex items-center justify-center shrink-0">
