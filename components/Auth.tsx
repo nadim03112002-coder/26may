@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { User, Board, ClassLevel, Stream, SystemSettings, RecoveryRequest } from '../types';
 import { ADMIN_EMAIL } from '../constants';
 import { saveUserToLive, auth, getUserByEmail, getUserByMobileOrId, rtdb, getUserData, updateUserUID, getUserByLinkedGoogleUid } from '../firebase';
@@ -60,10 +60,22 @@ export const Auth: React.FC<Props> = ({ onLogin, logActivity, appSettings }) => 
   const [welcomeUser, setWelcomeUser] = useState<any>(null);
   const [welcomeFading, setWelcomeFading] = useState(false);
 
+  const welcomeTimer1Ref = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const welcomeTimer2Ref = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (welcomeTimer1Ref.current) clearTimeout(welcomeTimer1Ref.current);
+      if (welcomeTimer2Ref.current) clearTimeout(welcomeTimer2Ref.current);
+    };
+  }, []);
+
   const triggerWelcome = (user: any) => {
+    if (welcomeTimer1Ref.current) clearTimeout(welcomeTimer1Ref.current);
+    if (welcomeTimer2Ref.current) clearTimeout(welcomeTimer2Ref.current);
     setWelcomeUser(user);
-    setTimeout(() => setWelcomeFading(true), 2200);
-    setTimeout(() => { setWelcomeUser(null); setWelcomeFading(false); onLogin(user); }, 2700);
+    welcomeTimer1Ref.current = setTimeout(() => setWelcomeFading(true), 2200);
+    welcomeTimer2Ref.current = setTimeout(() => { setWelcomeUser(null); setWelcomeFading(false); onLogin(user); }, 2700);
   };
 
   useEffect(() => {

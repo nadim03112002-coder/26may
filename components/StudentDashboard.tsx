@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { FeatureHints } from "./FeatureHints";
 import { TopBarEffectsLayer } from "../utils/topBarEffects";
 import { getLevelInfo, getNextLevelInfo, getLevelProgress, LEVEL_INFO, ACTIVITY_SCORES, getLevelTopBarEffects, getLevelLimitBonus, getLevelDailyLimits, getLevelDailyLimitsWithOverride, getEffectiveDailyLimit, UNLIMITED } from "../utils/levelSystem";
 import { tryEarnScore, awardMilestone, getDailyScoreEarned, DAILY_SCORE_LIMIT, getDailyScoreLimit, getActiveBoost } from "../utils/scoreSystem";
@@ -19418,6 +19419,12 @@ RULES:
         </div>
         );
       })()}
+
+      {/* Feature discovery hints for new users */}
+      <FeatureHints
+        activeTab={activeTab as string}
+        onTabChange={t => onTabChange(t as any)}
+      />
     </div>
   );
 };

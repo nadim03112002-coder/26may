@@ -1,6 +1,6 @@
 import { PwaInstallPrompt } from "./components/PwaInstallPrompt";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { 
   ClassLevel, Subject, Chapter, AppState, Board, Stream, User, ContentType, SystemSettings, ActivityLogEntry, WeeklyTest, LessonContent, ActiveSubscription, InboxMessage
 } from './types';
@@ -21,19 +21,20 @@ import { ClassSelection } from './components/ClassSelection';
 import { SubjectSelection } from './components/SubjectSelection';
 import { ChapterSelection } from './components/ChapterSelection';
 import { StreamSelection } from './components/StreamSelection';
-import { LessonView } from './components/LessonView';
+const LessonView = lazy(() => import('./components/LessonView').then(m => ({ default: m.LessonView })));
 import { Auth } from './components/Auth';
-import { AdminDashboard } from './components/AdminDashboard';
+const AdminDashboard = lazy(() => import('./components/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
 import { StudentDashboard } from './components/StudentDashboard';
 import { AudioStudio } from './components/AudioStudio';
 import { PremiumModal } from './components/PremiumModal';
 import { LoadingOverlay } from './components/LoadingOverlay';
 import { RulesPage } from './components/RulesPage';
 import { IICPage } from './components/IICPage';
-import { WeeklyTestView } from './components/WeeklyTestView';
+const WeeklyTestView = lazy(() => import('./components/WeeklyTestView').then(m => ({ default: m.WeeklyTestView })));
+const MarksheetCard = lazy(() => import('./components/MarksheetCard').then(m => ({ default: m.MarksheetCard })));
 import { CreditConfirmationModal } from './components/CreditConfirmationModal';
 import { CustomAlert, CustomConfirm } from './components/CustomDialogs';
-import { MarksheetCard } from './components/MarksheetCard';
+// MarksheetCard — lazy loaded above with WeeklyTestView
 // import { DailyChallengePopup } from './components/DailyChallengePopup';
 import { UpdatePopup } from './components/UpdatePopup'; // NEW
 import { StreakLoginPopup } from './components/StreakLoginPopup';
@@ -1360,7 +1361,12 @@ const App: React.FC = () => {
           styleTag.id = styleId;
           document.head.appendChild(styleTag);
       }
-      styleTag.innerHTML = `:root { --primary: ${activeThemeColor}; } .text-primary { color: var(--primary); } .bg-primary { background-color: var(--primary); } .border-primary { border-color: var(--primary); } ${state.settings.customCSS || ''}`;
+      // Parse brand color RGB components for alpha-channel token variants
+      const hex = activeThemeColor.replace('#', '');
+      const r = parseInt(hex.substring(0, 2), 16) || 59;
+      const g = parseInt(hex.substring(2, 4), 16) || 130;
+      const b = parseInt(hex.substring(4, 6), 16) || 246;
+      styleTag.innerHTML = `:root { --primary: ${activeThemeColor}; --nst-color-brand: ${activeThemeColor}; --nst-color-brand-5: rgba(${r},${g},${b},0.05); --nst-color-brand-10: rgba(${r},${g},${b},0.10); } .text-primary { color: var(--primary); } .bg-primary { background-color: var(--primary); } .border-primary { border-color: var(--primary); } ${state.settings.customCSS || ''}`;
   }, [state.settings, state.user]);
 
   // --- LOGGING SYSTEM ---
@@ -2751,25 +2757,31 @@ const App: React.FC = () => {
         ) : (
             <ErrorBoundary>
             <>
-                {state.view === 'ADMIN_DASHBOARD' && (state.user.role === 'ADMIN' || state.user.role === 'SUB_ADMIN') && <AdminDashboard user={state.user} onNavigate={(v) => setState(prev => ({...prev, view: v}))} settings={state.settings} onUpdateSettings={updateSettings} onImpersonate={handleImpersonate} logActivity={logActivity} isDarkMode={darkMode} onToggleDarkMode={setDarkMode} />}
+                {state.view === 'ADMIN_DASHBOARD' && (state.user.role === 'ADMIN' || state.user.role === 'SUB_ADMIN') && (
+                  <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>}>
+                    <AdminDashboard user={state.user} onNavigate={(v) => setState(prev => ({...prev, view: v}))} settings={state.settings} onUpdateSettings={updateSettings} onImpersonate={handleImpersonate} logActivity={logActivity} isDarkMode={darkMode} onToggleDarkMode={setDarkMode} />
+                  </Suspense>
+                )}
                 
                 {/* ACTIVE WEEKLY TEST OVERRIDE */}
                 {activeWeeklyTest ? (
-                    <WeeklyTestView
-                        test={activeWeeklyTest}
-                        onComplete={handleWeeklyTestComplete}
-                        onExit={() => {
-                            setConfirmConfig({
-                                isOpen: true,
-                                title: "Quit Test?",
-                                message: "Are you sure you want to quit the ongoing test?",
-                                onConfirm: () => {
-                                    setActiveWeeklyTest(null);
-                                    setConfirmConfig(prev => ({...prev, isOpen: false}));
-                                }
-                            });
-                        }}
-                    />
+                    <Suspense fallback={<div className="flex-1 flex items-center justify-center min-h-screen"><div className="w-10 h-10 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" /></div>}>
+                      <WeeklyTestView
+                          test={activeWeeklyTest}
+                          onComplete={handleWeeklyTestComplete}
+                          onExit={() => {
+                              setConfirmConfig({
+                                  isOpen: true,
+                                  title: "Quit Test?",
+                                  message: "Are you sure you want to quit the ongoing test?",
+                                  onConfirm: () => {
+                                      setActiveWeeklyTest(null);
+                                      setConfirmConfig(prev => ({...prev, isOpen: false}));
+                                  }
+                              });
+                          }}
+                      />
+                    </Suspense>
                 ) : (
                     state.view === 'STUDENT_DASHBOARD' as any && (
                         <StudentDashboard 
@@ -2806,6 +2818,7 @@ const App: React.FC = () => {
                 {state.view === 'SUBJECTS' && state.selectedClass && <SubjectSelection classLevel={state.selectedClass} stream={state.selectedStream} board={state.selectedBoard || undefined} onSelect={handleSubjectSelect} onBack={goBack} settings={state.settings} />}
                 {state.view === 'CHAPTERS' && state.selectedSubject && <ChapterSelection chapters={state.chapters} subject={state.selectedSubject} classLevel={state.selectedClass!} loading={state.loading && state.view === 'CHAPTERS'} user={state.user} onSelect={onChapterClick} onBack={goBack}/>}
                 {state.view === 'LESSON' && state.lessonContent && (
+                    <Suspense fallback={<div className="flex-1 flex items-center justify-center min-h-screen"><div className="w-10 h-10 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" /></div>}>
                     <LessonView 
                         content={state.lessonContent} 
                         subject={state.selectedSubject!} 
@@ -2821,6 +2834,7 @@ const App: React.FC = () => {
                         onToggleAutoTts={handleToggleAutoTts}
                         onImmersiveChange={setIsLessonImmersive}
                     />
+                    </Suspense>
                 )}
             </>
             </ErrorBoundary>
@@ -2931,6 +2945,7 @@ const App: React.FC = () => {
       )} */}
 
       {lastTestResult && state.user && (
+        <Suspense fallback={null}>
           <MarksheetCard
               result={lastTestResult}
               user={state.user}
@@ -2961,6 +2976,7 @@ const App: React.FC = () => {
                   setAlertConfig({isOpen: true, message: "Result published!"});
               }}
           />
+        </Suspense>
       )}
 
       {creditModal && state.user && (

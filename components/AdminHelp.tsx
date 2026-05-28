@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useDebounce } from '../utils/useDebounce';
 import {
     Search, ChevronDown, ChevronRight,
     Users, ShieldCheck, GraduationCap, CreditCard, Book, ShoppingBag,
@@ -518,6 +519,7 @@ const groupHeaderMap: Record<string, string> = {
 
 const AdminHelp: React.FC = () => {
     const [search, setSearch] = useState('');
+    const debouncedSearch = useDebounce(search, 300);
     const [expanded, setExpanded] = useState<Set<string>>(new Set(['TOP_BUTTONS', 'CORE']));
     const [selectedItem, setSelectedItem] = useState<{ sectionId: string; itemIndex: number } | null>(null);
 
@@ -530,7 +532,7 @@ const AdminHelp: React.FC = () => {
         });
     };
 
-    const q = search.toLowerCase().trim();
+    const q = debouncedSearch.toLowerCase().trim();
 
     const filteredSections = SECTIONS.map(section => ({
         ...section,

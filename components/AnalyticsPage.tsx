@@ -50,6 +50,7 @@ export const AnalyticsPage: React.FC<Props> = ({ user, onBack, settings, onNavig
   };
 
   useEffect(() => {
+      let isMounted = true;
       const loadHistory = async () => {
           const mergedMap = new Map<string, MCQResult>();
 
@@ -68,9 +69,10 @@ export const AnalyticsPage: React.FC<Props> = ({ user, onBack, settings, onNavig
               });
           } catch(e) {}
 
-          setHistoryRaw(Array.from(mergedMap.values()).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+          if (isMounted) setHistoryRaw(Array.from(mergedMap.values()).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
       };
       loadHistory();
+      return () => { isMounted = false; };
   }, [user.mcqHistory, user.id]);
   
   // Annual Report Requirement: Show year data

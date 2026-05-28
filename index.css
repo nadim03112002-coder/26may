@@ -1,4 +1,114 @@
 
+/* ══════════════════════════════════════════════════════════════
+   IIC DESIGN TOKENS  —  Global CSS Custom Properties
+   All radius, shadow, spacing, and brand-color values live here.
+   JS overrides --nst-color-brand via the App.tsx style-tag hook.
+   Components use .nst-* utility classes (defined below) so the
+   admin theme panel controls the visual language from one place.
+   ══════════════════════════════════════════════════════════════ */
+:root {
+  /* Radius scale */
+  --nst-r-sm:  6px;
+  --nst-r-md:  10px;
+  --nst-r-lg:  14px;
+  --nst-r-xl:  20px;
+
+  /* Shadow scale */
+  --nst-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.07), 0 1px 2px rgba(0, 0, 0, 0.05);
+  --nst-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.10), 0 2px 4px rgba(0, 0, 0, 0.06);
+  --nst-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.13), 0 4px 8px rgba(0, 0, 0, 0.07);
+
+  /* Spacing scale */
+  --nst-spacing-xs: 6px;
+  --nst-spacing-sm: 12px;
+  --nst-spacing-md: 16px;
+  --nst-spacing-lg: 24px;
+
+  /* Brand / surface / typography */
+  --nst-color-brand:   #3b82f6;   /* overridden at runtime by App.tsx theme hook */
+  --nst-color-brand-5: rgba(59, 130, 246, 0.05);
+  --nst-color-brand-10: rgba(59, 130, 246, 0.10);
+  --nst-color-surface: #ffffff;
+  --nst-color-border:  #e2e8f0;
+  --nst-color-text:    #1e293b;
+  --nst-color-muted:   #64748b;
+}
+
+/* Dark-mode token overrides — applied via .dark-mode on <html> */
+.dark-mode {
+  --nst-color-surface: #0d0d0d;
+  --nst-color-border:  #1c1c1c;
+  --nst-color-text:    #f8fafc;
+  --nst-color-muted:   #94a3b8;
+  --nst-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.35);
+  --nst-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.45);
+  --nst-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.55);
+}
+
+/* ── Token utility classes ─────────────────────────────────── */
+.nst-r-sm { border-radius: var(--nst-r-sm) !important; }
+.nst-r-md { border-radius: var(--nst-r-md) !important; }
+.nst-r-lg { border-radius: var(--nst-r-lg) !important; }
+.nst-r-xl { border-radius: var(--nst-r-xl) !important; }
+
+.nst-shadow-sm { box-shadow: var(--nst-shadow-sm) !important; }
+.nst-shadow-md { box-shadow: var(--nst-shadow-md) !important; }
+.nst-shadow-lg { box-shadow: var(--nst-shadow-lg) !important; }
+
+/* Standard surface card */
+.nst-card {
+  background: var(--nst-color-surface);
+  border: 1px solid var(--nst-color-border);
+  border-radius: var(--nst-r-lg);
+  box-shadow: var(--nst-shadow-sm);
+  transition: box-shadow 0.18s ease, transform 0.18s ease;
+}
+.nst-card:hover { box-shadow: var(--nst-shadow-md); }
+
+/* Brand-accented card — left stripe uses brand color */
+.nst-card-brand {
+  background: var(--nst-color-surface);
+  border: 1.5px solid var(--nst-color-border);
+  border-left: 4px solid var(--nst-color-brand);
+  border-radius: var(--nst-r-lg);
+  box-shadow: var(--nst-shadow-sm);
+  transition: all 0.18s ease;
+}
+.nst-card-brand:hover { box-shadow: var(--nst-shadow-md); transform: translateY(-1px); }
+
+/* Chapter list item */
+.nst-chapter-card {
+  background: var(--nst-color-surface);
+  border: 1px solid var(--nst-color-border);
+  border-left: 4px solid var(--nst-color-brand);
+  border-radius: var(--nst-r-lg);
+  box-shadow: var(--nst-shadow-sm);
+  transition: box-shadow 0.18s ease, border-color 0.18s ease;
+}
+.nst-chapter-card:hover { box-shadow: var(--nst-shadow-md); border-color: var(--nst-color-brand); }
+.nst-chapter-card.nst-chapter-locked  { border-left-color: #94a3b8; opacity: 0.75; }
+.nst-chapter-card.nst-chapter-current { border-left-color: var(--nst-color-brand); }
+
+/* MCQ option button */
+.nst-mcq-option {
+  border-radius: var(--nst-r-md);
+  border: 2px solid var(--nst-color-border);
+  background: var(--nst-color-surface);
+  color: var(--nst-color-text);
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+.nst-mcq-option:hover:not(:disabled) {
+  border-color: var(--nst-color-brand);
+  background: var(--nst-color-brand-5);
+}
+.nst-mcq-option.nst-mcq-selected {
+  border-color: var(--nst-color-brand);
+  background: var(--nst-color-brand-10);
+}
+.nst-mcq-option.nst-mcq-correct  { background: #ecfdf5; border-color: #6ee7b7; color: #065f46; }
+.nst-mcq-option.nst-mcq-wrong    { background: #fff1f2; border-color: #fecdd3; color: #9f1239; }
+.nst-mcq-option.nst-mcq-dimmed   { opacity: 0.55; }
+
 /* Vercel Toast Hide */
 .vercel-toast {
     display: none !important;
@@ -2275,11 +2385,12 @@ model-viewer {
 /* ── UNIFIED SUBJECT CARDS — White inside, tier color on border/left accent ── */
 .nst-subject-card {
   transition: all 0.18s ease;
-  background: #ffffff;
+  background: var(--nst-color-surface);
   border-width: 1.5px;
   border-style: solid;
   border-left-width: 4px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  border-radius: var(--nst-r-xl);
+  box-shadow: var(--nst-shadow-sm);
 }
 
 /* FREE — sky blue accent */
@@ -2304,9 +2415,9 @@ model-viewer {
 .nst-subject-card[data-tier="ultra"] .nst-card-arrow { color: #1e3a8a; }
 
 /* hover lift per tier */
-.nst-subject-card[data-tier="free"]:hover   { box-shadow: 0 4px 16px rgba(14,165,233,0.18); transform: scale(1.01); border-left-color: #0284c7; }
-.nst-subject-card[data-tier="basic"]:hover  { box-shadow: 0 4px 20px rgba(37,99,235,0.18);  transform: scale(1.01); border-left-color: #1d4ed8; }
-.nst-subject-card[data-tier="ultra"]:hover  { box-shadow: 0 4px 20px rgba(15,23,42,0.18);   transform: scale(1.01); border-left-color: #1e3a8a; }
+.nst-subject-card[data-tier="free"]:hover   { box-shadow: var(--nst-shadow-md); transform: scale(1.01); border-left-color: #0284c7; }
+.nst-subject-card[data-tier="basic"]:hover  { box-shadow: var(--nst-shadow-md); transform: scale(1.01); border-left-color: #1d4ed8; }
+.nst-subject-card[data-tier="ultra"]:hover  { box-shadow: var(--nst-shadow-md); transform: scale(1.01); border-left-color: #1e3a8a; }
 
 /* FREE — dark mode */
 .dark-mode .nst-subject-card[data-tier="free"]  { background: #0f1929 !important; border-color: rgba(125,211,252,0.25) !important; border-left-color: #38bdf8 !important; }

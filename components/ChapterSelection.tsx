@@ -130,13 +130,14 @@ export const ChapterSelection: React.FC<Props> = ({
               <div
                 key={chapter.id}
                 onClick={() => onSelect(chapter)}
-                className={`w-full p-5 rounded-xl border transition-all text-left flex items-center group relative overflow-hidden ${
+                className={`nst-chapter-card w-full p-5 transition-all text-left flex items-center group relative overflow-hidden ${
                     isLocked 
-                    ? 'bg-slate-100 border-slate-200 opacity-70 cursor-not-allowed' 
+                    ? 'nst-chapter-locked cursor-not-allowed' 
                     : isCurrent 
-                        ? 'bg-white border-blue-500 shadow-md ring-1 ring-blue-500 cursor-pointer' 
-                        : 'bg-white border-slate-200 hover:border-blue-300 cursor-pointer'
+                        ? 'nst-chapter-current ring-1 cursor-pointer' 
+                        : 'cursor-pointer'
                 }`}
+                style={isCurrent ? { '--ring-color': 'var(--nst-color-brand)' } as React.CSSProperties : undefined}
               >
                 {/* Availability Label */}
                 <div className="absolute top-2 right-2 z-10">

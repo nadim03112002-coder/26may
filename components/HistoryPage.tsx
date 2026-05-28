@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useDebounce } from '../utils/useDebounce';
 import { LessonContent, User, SystemSettings, UsageHistoryEntry } from '../types';
 import { BookOpen, Calendar, ChevronDown, ChevronUp, Trash2, Search, FileText, CheckCircle2, Lock, AlertCircle, Folder, Download, ChevronRight, Play, X as XIcon, Star, Volume2, Square, Target, Sparkles } from 'lucide-react';
 import { getMistakeBank, removeMistakes, clearMistakeBank, MistakeEntry } from '../utils/mistakeBank';
@@ -52,6 +53,7 @@ export const HistoryPage: React.FC<Props> = ({ user, onUpdateUser, settings, ini
   // ── MY MISTAKE STATE ─────────────────────────────────────────────
   const [mistakes, setMistakes] = useState<MistakeEntry[]>([]);
   const [mistakeSearch, setMistakeSearch] = useState('');
+  const debouncedMistakeSearch = useDebounce(mistakeSearch, 300);
   const [showPractice, setShowPractice] = useState(false);
   const [expandedMistakeId, setExpandedMistakeId] = useState<string | null>(null);
   const [mistakeSessions, setMistakeSessions] = useState<MistakeSession[]>([]);
@@ -107,6 +109,7 @@ export const HistoryPage: React.FC<Props> = ({ user, onUpdateUser, settings, ini
   // SAVED NOTES STATE
   const [history, setHistory] = useState<LessonContent[]>([]);
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
   const [selectedLesson, setSelectedLesson] = useState<LessonContent | null>(null);
 
   // USAGE HISTORY STATE (ACTIVITY LOG)
@@ -116,6 +119,7 @@ export const HistoryPage: React.FC<Props> = ({ user, onUpdateUser, settings, ini
   type StarEntry = { id: string; noteKey: string; topicText: string; savedAt: string };
   const [starredNotes, setStarredNotes] = useState<StarEntry[]>([]);
   const [starSearch, setStarSearch] = useState('');
+  const debouncedStarSearch = useDebounce(starSearch, 300);
 
   // TTS playback for Important Notes revision
   const [isReadingStars, setIsReadingStars] = useState(false);
@@ -381,8 +385,8 @@ export const HistoryPage: React.FC<Props> = ({ user, onUpdateUser, settings, ini
 
   const filteredHistory = history.filter(h =>
     !((h.type || '').includes('MCQ')) &&
-    ((h.title || '').toLowerCase().includes((search || '').toLowerCase()) ||
-     (h.subjectName || '').toLowerCase().includes((search || '').toLowerCase()))
+    ((h.title || '').toLowerCase().includes((debouncedSearch || '').toLowerCase()) ||
+     (h.subjectName || '').toLowerCase().includes((debouncedSearch || '').toLowerCase()))
   );
 
   const formatDuration = (seconds: number) => {
@@ -494,7 +498,7 @@ export const HistoryPage: React.FC<Props> = ({ user, onUpdateUser, settings, ini
 
         {activeTab === 'STARRED' && (() => {
             const filtered = starredNotes.filter(n =>
-                n.topicText?.toLowerCase().includes(starSearch.toLowerCase())
+                n.topicText?.toLowerCase().includes(debouncedStarSearch.toLowerCase())
             );
             return (
             <div className="animate-in fade-in duration-300 space-y-3">
@@ -580,10 +584,10 @@ export const HistoryPage: React.FC<Props> = ({ user, onUpdateUser, settings, ini
                         return (
                         <div
                             key={note.id}
-                            className={`rounded-2xl p-4 shadow-sm flex items-start gap-3 transition-all duration-300 ${
+                            className={`nst-card p-4 flex items-start gap-3 transition-all duration-300 ${
                                 isCurrentlyReading
                                     ? 'bg-amber-50 border-2 border-amber-400 shadow-amber-100'
-                                    : 'bg-white border border-amber-200'
+                                    : 'border border-amber-200'
                             }`}
                         >
                             <button
@@ -647,7 +651,7 @@ export const HistoryPage: React.FC<Props> = ({ user, onUpdateUser, settings, ini
                     const loginDate = new Date(s.loginAt);
                     const isValid = !isNaN(loginDate.getTime());
                     return (
-                        <div key={s.id} className="rounded-2xl p-3.5 border transition-all"
+                        <div key={s.id} className="nst-card p-3.5 transition-all"
                             style={{ background: cardBg, borderColor: cardBorder }}>
                             <div className="flex items-center justify-between gap-2">
                                 <div className="flex items-center gap-2.5">
@@ -781,10 +785,10 @@ export const HistoryPage: React.FC<Props> = ({ user, onUpdateUser, settings, ini
 
         {activeTab === 'MISTAKE' && (() => {
             const filteredMistakes = mistakes.filter(m =>
-                !mistakeSearch ||
-                m.question.toLowerCase().includes(mistakeSearch.toLowerCase()) ||
-                (m.chapterTitle || '').toLowerCase().includes(mistakeSearch.toLowerCase()) ||
-                (m.subjectName || '').toLowerCase().includes(mistakeSearch.toLowerCase())
+                !debouncedMistakeSearch ||
+                m.question.toLowerCase().includes(debouncedMistakeSearch.toLowerCase()) ||
+                (m.chapterTitle || '').toLowerCase().includes(debouncedMistakeSearch.toLowerCase()) ||
+                (m.subjectName || '').toLowerCase().includes(debouncedMistakeSearch.toLowerCase())
             );
             return (
               <div className="animate-in fade-in duration-300">

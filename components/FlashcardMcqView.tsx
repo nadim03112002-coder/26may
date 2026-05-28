@@ -48,6 +48,7 @@ const addTodayCount = (userId: string, n: number) => {
 export const FlashcardMcqView: React.FC<Props> = ({
   questions, title, subtitle, subject, onBack, user, settings, onUpdateUser
 }) => {
+  const isMountedRef = useRef(true);
   const [pickedIndices, setPickedIndices] = useState<number[]>([]);
   const [pos, setPos] = useState(0);
   const [flipped, setFlipped] = useState(false);
@@ -90,6 +91,8 @@ export const FlashcardMcqView: React.FC<Props> = ({
     viewedIdxRef.current = new Set([0]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [questions, userId, dailyLimit, isAdmin]);
+
+  useEffect(() => { return () => { isMountedRef.current = false; }; }, []);
 
   useEffect(() => {
     initSession();
@@ -153,6 +156,7 @@ export const FlashcardMcqView: React.FC<Props> = ({
       setFlipped(false);
       const hq = [...hardQueueRef.current];
       setTimeout(() => {
+        if (!isMountedRef.current) return;
         if (hq.length > 0) {
           // Start hard-card review instead of reshuffling
           setHardReviewMode(true);
@@ -173,6 +177,7 @@ export const FlashcardMcqView: React.FC<Props> = ({
     if (flipped) {
       setFlipped(false);
       setTimeout(() => {
+        if (!isMountedRef.current) return;
         setPos(nextPos);
         viewedIdxRef.current.add(nextPos);
       }, 520);
@@ -189,6 +194,7 @@ export const FlashcardMcqView: React.FC<Props> = ({
       // Hard review done — clear and fresh session
       setFlipped(false);
       setTimeout(() => {
+        if (!isMountedRef.current) return;
         addTodayCount(userId, hardQueue.length);
         setHardReviewMode(false);
         setHardQueue([]); hardQueueRef.current = [];
@@ -201,7 +207,7 @@ export const FlashcardMcqView: React.FC<Props> = ({
     const nextHardPos = hardReviewPos + 1;
     if (flipped) {
       setFlipped(false);
-      setTimeout(() => setHardReviewPos(nextHardPos), 520);
+      setTimeout(() => { if (isMountedRef.current) setHardReviewPos(nextHardPos); }, 520);
     } else {
       setHardReviewPos(nextHardPos);
     }
@@ -212,7 +218,7 @@ export const FlashcardMcqView: React.FC<Props> = ({
     setSpeaking(false);
     if (flipped) {
       setFlipped(false);
-      setTimeout(() => setHardReviewPos(p => Math.max(0, p - 1)), 520);
+      setTimeout(() => { if (isMountedRef.current) setHardReviewPos(p => Math.max(0, p - 1)); }, 520);
     } else {
       setHardReviewPos(p => Math.max(0, p - 1));
     }
@@ -228,7 +234,7 @@ export const FlashcardMcqView: React.FC<Props> = ({
       setHardQueue(newQ);
     }
     // Auto-advance after brief visual feedback
-    setTimeout(() => goNext(), 480);
+    setTimeout(() => { if (isMountedRef.current) goNext(); }, 480);
   };
 
   const goPrev = () => {
@@ -237,6 +243,7 @@ export const FlashcardMcqView: React.FC<Props> = ({
     if (flipped) {
       setFlipped(false);
       setTimeout(() => {
+        if (!isMountedRef.current) return;
         setPos(p => Math.max(0, p - 1));
       }, 520);
     } else {
