@@ -26,7 +26,7 @@ export const IICPage: React.FC<Props> = ({ user, onBack }) => {
   useEffect(() => {
     const storedPosts = localStorage.getItem('nst_iic_posts');
     if (storedPosts) {
-      setPosts(JSON.parse(storedPosts));
+      try { setPosts(JSON.parse(storedPosts)); } catch {}
     }
   }, []);
 

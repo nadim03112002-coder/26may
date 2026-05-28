@@ -116,6 +116,23 @@ export default defineConfig(({ mode }) => {
       ],
       build: {
         sourcemap: false,
+        rollupOptions: {
+          output: {
+            manualChunks: (id) => {
+              if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/') || id.includes('node_modules/scheduler/')) return 'vendor-react';
+              if (id.includes('node_modules/firebase/')) return 'vendor-firebase';
+              if (id.includes('node_modules/recharts/') || id.includes('node_modules/@reduxjs/') || id.includes('node_modules/redux')) return 'vendor-charts';
+              if (id.includes('node_modules/framer-motion/')) return 'vendor-animation';
+              if (id.includes('node_modules/react-markdown/') || id.includes('node_modules/remark') || id.includes('node_modules/rehype') || id.includes('node_modules/katex/')) return 'vendor-markdown';
+              if (id.includes('node_modules/react-player/') || id.includes('node_modules/hls.js/')) return 'vendor-media';
+              if (id.includes('node_modules/pdfjs-dist/') || id.includes('node_modules/react-pdf/')) return 'vendor-pdf';
+              if (id.includes('node_modules/jspdf/') || id.includes('node_modules/html2canvas/') || id.includes('node_modules/jszip/')) return 'vendor-export';
+              if (id.includes('node_modules/three/') || id.includes('node_modules/@google/model-viewer')) return 'vendor-3d';
+              if (id.includes('node_modules/localforage/') || id.includes('node_modules/idb/')) return 'vendor-storage';
+              if (id.includes('node_modules/')) return 'vendor-misc';
+            }
+          }
+        }
       },
       optimizeDeps: {
         include: ['pdfjs-dist', 'clsx', 'eventemitter3'],

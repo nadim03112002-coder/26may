@@ -14,10 +14,12 @@ export const BoardSelection: React.FC<Props> = ({ onSelect, onBack }) => {
   React.useEffect(() => {
       const s = localStorage.getItem('nst_system_settings');
       if (s) {
-          const settings = JSON.parse(s) as SystemSettings;
-          if (settings.allowedBoards && settings.allowedBoards.length > 0) {
+          try {
+            const settings = JSON.parse(s) as SystemSettings;
+            if (settings.allowedBoards && settings.allowedBoards.length > 0) {
               setAllowedBoards(settings.allowedBoards);
-          }
+            }
+          } catch {}
       }
   }, []);
 

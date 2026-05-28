@@ -9,7 +9,7 @@ export const PrizeList: React.FC = () => {
     useEffect(() => {
         const stored = localStorage.getItem('nst_prizes');
         if (stored) {
-            setPrizes(JSON.parse(stored));
+            try { setPrizes(JSON.parse(stored)); } catch {}
         }
     }, []);
 

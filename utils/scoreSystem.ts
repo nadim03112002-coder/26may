@@ -148,7 +148,9 @@ export const awardMilestone = (
 
   // Check if this milestone was already awarded this session
   const trackerKey = getMilestoneTrackerKey(userId, sessionKey);
-  const awarded = new Set<number>(JSON.parse(localStorage.getItem(trackerKey) || '[]'));
+  let _awardedArr: number[] = [];
+  try { _awardedArr = JSON.parse(localStorage.getItem(trackerKey) || '[]'); } catch {}
+  const awarded = new Set<number>(_awardedArr);
   if (awarded.has(hit.milestonePercent)) return null;
 
   // Award it

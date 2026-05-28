@@ -786,7 +786,7 @@ export const PdfView: React.FC<Props> = ({
         let data = await getChapterData(key);
         if (!data) {
             const stored = localStorage.getItem(key);
-            if (stored) data = JSON.parse(stored);
+            if (stored) { try { data = JSON.parse(stored); } catch {} }
         }
         setContentData(data || {});
 

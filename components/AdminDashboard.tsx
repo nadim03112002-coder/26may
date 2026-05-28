@@ -24,6 +24,7 @@ import AdminHelp from './AdminHelp';
 import { AdminTrendingNotes } from './AdminTrendingNotes';
 import { SyllabusManager } from './SyllabusManager';
 import { FeatureGroupList } from './admin/FeatureGroupList';
+import { ErrorNoticeBoard } from './admin/ErrorNoticeBoard';
 import { ALL_FEATURES } from '../utils/featureRegistry';
 import { HOME_SECTION_REGISTRY } from '../utils/homeSections';
 import { SPLASH_FONTS, getSplashFontById, ensureGoogleFontLoaded } from '../utils/splashFonts';
@@ -137,7 +138,8 @@ type AdminTab =
   | 'TEACHERS' // NEW
   | 'TRENDING_NOTES_MANAGER' // NEW: Live trending important notes
   | 'GLOBAL_CHAT' // NEW: Chat moderation
-  | 'ADMIN_HELP'; // Help Guide
+  | 'ADMIN_HELP'
+  | 'ERROR_LOGS'; // Error Notice Board
 
 interface ContentConfig {
     freeLink?: string;
@@ -265,7 +267,7 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
           setCurrentUser(user);
       } else {
           const stored = localStorage.getItem('nst_current_user');
-          if (stored) setCurrentUser(JSON.parse(stored));
+          if (stored) { try { setCurrentUser(JSON.parse(stored)); } catch {} }
       }
   }, [user]);
 
@@ -1608,28 +1610,37 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
       setCropImageSrc(null);
   };
 
+  const _sp = <T>(raw: string | null, fallback: T): T => {
+    if (!raw) return fallback;
+    try { return JSON.parse(raw) as T; } catch { return fallback; }
+  };
+
   const loadData = () => {
       const savedBloggerCode = localStorage.getItem('nst_custom_blogger_page');
       if (savedBloggerCode) setCustomBloggerCode(savedBloggerCode);
 
       const storedUsersStr = localStorage.getItem('nst_users');
-      if (storedUsersStr) setUsers(JSON.parse(storedUsersStr));
-      
+      const parsedUsers = _sp<User[]>(storedUsersStr, []);
+      if (parsedUsers.length) setUsers(parsedUsers);
+
       // const reqStr = localStorage.getItem('nst_recovery_requests');
-      // if (reqStr) setRecoveryRequests(JSON.parse(reqStr));
+      // if (reqStr) setRecoveryRequests(_sp(reqStr, []));
 
       const logsStr = localStorage.getItem('nst_activity_log');
-      if (logsStr) setLogs(JSON.parse(logsStr));
+      const parsedLogs = _sp<ActivityLogEntry[]>(logsStr, []);
+      if (parsedLogs.length) setLogs(parsedLogs);
 
       const codesStr = localStorage.getItem('nst_admin_codes');
-      if (codesStr) setGiftCodes(JSON.parse(codesStr));
+      const parsedCodes = _sp<GiftCode[]>(codesStr, []);
+      if (parsedCodes.length) setGiftCodes(parsedCodes);
 
       const subStr = localStorage.getItem('nst_custom_subjects_pool');
-      if (subStr) setCustomSubjects(JSON.parse(subStr));
+      const parsedSubs = _sp<Subject[]>(subStr, []);
+      if (parsedSubs.length) setCustomSubjects(parsedSubs);
 
       const binStr = localStorage.getItem('nst_recycle_bin');
       if (binStr) {
-          const binItems: RecycleBinItem[] = JSON.parse(binStr);
+          const binItems = _sp<RecycleBinItem[]>(binStr, []);
           const now = new Date();
           const validItems = binItems.filter(item => new Date(item.expiresAt) > now);
           if (validItems.length !== binItems.length) {
@@ -1639,7 +1650,8 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
       }
 
       const boardNotesStr = localStorage.getItem('nst_board_notes');
-      if (boardNotesStr) setBoardNotes(JSON.parse(boardNotesStr));
+      const parsedNotes = _sp<string>(boardNotesStr, '');
+      if (parsedNotes) setBoardNotes(parsedNotes);
 
   };
 
@@ -1811,7 +1823,8 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
 
       if (item.type === 'USER') {
           const stored = localStorage.getItem('nst_users');
-          const users: User[] = stored ? JSON.parse(stored) : [];
+          let users: User[] = [];
+          try { users = stored ? JSON.parse(stored) : []; } catch {}
           if (!users.some(u => u.id === item.data.id)) {
               users.push(item.data);
               localStorage.setItem('nst_users', JSON.stringify(users));
@@ -1821,7 +1834,8 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
           }
       } else if (item.type === 'MCQ_BATCH' && item.restoreKey) {
           const stored = localStorage.getItem(item.restoreKey);
-          const current = stored ? JSON.parse(stored) : {};
+          let current: any = {};
+          try { current = stored ? JSON.parse(stored) : {}; } catch {}
           const isTest = item.data.isTest;
           if (isTest) {
               current.weeklyTestMcqData = [...(current.weeklyTestMcqData || []), ...item.data.mcqs];
@@ -1834,7 +1848,8 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
       } else if (item.restoreKey) {
           if (item.type === 'CHAPTER') {
               const listStr = localStorage.getItem(item.restoreKey);
-              const list = listStr ? JSON.parse(listStr) : [];
+              let list: any[] = [];
+              try { list = listStr ? JSON.parse(listStr) : []; } catch {}
               list.push(item.data);
               localStorage.setItem(item.restoreKey, JSON.stringify(list));
           } else {
@@ -2392,7 +2407,8 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                   const key = `nst_content_${selBoard}_${selClass}${streamKey}_${s.name}_${c.id}`;
                   const stored = localStorage.getItem(key);
                   if (stored) {
-                      const d = JSON.parse(stored);
+                      let d: any = {};
+                      try { d = JSON.parse(stored); } catch {}
                       tempBulk[c.id] = { free: d.freeLink || '', premium: d.premiumLink || '', price: d.price || 5 };
                   } else {
                       tempBulk[c.id] = { free: '', premium: '', price: 5 };
@@ -2506,7 +2522,8 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
           const d = bulkData[chId];
           const key = `nst_content_${selBoard}_${selClass}${streamKey}_${selSubject.name}_${chId}`;
           const existing = localStorage.getItem(key);
-          const existingData = existing ? JSON.parse(existing) : {};
+          let existingData: any = {};
+          try { existingData = existing ? JSON.parse(existing) : {}; } catch {}
           
           const newData = {
               ...existingData,
@@ -17499,6 +17516,11 @@ Statement 2"
                   }}
               />
           </div>
+      )}
+
+      {/* --- ERROR NOTICE BOARD --- */}
+      {activeTab === 'ERROR_LOGS' && (
+          <ErrorNoticeBoard onBack={() => setActiveTab('DASHBOARD')} />
       )}
 
       {/* --- ADMIN HELP GUIDE --- */}

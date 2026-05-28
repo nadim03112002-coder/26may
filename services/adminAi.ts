@@ -71,7 +71,8 @@ export const processAdminCommand = async (
 
             for (const toolCall of response.tool_calls) {
                 const functionName = toolCall.function.name;
-                const args = JSON.parse(toolCall.function.arguments);
+                let args: any = {};
+                try { args = JSON.parse(toolCall.function.arguments); } catch {}
                 
                 // Execute Tool
                 if (ActionRegistry[functionName as keyof typeof ActionRegistry]) {

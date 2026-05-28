@@ -887,7 +887,8 @@ export const McqView: React.FC<Props> = ({
           }
       } catch (e) {
           console.log("Offline or Error saving history. Queuing for sync.");
-          const pending = JSON.parse(localStorage.getItem('nst_pending_sync_results') || '[]');
+          let pending: any[] = [];
+          try { pending = JSON.parse(localStorage.getItem('nst_pending_sync_results') || '[]'); } catch {}
           pending.push({ userId: user.id, data: newHistoryItem, type: 'HISTORY' });
           localStorage.setItem('nst_pending_sync_results', JSON.stringify(pending));
       }

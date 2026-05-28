@@ -66,15 +66,17 @@ export const ExplorePage: React.FC<Props> = ({ user, settings, onTabChange, onSt
                 const today = now.toDateString();
                 const savedBanner = localStorage.getItem('nst_morning_banner');
                 if (savedBanner) {
-                    const parsed = JSON.parse(savedBanner);
-                    if (parsed.date === today) {
+                    let parsed: any = null;
+                    try { parsed = JSON.parse(savedBanner); } catch {}
+                    if (parsed && parsed.date === today) {
                         setMorningBanner(parsed);
                         return;
                     }
                 }
                 const isGen = localStorage.getItem(`nst_insight_gen_${today}`);
                 if (!isGen) {
-                     const logs = JSON.parse(localStorage.getItem('nst_universal_analysis_logs') || '[]');
+                     let logs: any[] = [];
+                     try { logs = JSON.parse(localStorage.getItem('nst_universal_analysis_logs') || '[]'); } catch {}
                      if (logs.length > 0) {
                          try {
                              await generateMorningInsight(logs, settings, (banner) => {
