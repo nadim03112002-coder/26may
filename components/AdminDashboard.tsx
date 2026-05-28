@@ -1610,10 +1610,10 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
       setCropImageSrc(null);
   };
 
-  const _sp = <T>(raw: string | null, fallback: T): T => {
+  function _sp<T>(raw: string | null, fallback: T): T {
     if (!raw) return fallback;
     try { return JSON.parse(raw) as T; } catch { return fallback; }
-  };
+  }
 
   const loadData = () => {
       const savedBloggerCode = localStorage.getItem('nst_custom_blogger_page');
