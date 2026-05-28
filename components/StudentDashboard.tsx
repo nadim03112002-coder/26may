@@ -186,7 +186,6 @@ import { CreditConfirmationModal } from "./CreditConfirmationModal";
 import { UserGuide } from "./UserGuide";
 import { CustomAlert } from "./CustomDialogs";
 import { LiveResultsFeed } from "./LiveResultsFeed";
-// import { ChatHub } from './ChatHub';
 import { UniversalInfoPage } from "./UniversalInfoPage";
 import { UniversalChat } from "./UniversalChat";
 import { ExpiryPopup } from "./ExpiryPopup";
@@ -2811,6 +2810,8 @@ export const StudentDashboard: React.FC<Props> = ({
   // don't tear down the Homework overlay when they're going back to Homework.
   const closeReadersBeforeNavSwitch = (targetTabId?: string): boolean => {
     let closedSomething = false;
+    // Close Mail/Inbox overlay so bottom-nav tabs actually navigate away
+    if (showInbox) { setShowInbox(false); closedSomething = true; }
     // Lucent Book viewer — also save current page to Continue Reading.
     if (lucentNoteViewer) {
       try {
@@ -3979,12 +3980,32 @@ export const StudentDashboard: React.FC<Props> = ({
   // === HARDWARE / BROWSER BACK BUTTON HANDLER ===
   // Keeps an always-fresh snapshot of navigation state so the popstate
   // listener (registered once) can react without stale closures.
+  // ALL full-screen overlays must be tracked here so the back button can
+  // close them one-by-one before falling through to tab-level navigation.
   const navStateRef = useRef({
     activeTab,
     contentViewStep,
+    // overlays — ordered from topmost to bottommost z-layer
+    lucentNoteViewer:    !!lucentNoteViewer,
+    lucentPageListViewer: !!lucentPageListViewer,
+    showHomeworkHistory,
+    showChat,
+    showNotifPage,
+    showStarredPage,
+    showCompMcqHub,
+    showMistakePractice,
+    showRulesPage,
+    showAllNotesCatalog:  !!(showAllNotesCatalog),
+    showTopicDirectory,
+    showCompareView,
+    showMcqSearchView,
+    showHomeSearch,
+    showUserGuide,
+    showSupportModal,
     showLessonModal,
     showSidebar,
     showInbox,
+    // content-tree state
     initialParentSubject,
     homeworkSubjectView,
     lucentCategoryView,
@@ -3994,6 +4015,22 @@ export const StudentDashboard: React.FC<Props> = ({
     navStateRef.current = {
       activeTab,
       contentViewStep,
+      lucentNoteViewer:    !!lucentNoteViewer,
+      lucentPageListViewer: !!lucentPageListViewer,
+      showHomeworkHistory,
+      showChat,
+      showNotifPage,
+      showStarredPage,
+      showCompMcqHub,
+      showMistakePractice,
+      showRulesPage,
+      showAllNotesCatalog:  !!(showAllNotesCatalog),
+      showTopicDirectory,
+      showCompareView,
+      showMcqSearchView,
+      showHomeSearch,
+      showUserGuide,
+      showSupportModal,
       showLessonModal,
       showSidebar,
       showInbox,
@@ -4018,14 +4055,32 @@ export const StudentDashboard: React.FC<Props> = ({
 
     const onPopState = () => {
       if (document.fullscreenElement) {
-          document.exitFullscreen().catch(err => console.log(err));
+        document.exitFullscreen().catch(err => console.log(err));
       }
       const s = navStateRef.current;
 
-      // 1. Close any open overlays first (one back press = one overlay close)
-      if (s.showSidebar) { setShowSidebar(false); reTrap(); return; }
-      if (s.showInbox) { setShowInbox(false); reTrap(); return; }
-      if (s.showLessonModal) { setShowLessonModal(false); reTrap(); return; }
+      // 1. Close full-screen overlays one at a time (topmost first).
+      //    Each back press closes exactly one overlay, then re-traps so the
+      //    next press closes the next layer. This gives the 9→8→7…→1 feel.
+      if (s.lucentNoteViewer)    { setLucentNoteViewer(null);         reTrap(); return; }
+      if (s.lucentPageListViewer){ setLucentPageListViewer(null);     reTrap(); return; }
+      if (s.showHomeworkHistory) { setShowHomeworkHistory(false);     reTrap(); return; }
+      if (s.showChat)            { setShowChat(false);                reTrap(); return; }
+      if (s.showNotifPage)       { setShowNotifPage(false);           reTrap(); return; }
+      if (s.showStarredPage)     { setShowStarredPage(false);         reTrap(); return; }
+      if (s.showCompMcqHub)      { setShowCompMcqHub(false);         reTrap(); return; }
+      if (s.showMistakePractice) { setShowMistakePractice(false);    reTrap(); return; }
+      if (s.showRulesPage)       { setShowRulesPage(false);           reTrap(); return; }
+      if (s.showAllNotesCatalog) { setShowAllNotesCatalog(null as any); reTrap(); return; }
+      if (s.showTopicDirectory)  { setShowTopicDirectory(false);      reTrap(); return; }
+      if (s.showCompareView)     { setShowCompareView(false);         reTrap(); return; }
+      if (s.showMcqSearchView)   { setShowMcqSearchView(false);       reTrap(); return; }
+      if (s.showHomeSearch)      { setShowHomeSearch(false);          reTrap(); return; }
+      if (s.showUserGuide)       { setShowUserGuide(false);           reTrap(); return; }
+      if (s.showSupportModal)    { setShowSupportModal(false);        reTrap(); return; }
+      if (s.showSidebar)         { setShowSidebar(false);             reTrap(); return; }
+      if (s.showInbox)           { setShowInbox(false);               reTrap(); return; }
+      if (s.showLessonModal)     { setShowLessonModal(false);         reTrap(); return; }
 
       // 2. PDF / VIDEO / AUDIO / MCQ tabs (content player tabs)
       if (
@@ -4084,7 +4139,7 @@ export const StudentDashboard: React.FC<Props> = ({
         return;
       }
 
-      // 5. Already at HOME root → re-trap so the app does NOT close on back.
+      // 5. Already at HOME root — re-trap so the app does NOT exit on back.
       reTrap();
     };
 
@@ -12513,7 +12568,7 @@ export const StudentDashboard: React.FC<Props> = ({
             : activeTab === "REVISION" || activeTab === "AI_HUB"
               ? ""
               : activeTab === "HOME"
-                ? "px-4 pt-0 pb-20"
+                ? "px-4 pt-3 pb-20"
                 : activeTab === "PROFILE"
                   ? "p-0"
                   : "p-4 pb-20"

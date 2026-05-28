@@ -1610,7 +1610,7 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
       setCropImageSrc(null);
   };
 
-  const _sp = <T>(raw: string | null, fallback: T): T => {
+  const _sp = <T,>(raw: string | null, fallback: T): T => {
     if (!raw) return fallback;
     try { return JSON.parse(raw) as T; } catch { return fallback; }
   };
@@ -13047,6 +13047,14 @@ Statement 2"
                                   <button onClick={() => setLocalSettings({...localSettings, ultraThemeColor: undefined})} className="ml-auto text-[10px] text-red-400 hover:text-red-600">Reset</button>
                               )}
                           </div>
+                          {/* One-tap default preset */}
+                          <button
+                            onClick={() => setLocalSettings({...localSettings, ultraThemeColor: '#c8a020'})}
+                            className="w-full mb-2 py-1.5 px-3 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95"
+                            style={{background:'linear-gradient(135deg,#7a5c10,#c8a020)',color:'#fff'}}
+                          >
+                            ⚡ Default ULTRA Gold lagao
+                          </button>
                           <div className="flex items-center gap-2 mb-2">
                               <input type="color" value={localSettings.ultraThemeColor || '#c8a020'} onChange={e => setLocalSettings({...localSettings, ultraThemeColor: e.target.value})} className="w-10 h-10 rounded-lg cursor-pointer border-none" />
                               <input type="text" value={localSettings.ultraThemeColor || ''} onChange={e => setLocalSettings({...localSettings, ultraThemeColor: e.target.value})} placeholder="#c8a020 (default)" className="flex-1 p-2 border rounded-lg text-xs uppercase" />
@@ -13066,6 +13074,14 @@ Statement 2"
                                   <button onClick={() => setLocalSettings({...localSettings, basicThemeColor: undefined})} className="ml-auto text-[10px] text-red-400 hover:text-red-600">Reset</button>
                               )}
                           </div>
+                          {/* One-tap default preset */}
+                          <button
+                            onClick={() => setLocalSettings({...localSettings, basicThemeColor: '#2563eb'})}
+                            className="w-full mb-2 py-1.5 px-3 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95"
+                            style={{background:'linear-gradient(135deg,#1d4ed8,#3b82f6)',color:'#fff'}}
+                          >
+                            ⭐ Default BASIC Blue lagao
+                          </button>
                           <div className="flex items-center gap-2 mb-2">
                               <input type="color" value={localSettings.basicThemeColor || '#2563eb'} onChange={e => setLocalSettings({...localSettings, basicThemeColor: e.target.value})} className="w-10 h-10 rounded-lg cursor-pointer border-none" />
                               <input type="text" value={localSettings.basicThemeColor || ''} onChange={e => setLocalSettings({...localSettings, basicThemeColor: e.target.value})} placeholder="#2563eb (default)" className="flex-1 p-2 border rounded-lg text-xs uppercase" />
@@ -13085,12 +13101,20 @@ Statement 2"
                                   <button onClick={() => setLocalSettings({...localSettings, freeThemeColor: undefined})} className="ml-auto text-[10px] text-red-400 hover:text-red-600">Reset</button>
                               )}
                           </div>
+                          {/* One-tap default preset */}
+                          <button
+                            onClick={() => setLocalSettings({...localSettings, freeThemeColor: '#0ea5e9'})}
+                            className="w-full mb-2 py-1.5 px-3 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95"
+                            style={{background:'linear-gradient(135deg,#0284c7,#0ea5e9)',color:'#fff'}}
+                          >
+                            🎓 Default FREE Sky lagao
+                          </button>
                           <div className="flex items-center gap-2 mb-2">
-                              <input type="color" value={localSettings.freeThemeColor || '#10b981'} onChange={e => setLocalSettings({...localSettings, freeThemeColor: e.target.value})} className="w-10 h-10 rounded-lg cursor-pointer border-none" />
-                              <input type="text" value={localSettings.freeThemeColor || ''} onChange={e => setLocalSettings({...localSettings, freeThemeColor: e.target.value})} placeholder="#10b981 (default)" className="flex-1 p-2 border rounded-lg text-xs uppercase" />
+                              <input type="color" value={localSettings.freeThemeColor || '#0ea5e9'} onChange={e => setLocalSettings({...localSettings, freeThemeColor: e.target.value})} className="w-10 h-10 rounded-lg cursor-pointer border-none" />
+                              <input type="text" value={localSettings.freeThemeColor || ''} onChange={e => setLocalSettings({...localSettings, freeThemeColor: e.target.value})} placeholder="#0ea5e9 (default)" className="flex-1 p-2 border rounded-lg text-xs uppercase" />
                           </div>
                           <div className="grid grid-cols-3 gap-1">
-                              {['#10b981','#06b6d4','#6ee7b7','#3b82f6','#a855f7','#f59e0b'].map(c => (
+                              {['#0ea5e9','#10b981','#06b6d4','#3b82f6','#a855f7','#f59e0b'].map(c => (
                                   <button key={c} onClick={() => setLocalSettings({...localSettings, freeThemeColor: c})} className="h-6 rounded border-2 transition-all" style={{background: c, borderColor: localSettings.freeThemeColor === c ? '#1e293b' : 'transparent'}} />
                               ))}
                           </div>

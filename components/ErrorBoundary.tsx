@@ -6,6 +6,9 @@ import { logErrorToFirebase } from '../utils/errorLogger';
 interface Props {
   children: ReactNode;
   fallbackLabel?: string;
+  resetKey?: string | number;
+  onError?: (error: Error, info: ErrorInfo) => void;
+  compact?: boolean;
 }
 
 interface State {
@@ -25,7 +28,17 @@ export class ErrorBoundary extends Component<Props, State> {
     return { hasError: true, error };
   }
 
+  public componentDidUpdate(prevProps: Props) {
+    if (
+      this.state.hasError &&
+      prevProps.resetKey !== this.props.resetKey
+    ) {
+      this.setState({ hasError: false, error: null, retryCount: 0 });
+    }
+  }
+
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    this.props.onError?.(error, errorInfo);
     const msg = error?.message || error?.toString() || '';
 
     logErrorToFirebase(error, {
@@ -86,18 +99,47 @@ export class ErrorBoundary extends Component<Props, State> {
     const isOffline = !navigator.onLine;
     const label = this.props.fallbackLabel ?? 'page';
 
+    if (this.props.compact) {
+      return (
+        <div
+          role="alert"
+          aria-live="assertive"
+          className="flex items-center justify-between gap-3 bg-red-50 border border-red-200 rounded-2xl p-4 my-2"
+        >
+          <div className="flex items-center gap-2 text-sm text-red-700 font-semibold">
+            {isOffline
+              ? <><WifiOff size={16} className="shrink-0" /> Offline — {label} load nahi hua</>
+              : <><span aria-hidden>⚠️</span> {label} mein error aaya</>
+            }
+          </div>
+          {this.state.retryCount < 2 && (
+            <button
+              onClick={this.handleRetry}
+              aria-label={`${label} dobara try karo`}
+              className="shrink-0 flex items-center gap-1 text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-xl hover:bg-blue-100 transition-colors"
+            >
+              <RefreshCcw size={13} /> Retry
+            </button>
+          )}
+        </div>
+      );
+    }
+
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-5 text-center font-sans"
+      <div
+        role="alert"
+        aria-live="assertive"
+        className="min-h-screen flex flex-col items-center justify-center p-5 text-center font-sans"
         style={{ background: 'linear-gradient(135deg,#f8fafc 0%,#eff6ff 100%)' }}>
         <div className="bg-white rounded-3xl shadow-xl border border-slate-100 w-full max-w-sm p-6">
 
           {isOffline ? (
             <div className="w-14 h-14 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <WifiOff size={26} className="text-amber-500" />
+              <WifiOff size={26} className="text-amber-500" aria-hidden />
             </div>
           ) : (
-            <div className="w-14 h-14 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce">
-              <span className="text-2xl">⚠️</span>
+            <div className="w-14 h-14 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="text-2xl" aria-hidden>⚠️</span>
             </div>
           )}
 
@@ -124,15 +166,18 @@ export class ErrorBoundary extends Component<Props, State> {
           <div className="space-y-2.5">
             {this.state.retryCount < 2 && (
               <button onClick={this.handleRetry}
+                aria-label="Dobara try karo"
                 className="w-full bg-blue-600 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-blue-700 transition-colors shadow-md shadow-blue-100">
-                <RefreshCcw size={15} /> Dobara Try Karo
+                <RefreshCcw size={15} aria-hidden /> Dobara Try Karo
               </button>
             )}
             <button onClick={this.handleGoHome}
+              aria-label="Home pe jao"
               className="w-full bg-slate-100 text-slate-700 font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-slate-200 transition-colors">
-              <Home size={15} /> Home Pe Jao
+              <Home size={15} aria-hidden /> Home Pe Jao
             </button>
             <button onClick={this.handleReset}
+              aria-label="App reset karo"
               className="w-full text-slate-400 text-[10px] py-1 hover:text-red-400 transition-colors">
               App Reset Karo (last resort)
             </button>

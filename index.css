@@ -151,6 +151,156 @@
 .nst-chapter-card.nst-chapter-locked  { border-left-color: #94a3b8; opacity: 0.75; }
 .nst-chapter-card.nst-chapter-current { border-left-color: var(--nst-color-brand); }
 
+/* ══════════════════════════════════════════════════
+   NST BUTTON SYSTEM — unified across all components
+   Usage: class="nst-btn nst-btn-primary"
+   Sizes: nst-btn-sm | nst-btn-md (default) | nst-btn-lg
+   ══════════════════════════════════════════════════ */
+
+/* Base — shared geometry, interaction, and focus */
+.nst-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-family: inherit;
+  font-weight: 700;
+  border: 1.5px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  text-decoration: none;
+  transition:
+    background-color var(--nst-dur-fast) var(--nst-ease-out),
+    border-color     var(--nst-dur-fast) var(--nst-ease-out),
+    box-shadow       var(--nst-dur-fast) var(--nst-ease-out),
+    transform        var(--nst-dur-instant) var(--nst-ease-spring);
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  border-radius: var(--nst-r-xl);
+}
+.nst-btn:focus-visible {
+  outline: 2.5px solid var(--nst-color-brand);
+  outline-offset: 3px;
+}
+.nst-btn:active { transform: scale(0.96); }
+.nst-btn:disabled,
+.nst-btn[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Sizes */
+.nst-btn-sm  { padding: 7px 14px;  font-size: var(--nst-text-xs);   gap: 4px; }
+.nst-btn-md  { padding: 11px 20px; font-size: var(--nst-text-sm);   gap: 6px; }
+.nst-btn-lg  { padding: 14px 28px; font-size: var(--nst-text-base);  gap: 8px; }
+
+/* Icon-only variant */
+.nst-btn-icon {
+  padding: 10px;
+  border-radius: var(--nst-r-full);
+}
+.nst-btn-icon.nst-btn-sm { padding: 7px; }
+.nst-btn-icon.nst-btn-lg { padding: 13px; }
+
+/* ── Variants ── */
+.nst-btn-primary {
+  background: var(--nst-color-brand);
+  color: #fff;
+  border-color: var(--nst-color-brand);
+  box-shadow: 0 2px 8px var(--nst-color-brand-20);
+}
+.nst-btn-primary:hover:not(:disabled) {
+  filter: brightness(1.1);
+  box-shadow: 0 4px 16px var(--nst-color-brand-20);
+}
+
+.nst-btn-secondary {
+  background: var(--nst-color-brand-10);
+  color: var(--nst-color-brand);
+  border-color: var(--nst-color-brand-20);
+}
+.nst-btn-secondary:hover:not(:disabled) {
+  background: var(--nst-color-brand-20);
+}
+
+.nst-btn-ghost {
+  background: transparent;
+  color: var(--nst-color-muted);
+  border-color: var(--nst-color-border);
+}
+.nst-btn-ghost:hover:not(:disabled) {
+  background: var(--nst-color-brand-5);
+  color: var(--nst-color-brand);
+  border-color: var(--nst-color-brand-20);
+}
+
+.nst-btn-danger {
+  background: var(--nst-color-error-soft);
+  color: var(--nst-color-error);
+  border-color: rgba(239, 68, 68, 0.25);
+}
+.nst-btn-danger:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.18);
+  border-color: var(--nst-color-error);
+}
+
+.nst-btn-success {
+  background: var(--nst-color-success-soft);
+  color: var(--nst-color-success);
+  border-color: rgba(16, 185, 129, 0.25);
+}
+.nst-btn-success:hover:not(:disabled) {
+  background: rgba(16, 185, 129, 0.18);
+}
+
+.nst-btn-surface {
+  background: var(--nst-color-surface);
+  color: var(--nst-color-text);
+  border-color: var(--nst-color-border);
+  box-shadow: var(--nst-shadow-xs);
+}
+.nst-btn-surface:hover:not(:disabled) {
+  box-shadow: var(--nst-shadow-sm);
+  border-color: var(--nst-color-brand-20);
+}
+
+/* Dark mode overrides */
+.dark-mode .nst-btn-surface {
+  background: #1a1a2e;
+  border-color: #2d2d44;
+  color: #e2e8f0;
+}
+
+/* ── TYPOGRAPHY SYSTEM ── */
+.nst-heading-1 { font-size: var(--nst-text-2xl); font-weight: 900; line-height: 1.2; letter-spacing: -0.02em; }
+.nst-heading-2 { font-size: var(--nst-text-xl);  font-weight: 800; line-height: 1.3; letter-spacing: -0.01em; }
+.nst-heading-3 { font-size: var(--nst-text-lg);  font-weight: 700; line-height: 1.4; }
+.nst-heading-4 { font-size: var(--nst-text-md);  font-weight: 700; line-height: 1.4; }
+.nst-body      { font-size: var(--nst-text-base); font-weight: 400; line-height: 1.6; color: var(--nst-color-text); }
+.nst-body-sm   { font-size: var(--nst-text-sm);   font-weight: 400; line-height: 1.5; color: var(--nst-color-muted); }
+.nst-label     { font-size: var(--nst-text-xs);   font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--nst-color-subtle); }
+.nst-mono      { font-family: 'Courier New', Courier, monospace; font-size: var(--nst-text-sm); }
+
+/* ── BADGE SYSTEM ── */
+.nst-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  border-radius: var(--nst-r-full);
+  font-size: var(--nst-text-2xs);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.nst-badge-brand   { background: var(--nst-color-brand-10);        color: var(--nst-color-brand); }
+.nst-badge-success { background: var(--nst-color-success-soft);    color: var(--nst-color-success); }
+.nst-badge-warning { background: var(--nst-color-warning-soft);    color: #b45309; }
+.nst-badge-error   { background: var(--nst-color-error-soft);      color: var(--nst-color-error); }
+.nst-badge-neutral { background: #f1f5f9; color: var(--nst-color-muted); }
+
 /* MCQ option button */
 .nst-mcq-option {
   border-radius: var(--nst-r-md);
@@ -1517,8 +1667,16 @@ model-viewer {
   }
 }
 
-/* Respect users who prefer reduced motion: kill all the above transforms */
+/* Respect users who prefer reduced motion: kill all transforms & animations */
 @media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
   button,
   [role="button"],
   a {
@@ -1533,6 +1691,88 @@ model-viewer {
     animation: none !important;
   }
 }
+
+/* ── CONTENT VISIBILITY (virtualization helper) ── */
+.cv-auto {
+  content-visibility: auto;
+}
+.cv-auto-sm { content-visibility: auto; contain-intrinsic-size: 0 60px; }
+.cv-auto-md { content-visibility: auto; contain-intrinsic-size: 0 100px; }
+.cv-auto-lg { content-visibility: auto; contain-intrinsic-size: 0 200px; }
+
+/* ── SKIP TO CONTENT (accessibility) ── */
+.skip-to-content {
+  position: absolute;
+  top: -100%;
+  left: 8px;
+  z-index: 99999;
+  padding: 8px 16px;
+  background: #1e40af;
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+  border-radius: 0 0 8px 8px;
+  text-decoration: none;
+  transition: top 0.15s;
+}
+.skip-to-content:focus {
+  top: 0;
+}
+
+/* ══════════════════════════════════════════════════
+   PERFORMANCE MODE — for low-end devices.
+   Applied via  data-perf="1"  on <body>.
+   Kills heavy visuals: shimmer, blur, shadows, glows.
+   Toggle via utils/performanceMode.ts
+   ══════════════════════════════════════════════════ */
+[data-perf="1"] *,
+[data-perf="1"] *::before,
+[data-perf="1"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.08ms !important;
+}
+[data-perf="1"] .shimmer,
+[data-perf="1"] [class*="shimmer"],
+[data-perf="1"] [style*="shimmer-sweep"],
+[data-perf="1"] [style*="animation"] {
+  animation: none !important;
+  background-image: none !important;
+}
+[data-perf="1"] [class*="backdrop-blur"],
+[data-perf="1"] [style*="backdrop-filter"],
+[data-perf="1"] [style*="blur("] {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+[data-perf="1"] [class*="shadow-"] {
+  box-shadow: none !important;
+}
+[data-perf="1"] .animate-pulse,
+[data-perf="1"] .animate-spin,
+[data-perf="1"] .animate-bounce,
+[data-perf="1"] .animate-ping {
+  animation: none !important;
+}
+[data-perf="1"] [class*="glow"],
+[data-perf="1"] .class-glow-10,
+[data-perf="1"] .class-glow-12 {
+  animation: none !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+[data-perf="1"] canvas {
+  display: none !important;
+}
+
+/* ── ANIMATION HYGIENE — global caps ── */
+/* Shimmer: slow down for battery savings — max 2.5s */
+.shimmer-cover { animation-duration: 2.5s !important; }
+/* Strobe guard: items that pulse more than once per second are capped */
+.animate-ping  { animation-duration: 1.2s !important; }
+/* Glow animations: cap at 2 iterations then freeze */
+.class-glow-10,
+.class-glow-12 { animation-iteration-count: 3; animation-fill-mode: forwards; }
 
 /* ── WELCOME SCREEN ── */
 @keyframes welcome-fade-in {
