@@ -673,6 +673,8 @@ export interface SystemSettings {
   showFooter?: boolean; // NEW: Control footer visibility
   footerColor?: string; // NEW: Customized footer color
   aiName?: string;
+  appBackground?: string;
+  profileBackground?: string;
   themeColor?: string;
   darkThemeColor?: string;
   lightThemeColor?: string;
@@ -680,6 +682,7 @@ export interface SystemSettings {
   basicThemeColor?: string;
   freeThemeColor?: string;
   adminActiveTheme?: { id: string; name: string; color: string; expiresAt?: string };
+  defaultThemeSnapshot?: { appColor?: string; ultra?: string; basic?: string; free?: string; savedAt?: string };
   adminAppliedTheme?: {
     theme: UserCustomTheme;
     appliedAt: string;

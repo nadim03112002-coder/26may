@@ -2546,7 +2546,7 @@ const App: React.FC = () => {
 
   return (
     <ErrorBoundary>
-    <div className="min-h-[100dvh] flex flex-col bg-white font-sans relative pt-[env(safe-area-inset-top,24px)] pb-[env(safe-area-inset-bottom,0px)]">
+    <div className="min-h-[100dvh] flex flex-col font-sans relative pt-[env(safe-area-inset-top,24px)] pb-[env(safe-area-inset-bottom,0px)]" style={{ background: state.settings?.appBackground || '#ffffff' }}>
       {/* SKIP TO CONTENT — keyboard/screen-reader accessibility */}
       <a href="#main-content" className="skip-to-content">Skip to content</a>
 

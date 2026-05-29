@@ -4639,7 +4639,7 @@ export const StudentDashboard: React.FC<Props> = ({
       // EMPTY STATE
       if (filteredHw.length === 0) {
         return (
-          <div className={`min-h-[100dvh] ${theme.bg} p-4 pt-2`}>
+          <div className={`min-h-[100dvh] p-4 pt-2`} style={{ background: (settings as any)?.appBackground || '#ffffff' }}>
             <div className="max-w-3xl mx-auto pb-8 animate-in fade-in">
               <div className="flex items-center gap-3 mb-5">
                 <button onClick={goBack} className={`${theme.bgSoft} p-2 rounded-full ${theme.text}`}>
@@ -5675,7 +5675,7 @@ export const StudentDashboard: React.FC<Props> = ({
           return d.getFullYear() === hwYear && d.getMonth() === hwMonth && getWeekOfMonth(d) === hwWeek;
         });
         return (
-          <div className={`min-h-[100dvh] ${theme.bg} p-4 pt-2`}>
+          <div className={`min-h-[100dvh] p-4 pt-2`} style={{ background: (settings as any)?.appBackground || '#ffffff' }}>
             <div className="max-w-3xl mx-auto pb-8 animate-in fade-in">
               <div className="flex items-center gap-3 mb-5">
                 <button onClick={goBack} className={`${theme.bgSoft} p-2 rounded-full ${theme.text}`}>
@@ -5754,7 +5754,7 @@ export const StudentDashboard: React.FC<Props> = ({
           })
           .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
         return (
-          <div className={`min-h-[100dvh] ${theme.bg} p-4 pt-2`}>
+          <div className={`min-h-[100dvh] p-4 pt-2`} style={{ background: (settings as any)?.appBackground || '#ffffff' }}>
             <div className="max-w-3xl mx-auto pb-8 animate-in fade-in">
               <div className="flex items-center gap-3 mb-5">
                 <button onClick={goBack} className={`${theme.bgSoft} p-2 rounded-full ${theme.text}`}>
@@ -5825,7 +5825,7 @@ export const StudentDashboard: React.FC<Props> = ({
         });
         const months = Array.from(monthsMap.entries()).sort((a,b) => a[0]-b[0]);
         return (
-          <div className={`min-h-[100dvh] ${theme.bg} p-4 pt-2`}>
+          <div className={`min-h-[100dvh] p-4 pt-2`} style={{ background: (settings as any)?.appBackground || '#ffffff' }}>
             <div className="max-w-3xl mx-auto pb-8 animate-in fade-in">
               <div className="flex items-center gap-3 mb-5">
                 <button onClick={goBack} className={`${theme.bgSoft} p-2 rounded-full ${theme.text}`}>
@@ -5894,7 +5894,7 @@ export const StudentDashboard: React.FC<Props> = ({
         });
 
         return (
-          <div className={`min-h-[100dvh] ${theme.bg} p-4 pt-2`}>
+          <div className={`min-h-[100dvh] p-4 pt-2`} style={{ background: (settings as any)?.appBackground || '#ffffff' }}>
             <div className="max-w-3xl mx-auto pb-8 animate-in fade-in">
               <div className="flex items-center gap-3 mb-4">
                 <button onClick={goBack} className={`${theme.bgSoft} p-2 rounded-full ${theme.text}`} aria-label="Back">
@@ -7776,12 +7776,12 @@ export const StudentDashboard: React.FC<Props> = ({
       })();
 
       const _pw       = profileWhite;
-      const _pBg      = _pw ? '#f0f4f8' : tierTheme.profileBg;
+      const _pBg      = (settings as any)?.profileBackground || '#f0f4f8';
       const _pCard    = _pw ? '#ffffff' : tierTheme.profileCardBg;
       const _pCardSt  = _pw ? '#f1f5f9' : tierTheme.profileCardBg;
-      const _pSep     = `1px solid ${_pw ? 'rgba(0,0,0,0.07)' : 'rgba(255,255,255,0.06)'}`;
-      const _pBdrMain = _pw ? '1px solid rgba(0,0,0,0.07)' : `1px solid ${tierTheme.primary}2e`;
-      const _pBdrSoft = _pw ? '1px solid rgba(0,0,0,0.07)' : `1px solid ${tierTheme.primary}18`;
+      const _pSep     = `1px solid ${tierTheme.primary}${_pw ? '22' : '18'}`;
+      const _pBdrMain = `1px solid ${tierTheme.primary}${_pw ? '30' : '2e'}`;
+      const _pBdrSoft = `1px solid ${tierTheme.primary}${_pw ? '20' : '18'}`;
       const _pHovCls  = _pw ? 'hover:bg-black/5 active:bg-black/8' : 'hover:bg-white/5 active:bg-white/8';
       const _pTxt     = _pw ? 'text-slate-800' : 'text-white';
       const _pTxtSub  = _pw ? 'text-slate-500' : 'text-white/50';
@@ -7789,10 +7789,10 @@ export const StudentDashboard: React.FC<Props> = ({
       const _pTxtColor = _pw ? '#1e293b' : '#ffffff';
       const _pTxtSubColor = _pw ? '#64748b' : 'rgba(255,255,255,0.50)';
       const _pTxtMutedColor = _pw ? '#94a3b8' : 'rgba(255,255,255,0.30)';
-      const _pRowBg   = _pw ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.04)';
-      const _pRowBdr  = _pw ? '1px solid rgba(0,0,0,0.07)' : '1px solid rgba(255,255,255,0.08)';
-      const _pIconBg  = _pw ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.08)';
-      const _pIconBdr = _pw ? '1px solid rgba(0,0,0,0.10)' : '1px solid rgba(255,255,255,0.10)';
+      const _pRowBg   = _pw ? `${tierTheme.primary}08` : 'rgba(255,255,255,0.04)';
+      const _pRowBdr  = `1px solid ${tierTheme.primary}${_pw ? '20' : '18'}`;
+      const _pIconBg  = `${tierTheme.primary}${_pw ? '12' : '14'}`;
+      const _pIconBdr = `1px solid ${tierTheme.primary}${_pw ? '30' : '20'}`;
 
       return (
         <div className="animate-in fade-in zoom-in duration-300 pb-28 min-h-screen" data-pw={_pw ? "1" : "0"} style={{ background: _pBg }}>
@@ -8686,7 +8686,7 @@ export const StudentDashboard: React.FC<Props> = ({
 
   return (
   <ThemeProvider theme={_extendedTheme}>
-    <div data-tier={tierTheme.tier} className="min-h-[100dvh] pb-0" style={{ background: tierTheme.profileBg }}>
+    <div data-tier={tierTheme.tier} className="min-h-[100dvh] pb-0" style={{ background: (settings as any)?.appBackground || '#ffffff' }}>
       <NotificationPrompt />
       {/* ADMIN SWITCH BUTTON — only visible inside content (Notes/MCQ player or HW notes) */}
       {(user.role === "ADMIN" ||
@@ -12187,6 +12187,8 @@ export const StudentDashboard: React.FC<Props> = ({
           topBarGrad={tierTheme.topBarGrad}
           profileBg={tierTheme.profileBg}
           profileCardBg={tierTheme.profileCardBg}
+          isDarkMode={isDarkMode}
+          primaryColor={tierTheme.primary}
           onClose={() => setShowFullBookCompare(false)}
         />
       )}
@@ -12493,6 +12495,7 @@ export const StudentDashboard: React.FC<Props> = ({
             saveCompareAnalytic(`topic-dir:${query}`, hits.length).catch(() => {});
           }}
           onClose={() => setShowTopicDirectory(false)}
+          isDarkMode={isDarkMode}
         />
       )}
 
@@ -16241,7 +16244,7 @@ RULES:
         // bg-white (solid) — earlier `from-amber-50/40` was 40% transparent,
         // letting the Home page's streak ("6/8") bleed through. Solid bg
         // ensures the user sees only ONE page at a time.
-        <div className="fixed inset-0 z-[200] flex flex-col animate-in slide-in-from-right-full duration-300" style={{ background: tierTheme.profileBg }}>
+        <div className="fixed inset-0 z-[200] flex flex-col animate-in slide-in-from-right-full duration-300" style={{ background: (settings as any)?.appBackground || '#ffffff' }}>
           {/* === PREMIUM HEADER (study-app gradient) === */}
           <div className="relative sticky top-0 z-10 shadow-lg" style={{ background: tierTheme.topBarGrad }}>
             {/* Decorative pattern overlay */}
