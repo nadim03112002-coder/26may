@@ -198,6 +198,12 @@ export const buildGranularTierTheme = (
   const btnGrad = (t.btnStart && t.btnEnd)
     ? `linear-gradient(135deg,${t.btnStart},${t.btnEnd})`
     : `linear-gradient(135deg,${accent}cc,${accent})`;
+  const rBgD = Math.max(Math.round(r * 0.07), 3);
+  const gBgD = Math.max(Math.round(g * 0.07), 3);
+  const bBgD = Math.max(Math.round(b * 0.07), 3);
+  const rCBgD = Math.max(Math.round(r * 0.13), 5);
+  const gCBgD = Math.max(Math.round(g * 0.13), 5);
+  const bCBgD = Math.max(Math.round(b * 0.13), 5);
   return {
     ...base,
     primary:       accent,
@@ -212,9 +218,9 @@ export const buildGranularTierTheme = (
     btnGrad,
     shadowColor:   `rgba(${r},${g},${b},0.32)`,
     topBarGrad,
-    profileBg:     (t.bgColor && t.bgColor !== '#ffffff' && t.bgColor !== '#f8fafc' && t.bgColor !== '#f1f5f9') ? t.bgColor : base.profileBg,
-    profileCardBg: (t.cardBg && t.cardBg !== '#ffffff' && t.cardBg !== '#f8fafc') ? t.cardBg : (t.cardColor || base.profileCardBg),
-    navBg:         base.navBg,
+    profileBg:     (t.bgColor && t.bgColor !== '#ffffff' && t.bgColor !== '#f8fafc' && t.bgColor !== '#f1f5f9') ? t.bgColor : `rgb(${rBgD},${gBgD},${bBgD})`,
+    profileCardBg: (t.cardBg && t.cardBg !== '#ffffff' && t.cardBg !== '#f8fafc') ? t.cardBg : (t.cardColor || `rgb(${rCBgD},${gCBgD},${bCBgD})`),
+    navBg:         (t as any).navBg !== undefined ? (t as any).navBg : base.navBg,
     flashcardBg1:  (t as any).flashcardBg1 || `rgb(${Math.round(r*0.12)},${Math.round(g*0.12)},${Math.round(b*0.12)})`,
     flashcardBg2:  (t as any).flashcardBg2 || `rgb(${Math.round(r*0.22)},${Math.round(g*0.22)},${Math.round(b*0.22)})`,
     chapterAccent: (t as any).chapterAccent || accent,

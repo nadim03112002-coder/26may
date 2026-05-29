@@ -2862,6 +2862,42 @@ model-viewer {
   border-color: var(--tier-border) !important;
 }
 
+/* ══════════════════════════════════════════════════════
+   THEME-RESPONSIVE OVERRIDES — driven by CSS variables set
+   by StudentDashboard useEffect when tierTheme changes.
+   These override the hardcoded tier defaults above so that
+   custom/official themes update every themed element.
+   ══════════════════════════════════════════════════════ */
+
+/* Subject cards */
+.nst-subject-card {
+  border-left-color: var(--nst-color-brand) !important;
+  border-color:      var(--nst-card-border, rgba(59,130,246,0.28)) !important;
+}
+.nst-subject-card .nst-card-icon  { background: var(--nst-color-brand-10) !important; color: var(--nst-color-brand) !important; }
+.nst-subject-card .nst-card-meta  { color: var(--nst-color-brand) !important; }
+.nst-subject-card .nst-card-arrow { color: var(--nst-color-brand) !important; }
+.nst-subject-card:hover            { border-left-color: var(--nst-color-brand) !important; box-shadow: 0 4px 20px var(--nst-color-brand-20, rgba(59,130,246,0.20)) !important; }
+
+/* Chapter cards */
+.nst-chapter-card {
+  border-left-color: var(--nst-chapter-accent, var(--nst-color-brand)) !important;
+}
+.nst-chapter-card:hover { border-color: var(--nst-color-brand) !important; }
+
+/* Buttons */
+.nst-btn-primary {
+  background:   var(--nst-color-brand) !important;
+  border-color: var(--nst-color-brand) !important;
+}
+
+/* MCQ option hover/selected */
+.nst-mcq-option:hover:not(:disabled) { border-color: var(--nst-color-brand) !important; background: var(--nst-color-brand-5) !important; }
+.nst-mcq-option.nst-mcq-selected     { border-color: var(--nst-color-brand) !important; background: var(--nst-color-brand-10) !important; }
+
+/* Badges */
+.nst-badge-brand { background: var(--nst-color-brand-10) !important; color: var(--nst-color-brand) !important; }
+
 /* ── White Profile Mode ── */
 [data-pw="1"] .text-white { color: #1e293b !important; }
 [data-pw="1"] [class*="text-white/"] { color: #64748b !important; }

@@ -128,6 +128,7 @@ export interface User {
   tempThemeColorExpiry?: string; // ISO string — when tempThemeColor expires
   personalThemeColor?: string; // User's own permanently chosen theme color (from ThemeCustomizer)
   personalTheme?: UserCustomTheme; // Full granular permanent theme
+  activeAppliedThemeId?: string; // 'default' | ThemeHistoryEntry.id — user's chosen theme from admin history
   useDefaultTheme?: boolean; // User explicitly chose default tier theme — skip all admin overrides
   themeBadgeColor?: string;
   themeAnimationId?: string;
@@ -694,6 +695,8 @@ export interface SystemSettings {
   officialUltraTheme?: UserCustomTheme;
   officialBasicTheme?: UserCustomTheme;
   officialFreeTheme?: UserCustomTheme;
+  adminThemeLibrary?: AdminSavedTheme[];
+  themeHistory?: ThemeHistoryEntry[];
   levelScoreOverride?: Record<string, number>;
   isGlobalFreeMode?: boolean; // NEW: Global Free Mode
   watermarkOpacity?: number; // 0.0 to 1.0
@@ -1516,6 +1519,23 @@ export interface UserCustomTheme {
   publishedAt?: string;
   publishedName?: string;
   likes?: number;
+}
+
+export interface AdminSavedTheme {
+  id: string;
+  name: string;
+  themeData: UserCustomTheme;
+  createdAt: string;
+  createdBy?: string;
+}
+
+export interface ThemeHistoryEntry {
+  id: string;
+  name: string;
+  themeData: UserCustomTheme;
+  targetTier: 'all' | 'ultra' | 'basic' | 'free';
+  appliedAt: string;
+  expiresAt: string | null;
 }
 
 export interface UserCustomAnimation {

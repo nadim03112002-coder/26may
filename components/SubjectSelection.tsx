@@ -3,6 +3,7 @@ import { ClassLevel, Subject, Stream, Board, SystemSettings, LucentNoteEntry } f
 import { getSubjectsList } from '../constants';
 import { Calculator, FlaskConical, Languages, Globe2, BookMarked, History, TrendingUp, Briefcase, Landmark, Feather, Home, HeartPulse, Activity, Cpu, ChevronRight } from 'lucide-react';
 import type { ContentIndexMap } from '../firebase';
+import { useAppTheme } from '../utils/themeContext';
 
 interface Props {
   classLevel: ClassLevel;
@@ -84,6 +85,7 @@ export const SubjectSelection: React.FC<Props> = ({
   classLevel, stream, board, onSelect, onBack, hideBack = false, settings,
   contentIndex = {}, lucentNotes = [], subscriptionLevel, isPremium
 }) => {
+  const appTheme = useAppTheme();
   const subjects = getSubjectsList(classLevel, stream, board).filter(
     sub => !(settings?.hiddenSubjects || []).includes(sub.id)
   );
@@ -95,14 +97,8 @@ export const SubjectSelection: React.FC<Props> = ({
       ? 'basic'
       : 'free';
 
-  const iconColorMap: Record<string, string> = {
-    ultra: '#a78bfa',
-    basic: '#38bdf8',
-    free:  '#64748b',
-  };
-  const iconColor = iconColorMap[tier];
-
-  const tierHeaderColor = tier === 'ultra' ? '#1e3a8a' : tier === 'basic' ? '#1d4ed8' : '#0369a1';
+  const tierHeaderColor = appTheme.primary;
+  const iconColor = appTheme.primary;
 
   return (
     <div className="animate-in fade-in slide-in-from-right-8 duration-500 mt-0 pt-0">
