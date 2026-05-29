@@ -2189,6 +2189,21 @@ export const StudentDashboard: React.FC<Props> = ({
   const [noteZoom, setNoteZoom] = useState<number>(1.0);
   const zoomIn  = () => setNoteZoom(z => Math.min(1.8, parseFloat((z + 0.1).toFixed(1))));
   const zoomOut = () => setNoteZoom(z => Math.max(0.6, parseFloat((z - 0.1).toFixed(1))));
+  // ── Profile TTS settings state ──
+  const [profileTtsVoices, setProfileTtsVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [profileTtsSelectedUri, setProfileTtsSelectedUri] = useState<string>(() => { try { return localStorage.getItem('nst_preferred_voice_uri') || ''; } catch { return ''; } });
+  const [profileTtsSpeedIdx, setProfileTtsSpeedIdx] = useState<number>(() => { try { const v = parseInt(localStorage.getItem('nst_tts_speed') || '1', 10); return isNaN(v) || v < 0 || v > 5 ? 1 : v; } catch { return 1; } });
+  const [profileTtsPlaying, setProfileTtsPlaying] = useState(false);
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.speechSynthesis) return;
+    const load = () => {
+      const vs = window.speechSynthesis.getVoices();
+      if (vs.length > 0) setProfileTtsVoices(vs);
+    };
+    load();
+    window.speechSynthesis.addEventListener('voiceschanged', load);
+    return () => window.speechSynthesis.removeEventListener('voiceschanged', load);
+  }, []);
   const handleRotate = async () => {
     rotateFullscreenRef.current = true;
     const result = await rotateScreen();
@@ -6137,7 +6152,7 @@ export const StudentDashboard: React.FC<Props> = ({
                 <div className="flex-1 min-w-0">
                   <h2 className={`text-xl font-black ${theme.textDeep} truncate`}>{subjectLabel[homeworkSubjectView] || homeworkSubjectView}</h2>
                   <p className="text-[11px] text-slate-500 font-bold mt-0.5">
-                    📖 Page-wise · {filteredHw.length} {filteredHw.length === 1 ? 'note' : 'notes'}
+                    📖 Page-wise · {filteredHw.length} {filteredHw.length === 1 ? 'note' : 'notes'} · {filteredHw.reduce((sum, hw) => sum + (Array.isArray((hw as any).mcqs) ? (hw as any).mcqs.length : 0), 0)} MCQ
                   </p>
                 </div>
               </div>
@@ -6177,8 +6192,10 @@ export const StudentDashboard: React.FC<Props> = ({
                               <button onClick={(e) => { e.stopPropagation(); setHwNotesViewMode('chunk'); setHwActiveHwId(hw.id || null); }} className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-black bg-amber-100 text-amber-700 active:scale-95 transition-all" title="Read Mode"><Volume2 size={9}/> Read</button>
                               <button onClick={(e) => { e.stopPropagation(); handleWriteModeGate(() => { setHwNotesViewMode('html'); setHwActiveHwId(hw.id || null); }); }} className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-black bg-teal-100 text-teal-700 active:scale-95 transition-all" title="Write Mode"><FileText size={9}/> Write</button>
                             </>)}
-                            {mcqCount > 0 && (
-                              <button onClick={(e) => { e.stopPropagation(); setHwActiveHwId(hw.id || null); }} className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-black bg-violet-100 text-violet-700 active:scale-95 transition-all" title="MCQ Practice"><HelpCircle size={9}/> MCQ ({mcqCount})</button>
+                            {mcqCount > 0 ? (
+                              <button onClick={(e) => { e.stopPropagation(); setHwActiveHwId(hw.id || null); }} className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-black bg-violet-100 text-violet-700 active:scale-95 transition-all" title="MCQ Practice"><HelpCircle size={9}/> {mcqCount} MCQ</button>
+                            ) : (
+                              <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-100 text-slate-400"><HelpCircle size={9}/> 0 MCQ</span>
                             )}
                             {hw.videoUrl && (
                               <button onClick={(e) => { e.stopPropagation(); hwAutoOpenRef.current = 'video'; setHwActiveHwId(hw.id || null); }} className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-black bg-rose-100 text-rose-700 active:scale-95 transition-all" title="Watch Video"><Video size={9}/> Video</button>
@@ -6219,8 +6236,10 @@ export const StudentDashboard: React.FC<Props> = ({
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-black text-slate-700 truncate">{hw.title || 'Untitled'}</p>
                               <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                {mcqCount > 0 && (
-                                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${theme.chip}`}>{mcqCount} MCQ</span>
+                                {mcqCount > 0 ? (
+                                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded bg-violet-100 text-violet-700`}><HelpCircle size={9} className="inline mr-0.5"/>{mcqCount} MCQ</span>
+                                ) : (
+                                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-400"><HelpCircle size={9} className="inline mr-0.5"/>0 MCQ</span>
                                 )}
                                 <span className={`text-[10px] font-bold ${theme.text} bg-slate-50 px-1.5 py-0.5 rounded`}>{monthYear}</span>
                               </div>
@@ -6283,7 +6302,7 @@ export const StudentDashboard: React.FC<Props> = ({
       const dateFilterActive = bookFilterYear !== null || bookFilterMonth !== null;
 
       return (
-        <div className={`min-h-[100dvh] ${theme.bg} p-4 pt-2`}>
+        <div className={`min-h-[100dvh] p-4 pt-2`} style={{ background: _appBg }}>
           <div className="max-w-3xl mx-auto pb-8 animate-in fade-in">
             <div className="flex items-center gap-3 mb-4">
               <button onClick={goBack} className={`${theme.bgSoft} p-2 rounded-full ${theme.text}`}>
@@ -6299,7 +6318,7 @@ export const StudentDashboard: React.FC<Props> = ({
                 Lets the student narrow down the month list — useful when a book
                 spans many months/years. Year filter populates Month filter. */}
             {isPageWiseSubject && filteredHw.length > 0 && (
-              <div className={`bg-white border-2 ${theme.border} rounded-2xl p-2 mb-3 flex items-center gap-2`}>
+              <div className={`border-2 rounded-2xl p-2 mb-3 flex items-center gap-2`} style={{ background: tierTheme.profileCardBg, borderColor: tierTheme.primary }}>
                 <span className={`text-[10px] font-black uppercase tracking-wider ${theme.text} pl-1 shrink-0`}>Filter</span>
                 <select
                   value={bookFilterYear === null ? 'all' : String(bookFilterYear)}
@@ -6351,15 +6370,15 @@ export const StudentDashboard: React.FC<Props> = ({
             {lucentSectionEl}
 
             {filteredHw.length === 0 ? (
-              <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center">
+              <div className="rounded-2xl border p-8 text-center" style={{ background: tierTheme.profileCardBg, borderColor: tierTheme.primary }}>
                 <Calendar size={36} className={`${theme.text} mx-auto mb-2 opacity-60`} />
-                <p className="text-sm font-bold text-slate-600">Abhi koi note add nahi hua</p>
+                <p className={`text-sm font-bold ${theme.textDeep}`}>Abhi koi note add nahi hua</p>
               </div>
             ) : monthYearList.length === 0 ? (
-              <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center">
-                <Calendar size={32} className="mx-auto mb-2 text-slate-300" />
-                <p className="text-sm font-bold text-slate-600">Is filter ke liye koi note nahi mila</p>
-                <p className="text-[11px] text-slate-400 mt-1">Year ya Month change karke try karein.</p>
+              <div className="rounded-2xl border p-8 text-center" style={{ background: tierTheme.profileCardBg, borderColor: tierTheme.primary }}>
+                <Calendar size={32} className={`mx-auto mb-2 ${theme.text} opacity-40`} />
+                <p className={`text-sm font-bold ${theme.textDeep}`}>Is filter ke liye koi note nahi mila</p>
+                <p className={`text-[11px] ${theme.text} opacity-60 mt-1`}>Year ya Month change karke try karein.</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -6367,7 +6386,8 @@ export const StudentDashboard: React.FC<Props> = ({
                   <button
                     key={`${year}-${month}`}
                     onClick={() => { setHwYear(year); setHwMonth(month); }}
-                    className={`bg-white border-2 ${theme.border} rounded-2xl p-4 text-left hover:shadow-md transition-all active:scale-[0.98] flex items-center gap-3`}
+                    className={`border-2 rounded-2xl p-4 text-left hover:shadow-md transition-all active:scale-[0.98] flex items-center gap-3`}
+                    style={{ background: tierTheme.profileCardBg, borderColor: tierTheme.primary }}
                   >
                     <div className={`${theme.bgSoft} ${theme.textDeep} w-16 h-16 rounded-2xl flex flex-col items-center justify-center shrink-0`}>
                       <span className="text-[10px] font-bold uppercase tracking-wider opacity-80">{monthNames[month].slice(0, 3)}</span>
@@ -6375,7 +6395,7 @@ export const StudentDashboard: React.FC<Props> = ({
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className={`text-base font-black ${theme.textDeep}`}>{monthNames[month]} {year}</p>
-                      <p className="text-xs text-slate-500 font-bold mt-0.5">{count} {count === 1 ? 'note' : 'notes'}</p>
+                      <p className={`text-xs font-bold mt-0.5 ${theme.text} opacity-70`}>{count} {count === 1 ? 'note' : 'notes'}</p>
                     </div>
                     <ChevronRight size={18} className={`${theme.text}`} />
                   </button>
@@ -6957,18 +6977,18 @@ export const StudentDashboard: React.FC<Props> = ({
               { key: 'mcq',         label: 'MCQ',          emoji: '❓', count: counts.mcq,        activeBg: 'bg-violet-600',   activeText: 'text-white' },
             ].filter(c => c.count > 0);
             return (
-              <div className="bg-gradient-to-br from-indigo-50 via-white to-purple-50 border border-indigo-100 rounded-3xl p-4 shadow-sm">
+              <div className="rounded-3xl p-4 shadow-sm" style={{ background: `linear-gradient(135deg,${tierTheme.primary}14,${tierTheme.cardBg || '#ffffff'},${tierTheme.primary}08)`, border: `1px solid ${tierTheme.primary}28` }}>
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2 min-w-0">
-                    <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0">
+                    <div className="w-8 h-8 rounded-xl text-white flex items-center justify-center shrink-0" style={{ background: `linear-gradient(135deg,${tierTheme.btnStart || tierTheme.primary},${tierTheme.btnEnd || tierTheme.primary})` }}>
                       <BookOpen size={16} />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-[10px] font-black text-indigo-700 uppercase tracking-widest">Continue Reading</p>
-                      <p className="text-xs text-slate-500 font-medium truncate">Where you left off · <span className="text-indigo-400 font-bold">← swipe to remove</span></p>
+                      <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: tierTheme.primary }}>Continue Reading</p>
+                      <p className="text-xs font-medium truncate" style={{ color: `${tierTheme.primary}80` }}>Where you left off · <span className="font-bold" style={{ color: `${tierTheme.primary}99` }}>← swipe to remove</span></p>
                     </div>
                   </div>
-                  <span className="text-[10px] font-bold text-indigo-600 bg-white px-2 py-0.5 rounded-full border border-indigo-200">
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ color: tierTheme.primary, background: tierTheme.cardBg || '#fff', border: `1px solid ${tierTheme.primary}35` }}>
                     {merged.length}{activeFilter !== 'all' ? `/${allMerged.length}` : ''}
                   </span>
                 </div>
@@ -6984,7 +7004,7 @@ export const StudentDashboard: React.FC<Props> = ({
                           className={`shrink-0 snap-start flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-black transition-all active:scale-95 border ${
                             isActive
                               ? `${c.activeBg} ${c.activeText} border-transparent shadow-sm`
-                              : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300'
+                              : 'border-slate-200 text-slate-600'
                           }`}
                         >
                           <span className="text-[12px] leading-none">{c.emoji}</span>
@@ -6998,11 +7018,12 @@ export const StudentDashboard: React.FC<Props> = ({
                   </div>
                 )}
                 {merged.length === 0 ? (
-                  <div className="bg-white border border-dashed border-indigo-200 rounded-2xl p-4 text-center">
+                  <div className="rounded-2xl p-4 text-center border border-dashed" style={{ background: `${tierTheme.primary}06`, borderColor: `${tierTheme.primary}35` }}>
                     <p className="text-xs font-bold text-slate-500">Nothing matches this filter yet.</p>
                     <button
                       onClick={() => setHomeResumeFilter('all')}
-                      className="mt-2 text-[11px] font-black text-indigo-600 underline"
+                      className="mt-2 text-[11px] font-black underline"
+                      style={{ color: tierTheme.primary }}
                     >
                       Show all
                     </button>
@@ -7016,31 +7037,33 @@ export const StudentDashboard: React.FC<Props> = ({
                         <SwipeToDismiss
                           key={`ch_${entry.id}`}
                           onDismiss={() => dismissRecentChapter(entry.id)}
-                          className="bg-white rounded-2xl border border-slate-200 shadow-sm p-3 flex flex-col gap-2"
+                          className="rounded-2xl shadow-sm p-3 flex flex-col gap-2"
+                          style={{ background: tierTheme.cardBg || '#ffffff', border: `1px solid ${tierTheme.cardBorder || tierTheme.primary + '20'}` }}
                         >
                           <button
                             onClick={() => openRecentChapter(entry)}
                             className="text-left"
                           >
-                            <p className="text-[9px] font-black text-indigo-600 uppercase tracking-widest truncate">
+                            <p className="text-[9px] font-black uppercase tracking-widest truncate" style={{ color: tierTheme.primary }}>
                               Class {entry.classLevel} · {entry.subject?.name || 'Subject'}
                             </p>
-                            <p className="text-sm font-black text-slate-800 leading-snug line-clamp-2 mt-1">
+                            <p className="text-sm font-black leading-snug line-clamp-2 mt-1" style={{ color: tierTheme.textColor || '#0f172a' }}>
                               {entry.chapter?.title || 'Chapter'}
                             </p>
                           </button>
                           <div className="mt-1">
                             <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
                               <div
-                                className="h-full bg-gradient-to-r from-indigo-500 to-purple-500"
-                                style={{ width: `${Math.max(2, entry.scrollPct)}%` }}
+                                className="h-full"
+                                style={{ width: `${Math.max(2, entry.scrollPct)}%`, background: `linear-gradient(to right,${tierTheme.btnStart || tierTheme.primary},${tierTheme.btnEnd || tierTheme.primary})` }}
                               />
                             </div>
                             <div className="flex items-center justify-between mt-1.5">
                               <span className="text-[10px] text-slate-500 font-semibold">{entry.scrollPct}% read</span>
                               <button
                                 onClick={() => openRecentChapter(entry)}
-                                className="text-[10px] font-black text-white bg-indigo-600 hover:bg-indigo-700 px-2.5 py-1 rounded-full flex items-center gap-1 active:scale-95 transition-all"
+                                className="text-[10px] font-black text-white px-2.5 py-1 rounded-full flex items-center gap-1 active:scale-95 transition-all"
+                                style={{ background: `linear-gradient(135deg,${tierTheme.btnStart || tierTheme.primary},${tierTheme.btnEnd || tierTheme.primary})` }}
                               >
                                 Resume <ChevronRight size={10} />
                               </button>
@@ -7121,7 +7144,8 @@ export const StudentDashboard: React.FC<Props> = ({
                         <SwipeToDismiss
                           key={`luc_${entry.id}`}
                           onDismiss={() => { removeRecentLucent(entry.id); setRecentLucent(getRecentLucent()); }}
-                          className="bg-white rounded-2xl border border-teal-200 shadow-sm p-3 flex flex-col gap-2"
+                          className="rounded-2xl shadow-sm p-3 flex flex-col gap-2"
+                          style={{ background: tierTheme.cardBg || '#ffffff', border: `1px solid ${tierTheme.cardBorder || tierTheme.primary + '20'}` }}
                         >
                           <button
                             onClick={() => openRecentLucent(entry)}
@@ -7137,23 +7161,24 @@ export const StudentDashboard: React.FC<Props> = ({
                                 </span>
                               )}
                             </div>
-                            <p className="text-sm font-black text-slate-800 leading-snug line-clamp-2 mt-1">
+                            <p className="text-sm font-black leading-snug line-clamp-2 mt-1" style={{ color: tierTheme.textColor || '#0f172a' }}>
                               {entry.lessonTitle}
                             </p>
-                            <p className="text-[10px] text-slate-500 font-semibold mt-0.5 truncate">{entry.subject}</p>
+                            <p className="text-[10px] font-semibold mt-0.5 truncate" style={{ color: tierTheme.textSecondary || '#64748b' }}>{entry.subject}</p>
                           </button>
                           <div className="mt-1">
                             <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
                               <div
-                                className="h-full bg-gradient-to-r from-teal-500 to-emerald-500"
-                                style={{ width: `${Math.max(2, entry.scrollPct)}%` }}
+                                className="h-full"
+                                style={{ width: `${Math.max(2, entry.scrollPct)}%`, background: `linear-gradient(to right,${tierTheme.btnStart || tierTheme.primary},${tierTheme.btnEnd || tierTheme.primary})` }}
                               />
                             </div>
                             <div className="flex items-center justify-between mt-1.5">
                               <span className="text-[10px] text-slate-500 font-semibold">{entry.scrollPct}% read</span>
                               <button
                                 onClick={() => openRecentLucent(entry)}
-                                className="text-[10px] font-black text-white bg-teal-600 hover:bg-teal-700 px-2.5 py-1 rounded-full flex items-center gap-1 active:scale-95 transition-all"
+                                className="text-[10px] font-black text-white px-2.5 py-1 rounded-full flex items-center gap-1 active:scale-95 transition-all"
+                                style={{ background: `linear-gradient(135deg,${tierTheme.btnStart || tierTheme.primary},${tierTheme.btnEnd || tierTheme.primary})` }}
                               >
                                 Resume <ChevronRight size={10} />
                               </button>
@@ -7169,7 +7194,8 @@ export const StudentDashboard: React.FC<Props> = ({
                       <SwipeToDismiss
                         key={`hw_${entry.id}`}
                         onDismiss={() => dismissRecentHw(entry.id)}
-                        className="bg-white rounded-2xl border border-slate-200 shadow-sm p-3 flex flex-col gap-2"
+                        className="rounded-2xl shadow-sm p-3 flex flex-col gap-2"
+                        style={{ background: tierTheme.cardBg || '#ffffff', border: `1px solid ${tierTheme.cardBorder || tierTheme.primary + '20'}` }}
                       >
                         <button
                           onClick={() => openRecentHw(entry)}
@@ -7185,7 +7211,7 @@ export const StudentDashboard: React.FC<Props> = ({
                               </span>
                             )}
                           </div>
-                          <p className="text-sm font-black text-slate-800 leading-snug line-clamp-2 mt-1">
+                          <p className="text-sm font-black leading-snug line-clamp-2 mt-1" style={{ color: tierTheme.textColor || '#0f172a' }}>
                             {entry.title}
                           </p>
                         </button>
@@ -7213,7 +7239,8 @@ export const StudentDashboard: React.FC<Props> = ({
                   {totalFiltered > 1 && (
                     <button
                       onClick={() => setShowAllContinueReading(v => !v)}
-                      className="w-full mt-1 py-2 flex items-center justify-center gap-1.5 rounded-xl text-[11px] font-black transition-all active:scale-95 border border-dashed border-indigo-200 text-indigo-600 bg-white hover:bg-indigo-50"
+                      className="w-full mt-1 py-2 flex items-center justify-center gap-1.5 rounded-xl text-[11px] font-black transition-all active:scale-95 border border-dashed"
+                      style={{ color: tierTheme.primary, background: tierTheme.cardBg || '#ffffff', borderColor: `${tierTheme.primary}40` }}
                     >
                       {showAllContinueReading
                         ? <><ChevronUp size={12} /> Less</>
@@ -8459,6 +8486,152 @@ export const StudentDashboard: React.FC<Props> = ({
                     );
                   })}
                 </div>
+              </div>
+            );
+          })()}
+
+          {/* ── TTS VOICE SETTINGS ── */}
+          {(() => {
+            const _TTS_SPEEDS = [0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
+            const _TTS_LABELS = ['0.75x', '1x', '1.25x', '1.5x', '1.75x', '2x'];
+            const _testSentence = 'IIC — India ka sabse accha educational app. Notes, MCQ, aur AI se apni padhai ko smart banaao!';
+            const _hindiVoices = profileTtsVoices.filter(v => v.lang.startsWith('hi')).slice(0, 5);
+            const _engVoices = profileTtsVoices.filter(v => v.lang.startsWith('en')).slice(0, 5);
+
+            const _playTest = (voiceUri?: string, spdIdx?: number) => {
+              if (!window.speechSynthesis) return;
+              const uri = voiceUri ?? profileTtsSelectedUri;
+              const spd = spdIdx !== undefined ? spdIdx : profileTtsSpeedIdx;
+              if (profileTtsPlaying) { window.speechSynthesis.cancel(); setProfileTtsPlaying(false); return; }
+              const voice = profileTtsVoices.find(v => v.voiceURI === uri) || null;
+              const utter = new SpeechSynthesisUtterance(_testSentence);
+              if (voice) utter.voice = voice;
+              utter.rate = _TTS_SPEEDS[spd] ?? 1.0;
+              utter.onstart = () => setProfileTtsPlaying(true);
+              utter.onend = () => setProfileTtsPlaying(false);
+              utter.onerror = () => setProfileTtsPlaying(false);
+              window.speechSynthesis.cancel();
+              setTimeout(() => window.speechSynthesis.speak(utter), 80);
+            };
+
+            const _selectVoice = (uri: string) => {
+              setProfileTtsSelectedUri(uri);
+              try { localStorage.setItem('nst_preferred_voice_uri', uri); } catch {}
+              _playTest(uri, profileTtsSpeedIdx);
+            };
+
+            const _selectSpeed = (idx: number) => {
+              setProfileTtsSpeedIdx(idx);
+              try { localStorage.setItem('nst_tts_speed', String(idx)); } catch {}
+            };
+
+            return (
+              <div className="rounded-none mb-2.5" style={{ background: _pCard, border: _pBdrSoft }}>
+                {/* Header */}
+                <div className="px-4 pt-3.5 pb-2.5 flex items-center gap-3" style={{ borderBottom: `1px solid ${tierTheme.primary}15` }}>
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                    style={{ background: `${tierTheme.primary}18`, border: `1px solid ${tierTheme.primary}50` }}>
+                    <span className="text-base">🔊</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-bold ${_pTxt}`}>TTS Voice Settings</p>
+                    <p className={`text-[10px] mt-0.5 ${_pTxtMuted}`}>Notes ki awaaz aur reading speed chunein</p>
+                  </div>
+                  <button
+                    onClick={() => _playTest()}
+                    className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition active:scale-95 shadow-sm ${profileTtsPlaying ? 'bg-red-500 text-white' : 'text-white'}`}
+                    style={profileTtsPlaying ? {} : { background: tierTheme.primary }}
+                  >
+                    {profileTtsPlaying ? '■ Stop' : '▶ Test'}
+                  </button>
+                </div>
+
+                {/* Test sentence preview */}
+                <div className="px-4 pt-2.5 pb-1">
+                  <div className="rounded-xl px-3 py-2 text-[11px] italic" style={{ background: `${tierTheme.primary}08`, border: `1px solid ${tierTheme.primary}18`, color: _pTxtMutedColor }}>
+                    "{_testSentence}"
+                  </div>
+                </div>
+
+                {/* Speed selector */}
+                <div className="px-4 pt-2 pb-3" style={{ borderBottom: `1px solid ${tierTheme.primary}12` }}>
+                  <p className={`text-[10px] font-black uppercase tracking-wider mb-2 ${_pTxtMuted}`}>Reading Speed</p>
+                  <div className="flex gap-1.5 flex-wrap">
+                    {_TTS_LABELS.map((lbl, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => _selectSpeed(idx)}
+                        className="px-3 py-1.5 rounded-xl text-[11px] font-black transition active:scale-95"
+                        style={profileTtsSpeedIdx === idx
+                          ? { background: tierTheme.primary, color: '#fff', boxShadow: `0 2px 8px ${tierTheme.primary}40` }
+                          : { background: `${tierTheme.primary}10`, color: _pTxtMutedColor, border: `1px solid ${tierTheme.primary}20` }}
+                      >
+                        {lbl}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Hindi Voices */}
+                {_hindiVoices.length > 0 && (
+                  <div className="px-4 pt-3 pb-1">
+                    <p className={`text-[10px] font-black uppercase tracking-wider mb-2 ${_pTxtMuted}`}>🇮🇳 Hindi Voices</p>
+                    <div className="space-y-1.5">
+                      {_hindiVoices.map(v => {
+                        const _isSel = profileTtsSelectedUri === v.voiceURI;
+                        return (
+                          <button key={v.voiceURI} onClick={() => _selectVoice(v.voiceURI)}
+                            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition active:scale-95 text-left"
+                            style={{ background: _isSel ? `${tierTheme.primary}18` : `${_pTxtMutedColor}08`, border: `1px solid ${_isSel ? tierTheme.primary + '50' : _pTxtMutedColor + '18'}` }}>
+                            <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 text-sm"
+                              style={{ background: _isSel ? `${tierTheme.primary}25` : `${_pTxtMutedColor}12` }}>
+                              {_isSel ? '✓' : '🎙️'}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-xs font-bold truncate ${_isSel ? _pTxt : _pTxtMuted}`}>{v.name}</p>
+                              <p className={`text-[9px] ${_pTxtMuted}`}>{v.lang} · {v.localService ? 'Device' : 'Network'}</p>
+                            </div>
+                            {_isSel && <span className="text-[9px] font-black px-2 py-0.5 rounded-full shrink-0" style={{ background: `${tierTheme.primary}25`, color: tierTheme.primary }}>ACTIVE</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* English Voices */}
+                {_engVoices.length > 0 && (
+                  <div className="px-4 pt-2 pb-3.5">
+                    <p className={`text-[10px] font-black uppercase tracking-wider mb-2 ${_pTxtMuted}`}>🇬🇧 English Voices</p>
+                    <div className="space-y-1.5">
+                      {_engVoices.map(v => {
+                        const _isSel = profileTtsSelectedUri === v.voiceURI;
+                        return (
+                          <button key={v.voiceURI} onClick={() => _selectVoice(v.voiceURI)}
+                            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition active:scale-95 text-left"
+                            style={{ background: _isSel ? `${tierTheme.primary}18` : `${_pTxtMutedColor}08`, border: `1px solid ${_isSel ? tierTheme.primary + '50' : _pTxtMutedColor + '18'}` }}>
+                            <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 text-sm"
+                              style={{ background: _isSel ? `${tierTheme.primary}25` : `${_pTxtMutedColor}12` }}>
+                              {_isSel ? '✓' : '🎙️'}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-xs font-bold truncate ${_isSel ? _pTxt : _pTxtMuted}`}>{v.name}</p>
+                              <p className={`text-[9px] ${_pTxtMuted}`}>{v.lang} · {v.localService ? 'Device' : 'Network'}</p>
+                            </div>
+                            {_isSel && <span className="text-[9px] font-black px-2 py-0.5 rounded-full shrink-0" style={{ background: `${tierTheme.primary}25`, color: tierTheme.primary }}>ACTIVE</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* No voices loaded yet */}
+                {_hindiVoices.length === 0 && _engVoices.length === 0 && (
+                  <div className="px-4 py-4 text-center">
+                    <p className={`text-xs ${_pTxtMuted}`}>TTS voices load ho rahi hain… ek baar notes se koi note sunein, tab yahaan voices aayengi.</p>
+                  </div>
+                )}
               </div>
             );
           })()}
