@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Volume2, Square, BookOpen, Star, Palette, Check, Type, RotateCcw, Search, Monitor } from 'lucide-react';
+import { Volume2, Square, BookOpen, Star, Palette, Check, Type, RotateCcw, Search, Monitor, MoreVertical, X } from 'lucide-react';
 import { rotateScreen, isDesktopModeOn, setDesktopMode } from '../utils/displayPrefs';
 import { speakText, stopSpeech } from '../utils/textToSpeech';
 import { splitIntoTopics, NotesTopic as Topic } from '../utils/notesSplitter';
@@ -548,6 +548,7 @@ export const ChunkedNotesReader: React.FC<Props> = ({ content, className, langua
   const [inlineQuery, setInlineQuery] = useState('');
   const [isDesktopMode, setIsDesktopModeLocal] = useState<boolean>(isDesktopModeOn);
   const [rotateToast, setRotateToast] = useState<string | null>(null);
+  const [showControls, setShowControls] = useState(false);
 
   // Re-apply desktop mode on orientation/resize changes so it survives rotation
   useEffect(() => {
@@ -968,248 +969,237 @@ export const ChunkedNotesReader: React.FC<Props> = ({ content, className, langua
         </div>
       )}
       {!hideTopBar && (
-        <div className="sticky top-0 z-20 bg-white py-2 mb-3 border-b border-slate-200 shadow-sm">
-          <div className="flex items-center justify-between gap-2">
-            <div className="text-xs font-bold text-slate-600 truncate min-w-0">
+        <div className="sticky top-0 z-20 bg-white border-b border-slate-200 shadow-sm mb-3">
+          {/* ── Slim bar — always visible ── */}
+          <div className="flex items-center gap-2 px-2 py-2">
+            <div className="text-xs font-bold text-slate-700 truncate flex-1 min-w-0">
               {topBarLabel || 'Notes'}
-              <span className="text-slate-400 font-medium ml-2">
+              <span className="text-slate-400 font-normal ml-1.5 text-[10px]">
                 {isReading && activeIdx !== null
-                  ? `${activeIdx + 1} / ${activeTopicList.length}`
+                  ? `${activeIdx + 1}/${activeTopicList.length}`
                   : `${activeTopicList.length} topics`}
               </span>
             </div>
+            {/* Read All — always accessible */}
+            <button
+              onClick={() => {
+                if (isReading) {
+                  try { if (navigator.vibrate) navigator.vibrate(30); } catch {}
+                  stopAll();
+                } else {
+                  try { if (navigator.vibrate) navigator.vibrate(50); } catch {}
+                  startFromIndex(initialIndex ?? 0);
+                }
+              }}
+              className={`shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider shadow-sm active:scale-95 transition ${isReading ? 'bg-red-600 text-white' : 'bg-indigo-600 text-white'}`}
+            >
+              {isReading ? <><Square size={11}/> Stop</> : initialIndex ? <><Volume2 size={11}/> Continue</> : <><Volume2 size={11}/> Read All</>}
+            </button>
+            {/* 3-dot menu toggle */}
+            <button
+              type="button"
+              onClick={() => setShowControls(s => !s)}
+              className={`shrink-0 p-1.5 rounded-lg transition active:scale-95 ${showControls ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+              title={showControls ? 'Controls band karo' : 'Reading controls'}
+              aria-label="Toggle reading controls"
+            >
+              {showControls ? <X size={15} /> : <MoreVertical size={15} />}
+            </button>
+          </div>
 
-            {/* Font size controls */}
-            <div className="flex items-center gap-1 shrink-0">
-              <div className="flex items-center bg-slate-100 rounded-lg overflow-hidden">
+          {/* ── Expanded controls panel ── */}
+          {showControls && (
+            <div className="border-t border-slate-100 bg-slate-50 px-3 py-3 animate-in slide-in-from-top-1 duration-150">
+              <div className="grid grid-cols-4 gap-2">
+
+                {/* Font Size Down */}
                 <button
                   type="button"
                   onClick={() => changeFontSize(-1)}
                   disabled={fontIdx === 0}
-                  className="px-2 py-1.5 text-slate-600 hover:bg-slate-200 active:bg-slate-300 disabled:opacity-30 transition text-xs font-black"
-                  title="Font chhota karein"
-                  aria-label="Font chhota"
+                  className="flex flex-col items-center gap-1 py-2.5 px-1 rounded-xl bg-white border border-slate-200 active:scale-95 transition disabled:opacity-35 shadow-sm"
                 >
-                  A-
+                  <span className="text-slate-700 text-sm font-black leading-none">A-</span>
+                  <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wide leading-none">Font छोटा</span>
                 </button>
-                <span className="w-px h-4 bg-slate-300" />
+
+                {/* Font Size Up */}
                 <button
                   type="button"
                   onClick={() => changeFontSize(1)}
                   disabled={fontIdx === 3}
-                  className="px-2 py-1.5 text-slate-600 hover:bg-slate-200 active:bg-slate-300 disabled:opacity-30 transition text-sm font-black"
-                  title="Font bada karein"
-                  aria-label="Font bada"
+                  className="flex flex-col items-center gap-1 py-2.5 px-1 rounded-xl bg-white border border-slate-200 active:scale-95 transition disabled:opacity-35 shadow-sm"
                 >
-                  A+
+                  <span className="text-slate-700 text-base font-black leading-none">A+</span>
+                  <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wide leading-none">Font बड़ा</span>
                 </button>
-              </div>
 
-              {/* Font family picker — pehle yeh ek narrow card ke andar
-                  absolute-position se kholta tha jisse Read More jaisi narrow
-                  views mein side se cut ho jata tha. Ab same centered popup
-                  use karte hain (ReadingStylePopover) jo Portal ke through
-                  poori screen ke beech mein khulta hai — left-cut/clipping
-                  nahi hota, aur category tabs (All/Hindi/etc.) tap karne par
-                  bhi kuch gayab nahi hota. */}
-              <button
-                type="button"
-                onClick={() => {
-                  setShowFontFamilyMenu(true);
-                  // Preload top10 fonts for previews
-                  TOP_10_READING_FONTS.forEach(f => ensureReadingFontLoaded(f.gfontParam));
-                }}
-                className={`p-1.5 rounded-lg transition flex items-center gap-1 ${activeFont ? 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 active:bg-slate-300'}`}
-                title={activeFont ? `Font: ${activeFont.label}` : 'Font badlein (686+ choices)'}
-                aria-label="Pick reading font"
-                aria-expanded={showFontFamilyMenu}
-              >
-                <Type size={14} />
-              </button>
-
-              {/* Reading-text colour picker — opens a small palette below the
-                  bar with 6 swatches curated for the active theme. The first
-                  swatch carries a ★ (recommended) badge; the active swatch
-                  shows a ✓. Selection persists per-theme.
-                  HIDDEN when `textColorOverride` is set — in that mode the
-                  parent fully owns the reading colour (e.g. PdfView's inline
-                  Read More wrapper picks bg + text together as a coherent
-                  preset, so two color pickers would just confuse the user. */}
-              <div className="relative" style={{ display: textColorOverride ? 'none' : undefined }}>
+                {/* Font Style */}
                 <button
                   type="button"
-                  onClick={() => setShowColorMenu(s => !s)}
-                  className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition flex items-center gap-1"
-                  title="Text rang chunein"
-                  aria-label="Pick text color"
-                  aria-expanded={showColorMenu}
+                  onClick={() => { setShowFontFamilyMenu(true); TOP_10_READING_FONTS.forEach(f => ensureReadingFontLoaded(f.gfontParam)); }}
+                  className={`flex flex-col items-center gap-1 py-2.5 px-1 rounded-xl border active:scale-95 transition shadow-sm ${activeFont ? 'bg-indigo-50 border-indigo-200' : 'bg-white border-slate-200'}`}
                 >
-                  <Palette size={14} className="text-slate-600" />
-                  <span className="w-3 h-3 rounded-full border border-slate-300" style={{ backgroundColor: textColor }} />
+                  <Type size={14} className={activeFont ? 'text-indigo-600' : 'text-slate-600'} />
+                  <span className={`text-[8px] font-bold uppercase tracking-wide leading-none ${activeFont ? 'text-indigo-500' : 'text-slate-400'}`}>Font Style</span>
                 </button>
-                {showColorMenu && (
-                  <>
-                    {/* Click-outside backdrop */}
-                    <div className="fixed inset-0 z-30" onClick={() => setShowColorMenu(false)} />
-                    <div className="absolute right-0 top-full mt-2 z-40 bg-white border border-slate-200 rounded-xl shadow-lg p-3 w-56 animate-in fade-in slide-in-from-top-2 duration-150">
-                      <p className="text-[10px] font-black uppercase tracking-wider text-slate-500 mb-2">
-                        Text Color · {themeMode === 'blue' ? 'Blue' : themeMode === 'dark' ? 'Dark' : 'Light'} mode
-                      </p>
-                      <div className="grid grid-cols-6 gap-2">
-                        {READING_PALETTE[themeMode].map((sw, i) => {
-                          const isSelected = sw.hex.toLowerCase() === textColor.toLowerCase();
-                          const isRecommended = i === 0;
-                          return (
-                            <button
-                              key={sw.hex}
-                              type="button"
-                              onClick={() => { pickColor(sw.hex); }}
-                              title={`${sw.name}${isRecommended ? ' · Recommended' : ''}`}
-                              className={`relative aspect-square rounded-lg border-2 transition-all active:scale-90 ${isSelected ? 'border-indigo-500 ring-2 ring-indigo-200' : 'border-slate-200 hover:border-slate-400'}`}
-                              style={{ backgroundColor: sw.hex }}
-                            >
-                              {isSelected && (
-                                <span className="absolute inset-0 flex items-center justify-center">
-                                  <Check size={12} className="text-white drop-shadow" strokeWidth={4} />
-                                </span>
-                              )}
-                              {isRecommended && !isSelected && (
-                                <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-amber-400 text-[8px] font-black text-white flex items-center justify-center shadow">★</span>
-                              )}
-                            </button>
-                          );
-                        })}
+
+                {/* Text Color */}
+                {!textColorOverride ? (
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setShowColorMenu(s => !s)}
+                      className="w-full flex flex-col items-center gap-1 py-2.5 px-1 rounded-xl bg-white border border-slate-200 active:scale-95 transition shadow-sm"
+                    >
+                      <div className="flex items-center gap-0.5">
+                        <Palette size={12} className="text-slate-600" />
+                        <span className="w-3.5 h-3.5 rounded-full border-2 border-slate-300 shadow-sm" style={{ backgroundColor: textColor }} />
                       </div>
-                      <p className="text-[10px] text-slate-500 mt-2">★ = recommended for this mode</p>
-                    </div>
-                  </>
-                )}
-              </div>
+                      <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wide leading-none">Text Color</span>
+                    </button>
+                    {showColorMenu && (
+                      <>
+                        <div className="fixed inset-0 z-30" onClick={() => setShowColorMenu(false)} />
+                        <div className="absolute left-0 top-full mt-2 z-40 bg-white border border-slate-200 rounded-xl shadow-lg p-3 w-56 animate-in fade-in slide-in-from-top-2 duration-150">
+                          <p className="text-[10px] font-black uppercase tracking-wider text-slate-500 mb-2">
+                            Text Color · {themeMode === 'blue' ? 'Blue' : themeMode === 'dark' ? 'Dark' : 'Light'} mode
+                          </p>
+                          <div className="grid grid-cols-6 gap-2">
+                            {READING_PALETTE[themeMode].map((sw, i) => {
+                              const isSelected = sw.hex.toLowerCase() === textColor.toLowerCase();
+                              const isRecommended = i === 0;
+                              return (
+                                <button
+                                  key={sw.hex}
+                                  type="button"
+                                  onClick={() => { pickColor(sw.hex); setShowColorMenu(false); }}
+                                  title={`${sw.name}${isRecommended ? ' · Recommended' : ''}`}
+                                  className={`relative aspect-square rounded-lg border-2 transition-all active:scale-90 ${isSelected ? 'border-indigo-500 ring-2 ring-indigo-200' : 'border-slate-200 hover:border-slate-400'}`}
+                                  style={{ backgroundColor: sw.hex }}
+                                >
+                                  {isSelected && (
+                                    <span className="absolute inset-0 flex items-center justify-center">
+                                      <Check size={12} className="text-white drop-shadow" strokeWidth={4} />
+                                    </span>
+                                  )}
+                                  {isRecommended && !isSelected && (
+                                    <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-amber-400 text-[8px] font-black text-white flex items-center justify-center shadow">★</span>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          <p className="text-[10px] text-slate-500 mt-2">★ = recommended for this mode</p>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ) : <div />}
 
-              {/* Inline Search button */}
-              <button
-                type="button"
-                onClick={() => { setInlineSearch(s => !s); setInlineQuery(''); }}
-                className={`p-1.5 rounded-lg transition flex items-center gap-1 ${inlineSearch ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 active:bg-slate-300'}`}
-                title="Notes mein search karein"
-                aria-label="Search notes"
-              >
-                <Search size={14} />
-              </button>
+                {/* Search */}
+                <button
+                  type="button"
+                  onClick={() => { setInlineSearch(s => !s); setInlineQuery(''); setShowControls(false); }}
+                  className={`flex flex-col items-center gap-1 py-2.5 px-1 rounded-xl border active:scale-95 transition shadow-sm ${inlineSearch ? 'bg-blue-600 border-blue-600' : 'bg-white border-slate-200'}`}
+                >
+                  <Search size={14} className={inlineSearch ? 'text-white' : 'text-slate-600'} />
+                  <span className={`text-[8px] font-bold uppercase tracking-wide leading-none ${inlineSearch ? 'text-white' : 'text-slate-400'}`}>Search</span>
+                </button>
 
-              {/* Rotate Screen button */}
-              <button
-                type="button"
-                onClick={handleRotate}
-                className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition flex items-center gap-1"
-                title="Screen rotate karein"
-                aria-label="Rotate screen"
-              >
-                <RotateCcw size={14} className="text-slate-600" />
-              </button>
+                {/* Rotate Screen */}
+                <button
+                  type="button"
+                  onClick={() => { handleRotate(); setShowControls(false); }}
+                  className="flex flex-col items-center gap-1 py-2.5 px-1 rounded-xl bg-white border border-slate-200 active:scale-95 transition shadow-sm"
+                >
+                  <RotateCcw size={14} className="text-slate-600" />
+                  <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wide leading-none">Rotate</span>
+                </button>
 
-              {/* Voice Speed Button */}
-              <button
-                type="button"
-                onClick={cycleSpeed}
-                className="shrink-0 px-2 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition text-[10px] font-black text-slate-700 whitespace-nowrap"
-                title="Voice speed badlein"
-                aria-label={`Speed: ${SPEED_LABELS[speedIdx]}`}
-              >
-                {SPEED_LABELS[speedIdx]}
-              </button>
+                {/* Voice Speed */}
+                <button
+                  type="button"
+                  onClick={cycleSpeed}
+                  className="flex flex-col items-center gap-1 py-2.5 px-1 rounded-xl bg-white border border-slate-200 active:scale-95 transition shadow-sm"
+                >
+                  <span className="text-[13px] font-black text-slate-700 leading-none">{SPEED_LABELS[speedIdx]}</span>
+                  <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wide leading-none">Speed</span>
+                </button>
 
-              <button
-                onClick={() => {
-                  if (isReading) {
-                    try { if (navigator.vibrate) navigator.vibrate(30); } catch {}
-                    stopAll();
-                  } else {
-                    try { if (navigator.vibrate) navigator.vibrate(50); } catch {}
-                    startFromIndex(initialIndex ?? 0);
-                  }
-                }}
-                className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider shadow-sm active:scale-95 transition ${
-                  isReading
-                    ? 'bg-red-600 text-white hover:bg-red-700'
-                    : 'bg-indigo-600 text-white hover:bg-indigo-700'
-                }`}
-              >
-                {isReading ? <><Square size={13} /> Stop</> : initialIndex ? <><Volume2 size={13} /> Continue</> : <><Volume2 size={13} /> Read All</>}
-              </button>
-
-              {/* Ultra View button — Ultra plan only, opens styled HTML directly */}
-              {hasHtmlToShow && (
-                isUltraUser ? (
-                  <button
-                    type="button"
-                    onClick={() => { stopAll(); setHtmlViewMode('html'); onHtmlOpen?.(); }}
-                    className="shrink-0 flex items-center gap-1 px-2 py-1.5 rounded-lg bg-violet-50 hover:bg-violet-100 text-violet-600 border border-violet-200 text-[10px] font-black active:scale-95 transition"
-                    title="Ultra View — styled HTML notes"
-                  >
-                    ⚡ Ultra
-                  </button>
-                ) : (
-                  <>
+                {/* Ultra View */}
+                {hasHtmlToShow && (
+                  isUltraUser ? (
+                    <button
+                      type="button"
+                      onClick={() => { stopAll(); setHtmlViewMode('html'); onHtmlOpen?.(); setShowControls(false); }}
+                      className="flex flex-col items-center gap-1 py-2.5 px-1 rounded-xl bg-violet-50 border border-violet-200 active:scale-95 transition shadow-sm"
+                    >
+                      <span className="text-base leading-none">⚡</span>
+                      <span className="text-[8px] font-bold text-violet-500 uppercase tracking-wide leading-none">Ultra</span>
+                    </button>
+                  ) : (
                     <button
                       type="button"
                       onClick={() => setShowHtmlUnlockPrompt(true)}
-                      className="shrink-0 flex items-center gap-1 px-2 py-1.5 rounded-lg bg-slate-100 text-slate-400 border border-slate-200 text-[10px] font-black active:scale-95 transition"
-                      title="Ultra plan required"
+                      className="flex flex-col items-center gap-1 py-2.5 px-1 rounded-xl bg-slate-50 border border-slate-200 active:scale-95 transition shadow-sm"
                     >
-                      🔒 Ultra
+                      <span className="text-base leading-none">🔒</span>
+                      <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wide leading-none">Ultra</span>
                     </button>
+                  )
+                )}
 
-                    {showHtmlUnlockPrompt && (
-                      <div
-                        className="fixed inset-0 z-[9999] flex items-center justify-center px-4"
-                        style={{ background: 'rgba(15,23,42,0.65)', backdropFilter: 'blur(8px)' }}
-                        onClick={() => setShowHtmlUnlockPrompt(false)}
-                      >
-                        <div
-                          className="bg-white w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl"
-                          style={{ boxShadow: '0 32px 64px -12px rgba(0,0,0,0.35)' }}
-                          onClick={e => e.stopPropagation()}
-                        >
-                          <div className="bg-gradient-to-br from-violet-600 to-purple-700 px-6 pt-7 pb-5 text-center">
-                            <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3 text-3xl">👑</div>
-                            <h3 className="text-white font-black text-lg leading-tight">Ultra Plan Required</h3>
-                            <p className="text-white/80 text-xs mt-1 font-medium">Styled HTML notes sirf Ultra subscribers ke liye hain</p>
-                          </div>
-                          <div className="px-6 py-5">
-                            <div className="space-y-2.5 mb-5">
-                              {['Beautifully styled notes with formatting', 'Diagrams, tables & rich content', 'Unlimited daily access'].map((f, i) => (
-                                <div key={i} className="flex items-center gap-3">
-                                  <div className="w-5 h-5 rounded-full bg-violet-100 flex items-center justify-center shrink-0">
-                                    <span className="text-violet-600 text-[10px] font-black">✓</span>
-                                  </div>
-                                  <p className="text-slate-600 text-xs font-medium">{f}</p>
-                                </div>
-                              ))}
-                            </div>
-                            <div className="flex gap-3">
-                              <button
-                                onClick={() => { setShowHtmlUnlockPrompt(false); onUpgradeClick?.(); }}
-                                className="flex-1 py-3 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-2xl font-black text-sm active:scale-95 transition shadow-md shadow-violet-200"
-                              >
-                                ⚡ Upgrade to Ultra
-                              </button>
-                              <button
-                                onClick={() => setShowHtmlUnlockPrompt(false)}
-                                className="px-5 py-3 bg-slate-100 text-slate-500 rounded-2xl font-black text-sm active:scale-95 transition"
-                              >
-                                No
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </>
-                )
-              )}
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* Ultra unlock prompt (portal-style) */}
+          {showHtmlUnlockPrompt && (
+            <div
+              className="fixed inset-0 z-[9999] flex items-center justify-center px-4"
+              style={{ background: 'rgba(15,23,42,0.65)', backdropFilter: 'blur(8px)' }}
+              onClick={() => setShowHtmlUnlockPrompt(false)}
+            >
+              <div
+                className="bg-white w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl"
+                style={{ boxShadow: '0 32px 64px -12px rgba(0,0,0,0.35)' }}
+                onClick={e => e.stopPropagation()}
+              >
+                <div className="bg-gradient-to-br from-violet-600 to-purple-700 px-6 pt-7 pb-5 text-center">
+                  <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3 text-3xl">👑</div>
+                  <h3 className="text-white font-black text-lg leading-tight">Ultra Plan Required</h3>
+                  <p className="text-white/80 text-xs mt-1 font-medium">Styled HTML notes sirf Ultra subscribers ke liye hain</p>
+                </div>
+                <div className="px-6 py-5">
+                  <div className="space-y-2.5 mb-5">
+                    {['Beautifully styled notes with formatting', 'Diagrams, tables & rich content', 'Unlimited daily access'].map((f, i) => (
+                      <div key={i} className="flex items-center gap-3">
+                        <div className="w-5 h-5 rounded-full bg-violet-100 flex items-center justify-center shrink-0">
+                          <span className="text-violet-600 text-[10px] font-black">✓</span>
+                        </div>
+                        <p className="text-slate-600 text-xs font-medium">{f}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => { setShowHtmlUnlockPrompt(false); onUpgradeClick?.(); }}
+                      className="flex-1 py-3 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-2xl font-black text-sm active:scale-95 transition shadow-md shadow-violet-200"
+                    >
+                      ⚡ Upgrade to Ultra
+                    </button>
+                    <button
+                      onClick={() => setShowHtmlUnlockPrompt(false)}
+                      className="px-5 py-3 bg-slate-100 text-slate-500 rounded-2xl font-black text-sm active:scale-95 transition"
+                    >
+                      No
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

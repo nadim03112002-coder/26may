@@ -87,8 +87,16 @@ export function ThemeBrowser({ user, settings, isAdmin, onApplyTheme, onSchedule
 
   // Schedule options
   const [schedTarget, setSchedTarget] = useState<'ALL' | 'FREE' | 'BASIC' | 'ULTRA'>('ALL');
-  const [schedHours, setSchedHours] = useState(24);
-  const [schedDelay, setSchedDelay] = useState(0);
+  // Start delay: D/H/M/S
+  const [schedDelayDays,  setSchedDelayDays]  = useState(0);
+  const [schedDelayHours, setSchedDelayHours] = useState(0);
+  const [schedDelayMins,  setSchedDelayMins]  = useState(0);
+  const [schedDelaySecs,  setSchedDelaySecs]  = useState(0);
+  // Duration: D/H/M/S
+  const [schedDurDays,  setSchedDurDays]  = useState(1);
+  const [schedDurHours, setSchedDurHours] = useState(0);
+  const [schedDurMins,  setSchedDurMins]  = useState(0);
+  const [schedDurSecs,  setSchedDurSecs]  = useState(0);
   const [schedApplyProfile, setSchedApplyProfile] = useState(false);
   const [schedApplyBg, setSchedApplyBg] = useState(false);
   const [schedSaved, setSchedSaved] = useState(false);
@@ -126,14 +134,20 @@ export function ThemeBrowser({ user, settings, isAdmin, onApplyTheme, onSchedule
     onApplyTheme?.(theme);
   }, [userLevel, isAdmin, onApplyTheme]);
 
+  const schedDelayMs = (schedDelayDays * 86400 + schedDelayHours * 3600 + schedDelayMins * 60 + schedDelaySecs) * 1000;
+  const schedDurMs   = (schedDurDays  * 86400 + schedDurHours  * 3600 + schedDurMins  * 60 + schedDurSecs)  * 1000;
+
   const handleSchedule = useCallback(() => {
     if (!selectedTheme) return;
-    const scheduledAt = new Date(Date.now() + schedDelay * 3600000).toISOString();
+    const delayMs    = (schedDelayDays * 86400 + schedDelayHours * 3600 + schedDelayMins * 60 + schedDelaySecs) * 1000;
+    const durationMs = (schedDurDays  * 86400 + schedDurHours  * 3600 + schedDurMins  * 60 + schedDurSecs)  * 1000;
+    const scheduledAt = new Date(Date.now() + delayMs).toISOString();
     onScheduleTheme?.({
       ...selectedTheme,
       _scheduleConfig: {
         target: schedTarget,
-        durationHours: schedHours,
+        durationMs,
+        delayMs,
         scheduledAt,
         applyToProfile: schedApplyProfile,
         applyToBackground: schedApplyBg,
@@ -143,7 +157,9 @@ export function ThemeBrowser({ user, settings, isAdmin, onApplyTheme, onSchedule
     setSelectedTheme(null);
     setSchedSaved(true);
     setTimeout(() => setSchedSaved(false), 3000);
-  }, [selectedTheme, schedTarget, schedHours, schedDelay, schedApplyProfile, schedApplyBg, onScheduleTheme]);
+  }, [selectedTheme, schedTarget, schedDurDays, schedDurHours, schedDurMins, schedDurSecs,
+      schedDelayDays, schedDelayHours, schedDelayMins, schedDelaySecs,
+      schedApplyProfile, schedApplyBg, onScheduleTheme]);
 
   const catCounts = useMemo(() => {
     const counts: Record<string, number> = { ALL: ALL_THEMES.length };
@@ -337,10 +353,16 @@ export function ThemeBrowser({ user, settings, isAdmin, onApplyTheme, onSchedule
           setShowSchedulePanel={setShowSchedulePanel}
           schedTarget={schedTarget}
           setSchedTarget={setSchedTarget}
-          schedHours={schedHours}
-          setSchedHours={setSchedHours}
-          schedDelay={schedDelay}
-          setSchedDelay={setSchedDelay}
+          schedDelayDays={schedDelayDays}   setSchedDelayDays={setSchedDelayDays}
+          schedDelayHours={schedDelayHours} setSchedDelayHours={setSchedDelayHours}
+          schedDelayMins={schedDelayMins}   setSchedDelayMins={setSchedDelayMins}
+          schedDelaySecs={schedDelaySecs}   setSchedDelaySecs={setSchedDelaySecs}
+          schedDurDays={schedDurDays}       setSchedDurDays={setSchedDurDays}
+          schedDurHours={schedDurHours}     setSchedDurHours={setSchedDurHours}
+          schedDurMins={schedDurMins}       setSchedDurMins={setSchedDurMins}
+          schedDurSecs={schedDurSecs}       setSchedDurSecs={setSchedDurSecs}
+          schedDelayMs={schedDelayMs}
+          schedDurMs={schedDurMs}
           schedApplyProfile={schedApplyProfile}
           setSchedApplyProfile={setSchedApplyProfile}
           schedApplyBg={schedApplyBg}
@@ -550,8 +572,15 @@ function ThemeDetailModal({
   theme, isAdmin, userLevel, accentColor,
   showSchedulePanel, setShowSchedulePanel,
   schedTarget, setSchedTarget,
-  schedHours, setSchedHours,
-  schedDelay, setSchedDelay,
+  schedDelayDays, setSchedDelayDays,
+  schedDelayHours, setSchedDelayHours,
+  schedDelayMins, setSchedDelayMins,
+  schedDelaySecs, setSchedDelaySecs,
+  schedDurDays, setSchedDurDays,
+  schedDurHours, setSchedDurHours,
+  schedDurMins, setSchedDurMins,
+  schedDurSecs, setSchedDurSecs,
+  schedDelayMs, schedDurMs,
   schedApplyProfile, setSchedApplyProfile,
   schedApplyBg, setSchedApplyBg,
   onApply, onSchedule, onClose,
@@ -564,10 +593,16 @@ function ThemeDetailModal({
   setShowSchedulePanel: (v: boolean) => void;
   schedTarget: 'ALL' | 'FREE' | 'BASIC' | 'ULTRA';
   setSchedTarget: (v: 'ALL' | 'FREE' | 'BASIC' | 'ULTRA') => void;
-  schedHours: number;
-  setSchedHours: (v: number) => void;
-  schedDelay: number;
-  setSchedDelay: (v: number) => void;
+  schedDelayDays: number; setSchedDelayDays: (v: number) => void;
+  schedDelayHours: number; setSchedDelayHours: (v: number) => void;
+  schedDelayMins: number; setSchedDelayMins: (v: number) => void;
+  schedDelaySecs: number; setSchedDelaySecs: (v: number) => void;
+  schedDurDays: number; setSchedDurDays: (v: number) => void;
+  schedDurHours: number; setSchedDurHours: (v: number) => void;
+  schedDurMins: number; setSchedDurMins: (v: number) => void;
+  schedDurSecs: number; setSchedDurSecs: (v: number) => void;
+  schedDelayMs: number;
+  schedDurMs: number;
   schedApplyProfile: boolean;
   setSchedApplyProfile: (v: boolean) => void;
   schedApplyBg: boolean;
@@ -775,10 +810,16 @@ function ThemeDetailModal({
               setShowSchedulePanel={setShowSchedulePanel}
               schedTarget={schedTarget}
               setSchedTarget={setSchedTarget}
-              schedHours={schedHours}
-              setSchedHours={setSchedHours}
-              schedDelay={schedDelay}
-              setSchedDelay={setSchedDelay}
+              schedDelayDays={schedDelayDays} setSchedDelayDays={setSchedDelayDays}
+              schedDelayHours={schedDelayHours} setSchedDelayHours={setSchedDelayHours}
+              schedDelayMins={schedDelayMins} setSchedDelayMins={setSchedDelayMins}
+              schedDelaySecs={schedDelaySecs} setSchedDelaySecs={setSchedDelaySecs}
+              schedDurDays={schedDurDays} setSchedDurDays={setSchedDurDays}
+              schedDurHours={schedDurHours} setSchedDurHours={setSchedDurHours}
+              schedDurMins={schedDurMins} setSchedDurMins={setSchedDurMins}
+              schedDurSecs={schedDurSecs} setSchedDurSecs={setSchedDurSecs}
+              schedDelayMs={schedDelayMs}
+              schedDurMs={schedDurMs}
               schedApplyProfile={schedApplyProfile}
               setSchedApplyProfile={setSchedApplyProfile}
               schedApplyBg={schedApplyBg}
@@ -810,22 +851,184 @@ function ThemeDetailModal({
   );
 }
 
+// ─── DHMS Time Picker ────────────────────────────────────────────────────────
+function DHMSPicker({
+  label, days, hours, mins, secs,
+  onDays, onHours, onMins, onSecs, accent,
+}: {
+  label: string;
+  days: number; hours: number; mins: number; secs: number;
+  onDays: (v: number) => void; onHours: (v: number) => void;
+  onMins: (v: number) => void; onSecs: (v: number) => void;
+  accent: string;
+}) {
+  const spin = (cur: number, min: number, max: number, set: (v: number) => void, delta: number) => {
+    const next = cur + delta;
+    if (next < min || next > max) return;
+    set(next);
+  };
+  const Cell = ({ val, min, max, setFn, unitLabel }: { val: number; min: number; max: number; setFn: (v: number) => void; unitLabel: string }) => (
+    <div className="flex flex-col items-center gap-0.5">
+      <button
+        className="w-7 h-5 rounded-md flex items-center justify-center active:scale-90 transition-transform text-white/60 hover:text-white"
+        style={{ background: `${accent}18` }}
+        onClick={() => spin(val, min, max, setFn, 1)}
+      >
+        <span className="text-[10px] font-black">▲</span>
+      </button>
+      <input
+        type="number" min={min} max={max} value={val}
+        onChange={e => { const n = Math.min(max, Math.max(min, Number(e.target.value))); setFn(n); }}
+        className="w-9 text-center bg-white/8 border border-white/12 rounded-lg py-1 text-sm font-black text-white focus:outline-none focus:border-white/30"
+        style={{ borderColor: `${accent}40` }}
+      />
+      <button
+        className="w-7 h-5 rounded-md flex items-center justify-center active:scale-90 transition-transform text-white/60 hover:text-white"
+        style={{ background: `${accent}18` }}
+        onClick={() => spin(val, min, max, setFn, -1)}
+      >
+        <span className="text-[10px] font-black">▼</span>
+      </button>
+      <span className="text-[6px] text-white/30 font-black uppercase tracking-wider">{unitLabel}</span>
+    </div>
+  );
+  return (
+    <div>
+      <p className="text-[8px] text-white/40 font-black uppercase tracking-wider mb-2">{label}</p>
+      <div className="flex items-center gap-1.5 justify-center py-2 px-3 rounded-xl bg-white/3 border border-white/6">
+        <Cell val={days}  min={0}  max={365} setFn={onDays}  unitLabel="Din" />
+        <span className="text-white/20 font-black text-base pb-5">:</span>
+        <Cell val={hours} min={0}  max={23}  setFn={onHours} unitLabel="Ghante" />
+        <span className="text-white/20 font-black text-base pb-5">:</span>
+        <Cell val={mins}  min={0}  max={59}  setFn={onMins}  unitLabel="Min" />
+        <span className="text-white/20 font-black text-base pb-5">:</span>
+        <Cell val={secs}  min={0}  max={59}  setFn={onSecs}  unitLabel="Sec" />
+      </div>
+    </div>
+  );
+}
+
+// ─── Schedule Clock Display ───────────────────────────────────────────────────
+function ScheduleClockDisplay({ delayMs, durMs, accent }: { delayMs: number; durMs: number; accent: string }) {
+  const now = Date.now();
+  const startTs = now + delayMs;
+  const endTs   = startTs + durMs;
+  const fmt = (ts: number) => {
+    const d = new Date(ts);
+    const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const hh = d.getHours().toString().padStart(2, '0');
+    const mm = d.getMinutes().toString().padStart(2, '0');
+    const ss = d.getSeconds().toString().padStart(2, '0');
+    return {
+      day:  days[d.getDay()],
+      date: `${d.getDate()} ${months[d.getMonth()]}`,
+      time: `${hh}:${mm}:${ss}`,
+      ampm: d.getHours() < 12 ? 'AM' : 'PM',
+    };
+  };
+  const start = fmt(startTs);
+  const end   = fmt(endTs);
+  const ClockFace = ({ ts, label, color }: { ts: number; label: string; color: string }) => {
+    const d = new Date(ts);
+    const h = d.getHours() % 12;
+    const m = d.getMinutes();
+    const s = d.getSeconds();
+    const hDeg = (h / 12) * 360 + (m / 60) * 30;
+    const mDeg = (m / 60) * 360 + (s / 60) * 6;
+    const sDeg = (s / 60) * 360;
+    const hand = (deg: number, len: number, width: number, clr: string) => {
+      const rad = ((deg - 90) * Math.PI) / 180;
+      const cx = 24, cy = 24;
+      const ex = cx + len * Math.cos(rad);
+      const ey = cy + len * Math.sin(rad);
+      return <line x1={cx} y1={cy} x2={ex} y2={ey} stroke={clr} strokeWidth={width} strokeLinecap="round" />;
+    };
+    return (
+      <div className="flex flex-col items-center gap-1">
+        <p className="text-[7px] font-black uppercase tracking-wider" style={{ color }}>{label}</p>
+        <div className="relative">
+          <svg width={48} height={48} viewBox="0 0 48 48">
+            <circle cx={24} cy={24} r={22} fill="rgba(0,0,0,0.4)" stroke={`${color}40`} strokeWidth={1} />
+            {[...Array(12)].map((_, i) => {
+              const rad = ((i * 30 - 90) * Math.PI) / 180;
+              return <circle key={i} cx={24 + 18 * Math.cos(rad)} cy={24 + 18 * Math.sin(rad)} r={i % 3 === 0 ? 1.2 : 0.7} fill={`${color}60`} />;
+            })}
+            {hand(hDeg, 11, 2, color)}
+            {hand(mDeg, 16, 1.5, `${color}cc`)}
+            {hand(sDeg, 18, 1, '#ef4444')}
+            <circle cx={24} cy={24} r={1.5} fill={color} />
+          </svg>
+        </div>
+        <p className="text-[9px] font-black text-white">{fmt(ts).time}</p>
+        <p className="text-[7px] text-white/40">{fmt(ts).day}, {fmt(ts).date}</p>
+      </div>
+    );
+  };
+  return (
+    <div className="rounded-xl p-3 border border-white/8 bg-black/30">
+      <div className="flex items-center justify-around">
+        <ClockFace ts={startTs} label="Shuru" color={accent} />
+        <div className="flex flex-col items-center gap-1 px-2">
+          <div className="text-[7px] text-white/25 font-black">DURATION</div>
+          <div className="w-0.5 h-8 rounded-full" style={{ background: `${accent}30` }} />
+          <div className="text-[7px] text-white/40 font-black text-center">
+            {durMs > 0 ? fmtDuration(durMs) : '—'}
+          </div>
+          <div className="w-0.5 h-8 rounded-full" style={{ background: `${accent}30` }} />
+        </div>
+        <ClockFace ts={endTs} label="Khatam" color="#f43f5e" />
+      </div>
+    </div>
+  );
+}
+
+function fmtDuration(ms: number): string {
+  const s = Math.floor(ms / 1000);
+  const d = Math.floor(s / 86400);
+  const h = Math.floor((s % 86400) / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sc = s % 60;
+  const parts: string[] = [];
+  if (d > 0) parts.push(`${d}d`);
+  if (h > 0) parts.push(`${h}h`);
+  if (m > 0) parts.push(`${m}m`);
+  if (sc > 0 && d === 0) parts.push(`${sc}s`);
+  return parts.join(' ') || '0s';
+}
+
 // ─── Admin Action Buttons ─────────────────────────────────────────────────────
 function AdminActionButtons({
   theme, showSchedulePanel, setShowSchedulePanel,
-  schedTarget, setSchedTarget, schedHours, setSchedHours,
-  schedDelay, setSchedDelay, schedApplyProfile, setSchedApplyProfile,
-  schedApplyBg, setSchedApplyBg, onApply, onSchedule, accentColor,
+  schedTarget, setSchedTarget,
+  schedDelayDays, setSchedDelayDays,
+  schedDelayHours, setSchedDelayHours,
+  schedDelayMins, setSchedDelayMins,
+  schedDelaySecs, setSchedDelaySecs,
+  schedDurDays, setSchedDurDays,
+  schedDurHours, setSchedDurHours,
+  schedDurMins, setSchedDurMins,
+  schedDurSecs, setSchedDurSecs,
+  schedDelayMs, schedDurMs,
+  schedApplyProfile, setSchedApplyProfile,
+  schedApplyBg, setSchedApplyBg,
+  onApply, onSchedule, accentColor,
 }: {
   theme: AppTheme;
   showSchedulePanel: boolean;
   setShowSchedulePanel: (v: boolean) => void;
   schedTarget: 'ALL' | 'FREE' | 'BASIC' | 'ULTRA';
   setSchedTarget: (v: 'ALL' | 'FREE' | 'BASIC' | 'ULTRA') => void;
-  schedHours: number;
-  setSchedHours: (v: number) => void;
-  schedDelay: number;
-  setSchedDelay: (v: number) => void;
+  schedDelayDays: number; setSchedDelayDays: (v: number) => void;
+  schedDelayHours: number; setSchedDelayHours: (v: number) => void;
+  schedDelayMins: number; setSchedDelayMins: (v: number) => void;
+  schedDelaySecs: number; setSchedDelaySecs: (v: number) => void;
+  schedDurDays: number; setSchedDurDays: (v: number) => void;
+  schedDurHours: number; setSchedDurHours: (v: number) => void;
+  schedDurMins: number; setSchedDurMins: (v: number) => void;
+  schedDurSecs: number; setSchedDurSecs: (v: number) => void;
+  schedDelayMs: number;
+  schedDurMs: number;
   schedApplyProfile: boolean;
   setSchedApplyProfile: (v: boolean) => void;
   schedApplyBg: boolean;
@@ -894,27 +1097,28 @@ function AdminActionButtons({
             </div>
           </div>
 
-          {/* Timing */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-[9px] text-white/40 font-black uppercase tracking-wider">Kitne ghante baad shuru?</label>
-              <input
-                type="number" min={0} max={720} value={schedDelay}
-                onChange={e => setSchedDelay(Number(e.target.value))}
-                className="mt-1 w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm font-black text-white focus:outline-none focus:border-white/25"
-              />
-              <p className="text-[7px] text-white/20 mt-0.5">0 = abhi shuru</p>
-            </div>
-            <div>
-              <label className="text-[9px] text-white/40 font-black uppercase tracking-wider">Kitne ghante chalega?</label>
-              <input
-                type="number" min={1} max={720} value={schedHours}
-                onChange={e => setSchedHours(Number(e.target.value))}
-                className="mt-1 w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm font-black text-white focus:outline-none focus:border-white/25"
-              />
-              <p className="text-[7px] text-white/20 mt-0.5">{schedHours}h = {(schedHours/24).toFixed(1)} din</p>
-            </div>
-          </div>
+          {/* Start delay D/H/M/S */}
+          <DHMSPicker
+            label="Kitne time baad shuru? (0 = abhi)"
+            days={schedDelayDays}  hours={schedDelayHours}
+            mins={schedDelayMins}  secs={schedDelaySecs}
+            onDays={setSchedDelayDays} onHours={setSchedDelayHours}
+            onMins={setSchedDelayMins} onSecs={setSchedDelaySecs}
+            accent={accentColor}
+          />
+
+          {/* Duration D/H/M/S */}
+          <DHMSPicker
+            label="Kitne time tak chalega?"
+            days={schedDurDays}  hours={schedDurHours}
+            mins={schedDurMins}  secs={schedDurSecs}
+            onDays={setSchedDurDays} onHours={setSchedDurHours}
+            onMins={setSchedDurMins} onSecs={setSchedDurSecs}
+            accent="#f59e0b"
+          />
+
+          {/* Clock display */}
+          <ScheduleClockDisplay delayMs={schedDelayMs} durMs={schedDurMs} accent={accentColor} />
 
           {/* Apply to profile/bg */}
           <div>
@@ -942,10 +1146,11 @@ function AdminActionButtons({
           {/* Summary */}
           <div className="rounded-xl p-3 border border-white/6 bg-white/3">
             <p className="text-[8px] text-white/50 font-bold leading-relaxed">
-              📋 Summary: <span className="text-white/70">{theme.emoji} {theme.name}</span> →{' '}
-              {schedDelay === 0 ? 'Abhi' : `${schedDelay}h baad`} start,{' '}
-              {schedHours}h chalega, target: {schedTarget}{' '}
-              {schedApplyProfile ? '· Profile ✓' : ''}{schedApplyBg ? '· AppBg ✓' : ''}
+              📋 {theme.emoji} {theme.name} →{' '}
+              {schedDelayMs === 0 ? 'Abhi shuru' : `${fmtDuration(schedDelayMs)} baad shuru`},{' '}
+              {schedDurMs > 0 ? fmtDuration(schedDurMs) : '∞'} chalega,{' '}
+              target: <span className="text-amber-300">{schedTarget}</span>
+              {schedApplyProfile ? ' · Profile ✓' : ''}{schedApplyBg ? ' · AppBg ✓' : ''}
             </p>
           </div>
 

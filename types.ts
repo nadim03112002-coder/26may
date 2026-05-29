@@ -1526,6 +1526,11 @@ export interface UserCustomTheme {
   flashcardBg2?: string;
   chapterAccent?: string;
   mcqTabActive?: string;
+  topBarEffect?: string;
+  animColor?: string;
+  animSpeed?: number;
+  themeName?: string;
+  themeEmoji?: string;
   createdAt: string;
   appliedUntil?: string;
   publishedAt?: string;

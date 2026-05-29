@@ -39,6 +39,11 @@ interface ThemeState {
     flashcardBg2?: string;
     chapterAccent?: string;
     mcqTabActive?: string;
+    topBarEffect?: string;
+    animColor?: string;
+    animSpeed?: number;
+    themeName?: string;
+    themeEmoji?: string;
 }
 
 const DEFAULT_THEME: ThemeState = {
@@ -570,6 +575,11 @@ const stateFromTheme = (t: UserCustomTheme | undefined): ThemeState => {
         flashcardBg2:  t.flashcardBg2  || t.topBarEnd   || DEFAULT_THEME.flashcardBg2,
         chapterAccent: t.chapterAccent || accent || DEFAULT_THEME.chapterAccent,
         mcqTabActive:  t.mcqTabActive  || accent || DEFAULT_THEME.mcqTabActive,
+        topBarEffect:  t.topBarEffect,
+        animColor:     t.animColor,
+        animSpeed:     t.animSpeed,
+        themeName:     t.themeName,
+        themeEmoji:    t.themeEmoji,
     };
 };
 
@@ -656,6 +666,11 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
             flashcardBg2:  theme.flashcardBg2,
             chapterAccent: theme.chapterAccent,
             mcqTabActive:  theme.mcqTabActive,
+            topBarEffect:  theme.topBarEffect,
+            animColor:     theme.animColor,
+            animSpeed:     theme.animSpeed,
+            themeName:     theme.themeName,
+            themeEmoji:    theme.themeEmoji,
             createdAt:     new Date().toISOString(),
             likes:         0,
         };
@@ -735,6 +750,11 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
         flashcardBg2:  theme.flashcardBg2,
         chapterAccent: theme.chapterAccent,
         mcqTabActive:  theme.mcqTabActive,
+        topBarEffect:  theme.topBarEffect,
+        animColor:     theme.animColor,
+        animSpeed:     theme.animSpeed,
+        themeName:     theme.themeName,
+        themeEmoji:    theme.themeEmoji,
         createdAt:     new Date().toISOString(),
         likes:         0,
     });
@@ -986,6 +1006,11 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
             flashcardBg2:  c.topBarEnd,
             chapterAccent: c.navActive,
             mcqTabActive:  c.navActive,
+            topBarEffect:  appTheme.topBarEffect,
+            animColor:     appTheme.animColor,
+            animSpeed:     appTheme.animSpeed,
+            themeName:     appTheme.name,
+            themeEmoji:    appTheme.emoji,
         });
         setView('EDITOR');
         /* For admin — apply immediately free */
