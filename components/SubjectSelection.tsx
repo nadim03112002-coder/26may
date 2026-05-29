@@ -53,8 +53,33 @@ const getSubjectStats = (
   classLevel: string,
   board: string,
   contentIndex: ContentIndexMap,
-  lucentNotes: LucentNoteEntry[]
+  lucentNotes: LucentNoteEntry[],
+  settings?: SystemSettings | null
 ): SubjectStats => {
+  if (classLevel === 'COMPETITION') {
+    if (subject.id === 'lucent') {
+      const lessons = lucentNotes.length;
+      let mcqTotal = 0;
+      lucentNotes.forEach(n => {
+        (n.pages || []).forEach(p => {
+          if ((p as any).mcqs && Array.isArray((p as any).mcqs)) mcqTotal += (p as any).mcqs.length;
+        });
+      });
+      const totalPages = lucentNotes.reduce((sum, n) => sum + (n.pages || []).length, 0);
+      return { notes: lessons, pdf: totalPages, video: 0, audio: 0, mcq: mcqTotal, lucentNotes: 0 };
+    }
+    const homeworkItems = (settings?.homework || []).filter((hw: any) => hw.targetSubject === subject.id);
+    let notes = 0, mcq = 0, audio = 0, video = 0, pdf = 0;
+    homeworkItems.forEach((hw: any) => {
+      if (hw.notes || hw.chunkNotes || hw.htmlNotes) notes++;
+      if (hw.parsedMcqs && hw.parsedMcqs.length > 0) mcq += hw.parsedMcqs.length;
+      if (hw.audioUrl) audio++;
+      if (hw.videoUrl) video++;
+      if (hw.pdfUrl) pdf++;
+    });
+    return { notes, pdf, video, audio, mcq, lucentNotes: 0 };
+  }
+
   const prefix = `nst_content_${board}_${classLevel}_`;
   const subjectNameLower = subject.name.toLowerCase().replace(/\s+/g, '_');
   let notes = 0, pdf = 0, video = 0, audio = 0, mcq = 0;
@@ -74,7 +99,7 @@ const getSubjectStats = (
   });
 
   const lucentCount = lucentNotes.filter(n => {
-    const nClass = n.classLevel || 'COMPETITION';
+    const nClass = (n as any).classLevel || 'COMPETITION';
     return nClass === classLevel && (n.subject || '').toLowerCase() === subject.id.toLowerCase();
   }).length;
 
@@ -90,6 +115,7 @@ export const SubjectSelection: React.FC<Props> = ({
     sub => !(settings?.hiddenSubjects || []).includes(sub.id)
   );
   const currentBoard = board || 'CBSE';
+  const isCompetition = classLevel === 'COMPETITION';
 
   const tier = isPremium && subscriptionLevel === 'ULTRA'
     ? 'ultra'
@@ -98,7 +124,6 @@ export const SubjectSelection: React.FC<Props> = ({
       : 'free';
 
   const tierHeaderColor = appTheme.primary;
-  const iconColor = appTheme.primary;
 
   return (
     <div className="animate-in fade-in slide-in-from-right-8 duration-500 mt-0 pt-0">
@@ -109,25 +134,43 @@ export const SubjectSelection: React.FC<Props> = ({
           </button>
           <div>
             <h2 className="text-2xl font-bold" style={{ color: tierHeaderColor }}>
-              {stream ? `${stream} Subjects` : `Class ${classLevel} Subjects`}
+              {isCompetition ? 'Competition Books' : stream ? `${stream} Subjects` : `Class ${classLevel} Subjects`}
             </h2>
-            <p className="text-sm mt-0.5" style={{ color: `${tierHeaderColor}99` }}>Select a subject to view chapters</p>
+            <p className="text-sm mt-0.5" style={{ color: `${tierHeaderColor}99` }}>
+              {isCompetition ? 'Select a book to start reading' : 'Select a subject to view chapters'}
+            </p>
           </div>
         </div>
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {subjects.map((subject) => {
-          const stats = getSubjectStats(subject, classLevel, currentBoard, contentIndex, lucentNotes);
+          const stats = getSubjectStats(subject, classLevel, currentBoard, contentIndex, lucentNotes, settings);
           const totalContent = stats.notes + stats.pdf + stats.video + stats.audio + stats.mcq + stats.lucentNotes;
 
-          const statBadges: { emoji: string; count: number }[] = [
-            { emoji: '📝', count: stats.notes + stats.lucentNotes },
-            { emoji: '📄', count: stats.pdf   },
-            { emoji: '📊', count: stats.mcq   },
-            { emoji: '🎥', count: stats.video },
-            { emoji: '🔊', count: stats.audio },
-          ].filter(b => b.count > 0);
+          let statBadges: { emoji: string; label: string; count: number }[];
+          if (isCompetition && subject.id === 'lucent') {
+            statBadges = [
+              { emoji: '📚', label: 'Lessons', count: stats.notes },
+              { emoji: '📄', label: 'Pages',   count: stats.pdf   },
+              { emoji: '📊', label: 'MCQ',     count: stats.mcq   },
+            ].filter(b => b.count > 0);
+          } else if (isCompetition) {
+            statBadges = [
+              { emoji: '📝', label: 'Notes', count: stats.notes },
+              { emoji: '📊', label: 'MCQ',   count: stats.mcq   },
+              { emoji: '🎥', label: 'Video', count: stats.video },
+              { emoji: '🔊', label: 'Audio', count: stats.audio },
+            ].filter(b => b.count > 0);
+          } else {
+            statBadges = [
+              { emoji: '📝', label: 'Notes', count: stats.notes + stats.lucentNotes },
+              { emoji: '📄', label: 'PDF',   count: stats.pdf   },
+              { emoji: '📊', label: 'MCQ',   count: stats.mcq   },
+              { emoji: '🎥', label: 'Video', count: stats.video },
+              { emoji: '🔊', label: 'Audio', count: stats.audio },
+            ].filter(b => b.count > 0);
+          }
 
           return (
             <button
@@ -144,7 +187,9 @@ export const SubjectSelection: React.FC<Props> = ({
                 {totalContent > 0 ? (
                   <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
                     {statBadges.map(b => (
-                      <span key={b.emoji} className="nst-card-meta text-[10px] font-bold">{b.emoji}{b.count}</span>
+                      <span key={b.emoji} className="nst-card-meta text-[10px] font-bold">
+                        {b.emoji} {b.count} {b.label}
+                      </span>
                     ))}
                   </div>
                 ) : (

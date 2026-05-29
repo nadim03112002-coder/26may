@@ -707,6 +707,7 @@ export interface SystemSettings {
   officialFreeTheme?: UserCustomTheme;
   adminThemeLibrary?: AdminSavedTheme[];
   themeHistory?: ThemeHistoryEntry[];
+  scheduledThemes?: ScheduledTheme[];
   levelScoreOverride?: Record<string, number>;
   isGlobalFreeMode?: boolean; // NEW: Global Free Mode
   watermarkOpacity?: number; // 0.0 to 1.0
@@ -1547,6 +1548,39 @@ export interface ThemeHistoryEntry {
   targetTier: 'all' | 'ultra' | 'basic' | 'free';
   appliedAt: string;
   expiresAt: string | null;
+}
+
+export interface ScheduledTheme {
+  id: string;
+  themeId: string;
+  themeName: string;
+  themeEmoji: string;
+  themeColors: {
+    bgColor: string;
+    topBarStart: string;
+    topBarEnd: string;
+    navBg: string;
+    navActive: string;
+    navBorder: string;
+    cardBg: string;
+    cardBorder: string;
+    btnStart: string;
+    btnEnd: string;
+    textPrimary: string;
+    textSecondary: string;
+    accentGlow: string;
+    progressColor: string;
+    [key: string]: string;
+  };
+  topBarEffect?: string;
+  animColor?: string;
+  scheduledAt: string;
+  durationHours: number;
+  target: 'ALL' | 'FREE' | 'BASIC' | 'ULTRA';
+  applyToProfile?: boolean;
+  applyToBackground?: boolean;
+  createdBy: string;
+  createdAt: string;
 }
 
 export interface UserCustomAnimation {
