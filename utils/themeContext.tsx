@@ -6,6 +6,14 @@ export type TierThemeObj = typeof TIER_THEME[keyof typeof TIER_THEME] & {
   flashcardBg2?: string;
   chapterAccent?: string;
   mcqTabActive?: string;
+  navActive?: string;
+  navBorderColor?: string;
+  cardBorderColor?: string;
+  textPrimary?: string;
+  textSecondary?: string;
+  progressColor?: string;
+  accentGlowColor?: string;
+  appBgColor?: string | null;
 };
 
 const DEFAULT_THEME: TierThemeObj = {

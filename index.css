@@ -78,7 +78,7 @@
   --nst-color-info-soft:     rgba(59,  130, 246, 0.12);
 
   /* ── Brand / surface / typography ────────────────── */
-  --nst-color-brand:    #3b82f6;   /* overridden at runtime by App.tsx theme hook */
+  --nst-color-brand:    #3b82f6;   /* overridden at runtime by theme hook */
   --nst-color-brand-5:  rgba(59, 130, 246, 0.05);
   --nst-color-brand-10: rgba(59, 130, 246, 0.10);
   --nst-color-brand-20: rgba(59, 130, 246, 0.20);
@@ -87,6 +87,19 @@
   --nst-color-text:     #1e293b;
   --nst-color-muted:    #64748b;
   --nst-color-subtle:   #94a3b8;
+
+  /* ── Granular theme tokens (overridden by StudentDashboard useEffect) ── */
+  --nst-btn-start:       #3b82f6;
+  --nst-btn-end:         #6366f1;
+  --nst-mcq-tab-active:  #3b82f6;
+  --nst-chapter-accent:  #3b82f6;
+  --nst-nav-active:      #3b82f6;
+  --nst-nav-bg:          #ffffff;
+  --nst-nav-border:      rgba(59, 130, 246, 0.22);
+  --nst-card-border:     rgba(59, 130, 246, 0.28);
+  --nst-progress-color:  #3b82f6;
+  --nst-accent-glow:     #3b82f6;
+  --nst-top-bar-grad:    linear-gradient(135deg, #020714 0%, #071232 50%, #020714 100%);
 
   /* ── Performance: GPU-composited transitions ──────── */
   --nst-transition-color:     color var(--nst-dur-fast) var(--nst-ease-out),
@@ -134,6 +147,11 @@
   transition: box-shadow 0.18s ease, transform 0.18s ease;
 }
 .nst-card:hover { box-shadow: var(--nst-shadow-md); }
+
+/* Progress bar fill — uses theme progressColor token */
+.nst-progress-fill {
+  background: var(--nst-progress-color, var(--nst-color-brand)) !important;
+}
 
 /* Brand-accented card — left stripe uses brand color */
 .nst-card-brand {
