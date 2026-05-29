@@ -143,9 +143,6 @@ export default defineConfig(({ mode }) => {
       resolve: {
         alias: {
           '@': path.resolve(__dirname, '.'),
-          'pdfjs-dist': path.resolve(__dirname, 'node_modules/pdfjs-dist/build/pdf.js'),
-          'clsx': path.resolve(__dirname, 'node_modules/clsx/dist/clsx.js'),
-          'eventemitter3': path.resolve(__dirname, 'node_modules/eventemitter3/index.js'),
         }
       },
       define: {

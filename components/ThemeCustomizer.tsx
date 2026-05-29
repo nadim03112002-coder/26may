@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { User, UserCustomTheme, SystemSettings, AdminSavedTheme, ThemeHistoryEntry } from '../types';
 import { saveUserToLive, saveSystemSettings } from '../firebase';
+import { ThemeBrowser } from './ThemeBrowser';
+import type { AppTheme } from '../utils/themeLibrary';
 import { getTotalCredits, applyDeduction } from '../utils/creditSystem';
 import {
     ArrowLeft, Sparkles, RotateCcw, Eye, Palette,
@@ -577,6 +579,9 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
     const totalCoins = getTotalCredits(user);
     const isFirstTime = !user.personalTheme;
 
+    /* ── VIEW STATE: EDITOR vs LIBRARY ── */
+    const [view, setView] = useState<'EDITOR' | 'LIBRARY'>('EDITOR');
+
     /* ── STATE ── */
     const [theme, setTheme]               = useState<ThemeState>(() => stateFromTheme(user.personalTheme));
     const [saving, setSaving]             = useState(false);
@@ -958,6 +963,82 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
     };
 
     /* ─────────────────────────────────────────
+       LIBRARY: Load AppTheme into editor
+    ───────────────────────────────────────── */
+    const handleLoadFromLibrary = (appTheme: AppTheme) => {
+        const c = appTheme.colors;
+        setTheme({
+            bgColor:       c.bgColor,
+            topBarStart:   c.topBarStart,
+            topBarEnd:     c.topBarEnd,
+            navBg:         c.navBg,
+            navActive:     c.navActive,
+            navBorder:     c.navBorder,
+            cardBg:        c.cardBg,
+            cardBorder:    c.cardBorder,
+            btnStart:      c.btnStart,
+            btnEnd:        c.btnEnd,
+            textPrimary:   c.textPrimary,
+            textSecondary: c.textSecondary,
+            accentGlow:    c.accentGlow,
+            progressColor: c.progressColor,
+            flashcardBg1:  c.topBarStart,
+            flashcardBg2:  c.topBarEnd,
+            chapterAccent: c.navActive,
+            mcqTabActive:  c.navActive,
+        });
+        setView('EDITOR');
+        /* For admin — apply immediately free */
+        if (isAdmin) {
+            setTimeout(() => doApply(), 100);
+        } else if (isFirstTime) {
+            setTimeout(() => doApply(), 100);
+        } else {
+            setShowCoinPopup(true);
+        }
+    };
+
+    const handleScheduleFromLibrary = async (appTheme: AppTheme) => {
+        if (!isAdmin) return;
+        const c = appTheme.colors;
+        const themeObj: UserCustomTheme = {
+            id: `lib_${appTheme.id}_${Date.now()}`,
+            userId: user.id,
+            userName: `Library: ${appTheme.name}`,
+            bgColor: c.bgColor, accentColor: c.navActive, textColor: c.textPrimary,
+            cardColor: c.cardBg, topBarStart: c.topBarStart, topBarEnd: c.topBarEnd,
+            navBg: c.navBg, navActive: c.navActive, navBorder: c.navBorder,
+            cardBg: c.cardBg, cardBorder: c.cardBorder, btnStart: c.btnStart, btnEnd: c.btnEnd,
+            textSecondary: c.textSecondary, accentGlow: c.accentGlow, progressColor: c.progressColor,
+            flashcardBg1: c.topBarStart, flashcardBg2: c.topBarEnd,
+            chapterAccent: c.navActive, mcqTabActive: c.navActive,
+            createdAt: new Date().toISOString(), likes: 0,
+            themeName: appTheme.name, themeEmoji: appTheme.emoji,
+            topBarEffect: appTheme.topBarEffect, animColor: appTheme.animColor,
+        };
+        const schedCfg = (appTheme as any)._scheduleConfig || {};
+        const expiresAt = schedCfg.durationMs > 0 ? new Date(Date.now() + schedCfg.durationMs).toISOString() : undefined;
+        const startsAt = schedCfg.delayMs > 0 ? new Date(Date.now() + schedCfg.delayMs).toISOString() : undefined;
+        const entry = {
+            id: themeObj.id, name: appTheme.name, themeData: themeObj,
+            targetTier: schedCfg.targetTier || 'all',
+            createdAt: new Date().toISOString(),
+            expiresAt, startsAt,
+            applyProfileBg: schedCfg.applyProfileBg || false,
+            applyAppBg: schedCfg.applyAppBg || false,
+        };
+        const prev: any[] = (settings as any)?.themeHistory || [];
+        const newSettings = { ...(settings || {}), themeHistory: [entry, ...prev] };
+        try {
+            await saveSystemSettings(newSettings as any);
+            onUpdateSettings?.(newSettings as any);
+            alert(`✅ "${appTheme.name}" schedule ho gayi!\n${startsAt ? `Shuru: ${new Date(startsAt).toLocaleString('en-IN')}` : 'Abhi se active'}\n${expiresAt ? `Khatam: ${new Date(expiresAt).toLocaleString('en-IN')}` : 'Permanent'}`);
+        } catch {
+            alert('❌ Schedule karne mein error — dobara try karo.');
+        }
+    };
+
+    /* ─────────────────────────────────────────
        USER: SET ACTIVE HISTORY THEME
     ───────────────────────────────────────── */
     const doSetUserActiveTheme = async (themeId: string | 'default') => {
@@ -1270,51 +1351,97 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
 
             {/* ── HEADER ── */}
             <div
-                className="sticky top-0 z-20 px-4 py-3 flex items-center gap-3 shadow-xl"
+                className="sticky top-0 z-20 shadow-xl"
                 style={{
                     background: `linear-gradient(135deg, ${theme.topBarStart}, ${theme.topBarEnd})`,
                     boxShadow: `0 4px 20px ${theme.accentGlow}30`,
                 }}
             >
-                <button
-                    onClick={onBack}
-                    className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center shrink-0 active:scale-90 transition-transform"
-                >
-                    <ArrowLeft size={16} className="text-white" />
-                </button>
-                <div className="flex-1">
-                    <p className="text-sm font-black text-white">🎨 Theme Studio</p>
-                    <p className="text-[9px] text-white/60">Har element ka alag color</p>
+                <div className="px-4 py-3 flex items-center gap-3">
+                    <button
+                        onClick={view === 'LIBRARY' ? () => setView('EDITOR') : onBack}
+                        className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center shrink-0 active:scale-90 transition-transform"
+                    >
+                        <ArrowLeft size={16} className="text-white" />
+                    </button>
+                    <div className="flex-1">
+                        <p className="text-sm font-black text-white">
+                            {view === 'LIBRARY' ? '📚 Theme Library' : '🎨 Theme Studio'}
+                        </p>
+                        <p className="text-[9px] text-white/60">
+                            {view === 'LIBRARY' ? '1000+ categorized themes' : 'Har element ka alag color'}
+                        </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        {!isAdmin && view === 'EDITOR' && (
+                            <div
+                                className="h-6 rounded-full px-2.5 flex items-center gap-1 text-[9px] font-black"
+                                style={{ background: 'rgba(255,255,255,0.15)', color: 'white' }}
+                            >
+                                🪙 {totalCoins}
+                            </div>
+                        )}
+                        {isFirstTime && !isAdmin && view === 'EDITOR' && (
+                            <div
+                                className="h-6 rounded-full px-2.5 flex items-center text-[9px] font-black text-green-300"
+                                style={{ background: 'rgba(34,197,94,0.2)' }}
+                            >
+                                FREE 🎁
+                            </div>
+                        )}
+                        {isAdmin && (
+                            <div
+                                className="h-6 rounded-full px-2.5 flex items-center text-[9px] font-black text-amber-300"
+                                style={{ background: 'rgba(245,158,11,0.2)' }}
+                            >
+                                Admin ∞
+                            </div>
+                        )}
+                    </div>
                 </div>
-                <div className="flex items-center gap-2">
-                    {!isAdmin && (
-                        <div
-                            className="h-6 rounded-full px-2.5 flex items-center gap-1 text-[9px] font-black"
-                            style={{ background: 'rgba(255,255,255,0.15)', color: 'white' }}
+                {/* ── TAB BAR: Editor | Library ── */}
+                <div className="flex border-t border-white/10">
+                    {[
+                        { id: 'EDITOR' as const, label: '🎨 Custom Editor', desc: 'Color picker' },
+                        { id: 'LIBRARY' as const, label: '📚 Theme Library', desc: '1001+ themes' },
+                    ].map(tab => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setView(tab.id)}
+                            className="flex-1 py-2 flex flex-col items-center gap-0.5 transition-all active:scale-95"
+                            style={{
+                                background: view === tab.id ? 'rgba(255,255,255,0.12)' : 'transparent',
+                                borderBottom: view === tab.id ? `2px solid ${theme.btnStart}` : '2px solid transparent',
+                            }}
                         >
-                            🪙 {totalCoins}
-                        </div>
-                    )}
-                    {isFirstTime && !isAdmin && (
-                        <div
-                            className="h-6 rounded-full px-2.5 flex items-center text-[9px] font-black text-green-300"
-                            style={{ background: 'rgba(34,197,94,0.2)' }}
-                        >
-                            FREE 🎁
-                        </div>
-                    )}
-                    {isAdmin && (
-                        <div
-                            className="h-6 rounded-full px-2.5 flex items-center text-[9px] font-black text-amber-300"
-                            style={{ background: 'rgba(245,158,11,0.2)' }}
-                        >
-                            Admin ∞
-                        </div>
-                    )}
+                            <span className="text-[11px] font-black text-white">{tab.label}</span>
+                            <span className="text-[8px] text-white/45">{tab.desc}</span>
+                        </button>
+                    ))}
                 </div>
             </div>
 
-            <div className="px-4 pt-4 space-y-4">
+            {/* ══════════════════════════════════════════════════
+                LIBRARY VIEW — 1000+ themes with categories
+            ══════════════════════════════════════════════════ */}
+            {view === 'LIBRARY' && (
+                <div style={{ margin: '0 -16px' }}>
+                    <ThemeBrowser
+                        user={user}
+                        settings={settings}
+                        isAdmin={isAdmin}
+                        accentColor={theme.btnStart}
+                        onApplyTheme={handleLoadFromLibrary}
+                        onScheduleTheme={handleScheduleFromLibrary}
+                        onBack={() => setView('EDITOR')}
+                    />
+                </div>
+            )}
+
+            {/* ══════════════════════════════════════════════════
+                EDITOR VIEW — main content below
+            ══════════════════════════════════════════════════ */}
+            {view === 'EDITOR' && <div className="px-4 pt-4 space-y-4">
 
                 {/* ── ACTIVE THEME STATUS ── */}
                 <div
@@ -1941,7 +2068,7 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
                             ? `✨ Pehla theme free! Iske baad ${THEME_COST} coins lagenge`
                             : 'Ye theme permanently rahegi jab tak tum khud reset nahi karte'}
                 </p>
-            </div>
+            </div>}
         </div>
 
         {/* ══════════════════════════════════════════════════
