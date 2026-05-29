@@ -923,6 +923,7 @@ const EVENT_SEEDS: Seed[] = [
 // PREMIUM THEMES — Animated, rare (200)
 // ═══════════════════════════════════════════════════════════════════
 const PREMIUM_SEEDS: Seed[] = [
+  ['p000','IIC NSTA Official','🎓','PREMIUM','#1d4ed8','#0ea5e9','dark','Official IIC NSTA signature theme — Education First','shimmer-forward','#3b82f6','LEGENDARY',0,['nsta','iic','official','signature','education','blue']],
   ['p001','Galaxy Core','🌌','PREMIUM','#7c3aed','#22d3ee','amoled','Galaxy core — star of stars','aurora','#7c3aed','EPIC',0,['galaxy','aurora','space','animated']],
   ['p002','Nebula Dream','🌌','PREMIUM','#a855f7','#06b6d4','dark','Nebula dream — cosmic colors','stars-full','#c084fc','EPIC',0,['nebula','space','cosmic','animated']],
   ['p003','Solar Storm','☀️','PREMIUM','#f59e0b','#ef4444','warm','Solar storm — explosive energy','fire-glow','#f59e0b','EPIC',0,['solar','storm','fire','animated']],
