@@ -478,12 +478,20 @@ export const ThemeAnimationBuilder: React.FC<Props> = ({ user, onUpdateUser, onB
     const handleScheduleFromLibrary = useCallback(async (appTheme: AppTheme) => {
         const cfg = (appTheme as any)._scheduleConfig as {
             target: 'ALL' | 'FREE' | 'BASIC' | 'ULTRA';
-            durationHours: number;
+            durationMs?: number;
+            durationHours?: number;
             scheduledAt: string;
             applyToProfile?: boolean;
             applyToBackground?: boolean;
         } | undefined;
         if (!cfg) return;
+
+        // Fix: ThemeBrowser passes durationMs, convert to hours
+        const durationHours = cfg.durationHours ?? ((cfg.durationMs ?? 0) / 3600000);
+        if (!durationHours || durationHours <= 0) {
+            alert('Duration set karo — kitne ghante chalega? (0 se zyada hona chahiye)');
+            return;
+        }
 
         const { doc, updateDoc } = await import('firebase/firestore');
         const { db } = await import('../firebase');
@@ -511,7 +519,7 @@ export const ThemeAnimationBuilder: React.FC<Props> = ({ user, onUpdateUser, onB
             topBarEffect: appTheme.topBarEffect,
             animColor: appTheme.animColor,
             scheduledAt: cfg.scheduledAt,
-            durationHours: cfg.durationHours,
+            durationHours,
             target: cfg.target,
             applyToProfile: cfg.applyToProfile,
             applyToBackground: cfg.applyToBackground,
@@ -521,14 +529,18 @@ export const ThemeAnimationBuilder: React.FC<Props> = ({ user, onUpdateUser, onB
         try {
             const settingsRef = doc(db, 'settings', 'global');
             await updateDoc(settingsRef, {
-                scheduledThemes: (() => {
-                    // Keep only non-expired scheduled themes + new one
-                    return [scheduledTheme];
-                })(),
+                scheduledThemes: [scheduledTheme],
             });
+            const delayMs = (appTheme as any)._scheduleConfig?.delayMs ?? 0;
+            if (delayMs > 0) {
+                const mins = Math.round(delayMs / 60000);
+                alert(`✅ Theme scheduled!\n"${appTheme.name}" ${mins} minute baad sabke liye broadcast hoga.\nDuration: ${durationHours.toFixed(1)} ghante`);
+            } else {
+                alert(`✅ Theme abhi live!\n"${appTheme.name}" real-time broadcast shuru ho gaya.\nDuration: ${durationHours.toFixed(1)} ghante`);
+            }
         } catch (e) {
             console.error('Failed to schedule theme:', e);
-            alert('Error: Could not save scheduled theme. Check Firestore permissions.');
+            alert('Error: Theme save nahi hua. Firestore permissions check karo.');
         }
     }, [user.id]);
 

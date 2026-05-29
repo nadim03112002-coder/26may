@@ -2341,6 +2341,8 @@ export const StudentDashboard: React.FC<Props> = ({
   // Tracks htmlViewMode inside ChunkedNotesReader (for download sync without unmounting reader)
   const [lucentChunkHtmlMode, setLucentChunkHtmlMode] = useState<'chunk' | 'html'>('chunk');
   const [lucentSaved, setLucentSaved] = useState(false);
+  const [lucentOptionsOpen, setLucentOptionsOpen] = useState(false);
+  const [hwOptionsOpen, setHwOptionsOpen] = useState(false);
   const [lucentFabOpen, setLucentFabOpen] = useState(false);
   // Reset both tabs + view mode when page or note changes
   useEffect(() => {
@@ -5008,55 +5010,71 @@ export const StudentDashboard: React.FC<Props> = ({
               </div>
               {/* Read / Write toggle — right next to note title */}
               {effectiveMode === 'notes' && (
-                <div className="flex items-center gap-0.5 shrink-0">
+                <div className="flex items-center gap-0.5 shrink-0 relative">
                   <button
-                    onClick={() => { stopSpeech(); setHwNotesViewMode('chunk'); }}
+                    onClick={() => { stopSpeech(); setHwNotesViewMode('chunk'); setHwOptionsOpen(false); }}
                     className={`flex items-center gap-0.5 px-2 py-1 rounded-lg text-[10px] font-black transition-all border ${hwNotesViewMode === 'chunk' ? 'bg-amber-400 text-white border-amber-400 shadow-sm' : 'bg-white/20 text-white border-white/30 hover:bg-white/30'}`}
                     title="Read Mode"
                   >
                     <Volume2 size={11} /> Read
                   </button>
                   <button
-                    onClick={() => { stopSpeech(); handleWriteModeGate(() => setHwNotesViewMode('html')); }}
+                    onClick={() => { stopSpeech(); handleWriteModeGate(() => setHwNotesViewMode('html')); setHwOptionsOpen(false); }}
                     className={`flex items-center gap-0.5 px-2 py-1 rounded-lg text-[10px] font-black transition-all border ${hwNotesViewMode === 'html' ? 'bg-teal-400 text-white border-teal-400 shadow-sm' : 'bg-white/20 text-white border-white/30 hover:bg-white/30'}`}
                     title="Write Mode"
                   >
                     <FileText size={11} /> Write
                   </button>
-                  <div className="flex items-center gap-0 bg-white/20 rounded-lg overflow-hidden border border-white/30 shrink-0">
-                    <button onClick={zoomOut} className="px-1.5 py-1 text-white text-[11px] font-black hover:bg-white/20 transition-colors" title="Zoom Out">A-</button>
-                    <span className="px-0.5 text-white/80 text-[9px] font-bold min-w-[24px] text-center">{Math.round(noteZoom * 100)}%</span>
-                    <button onClick={zoomIn} className="px-1.5 py-1 text-white text-[11px] font-black hover:bg-white/20 transition-colors" title="Zoom In">A+</button>
-                  </div>
+                  {/* 3-dot menu button */}
                   <button
-                    onClick={handleRotate}
-                    className={`flex items-center gap-0.5 px-2 py-1 rounded-lg text-[10px] font-black transition-all border ${isLandscape ? 'bg-green-400 text-white border-green-400 shadow-sm' : 'bg-white/20 text-white border-white/30 hover:bg-white/30'}`}
-                    title="Screen Rotate"
+                    onClick={() => setHwOptionsOpen(p => !p)}
+                    className="flex items-center justify-center w-7 h-7 rounded-lg bg-white/20 border border-white/30 text-white hover:bg-white/30 transition-colors shrink-0"
+                    title="More options"
                   >
-                    <RotateCcw size={11} /> Rot
+                    <MoreVertical size={13} />
                   </button>
+                  {/* 3-dot dropdown */}
+                  {hwOptionsOpen && (
+                    <div className="absolute top-full right-0 mt-1 z-50 rounded-xl shadow-2xl border border-white/20 overflow-hidden min-w-[160px]" style={{ background: 'rgba(15,15,25,0.97)', backdropFilter: 'blur(12px)' }}>
+                      {/* Font size row */}
+                      <div className="px-3 py-2 border-b border-white/10">
+                        <p className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-1.5">Font Size</p>
+                        <div className="flex items-center gap-0 bg-white/10 rounded-lg overflow-hidden border border-white/15">
+                          <button onClick={zoomOut} className="px-3 py-1.5 text-white text-[11px] font-black hover:bg-white/15 transition-colors">A-</button>
+                          <span className="flex-1 text-white/70 text-[10px] font-bold text-center">{Math.round(noteZoom * 100)}%</span>
+                          <button onClick={zoomIn} className="px-3 py-1.5 text-white text-[11px] font-black hover:bg-white/15 transition-colors">A+</button>
+                        </div>
+                      </div>
+                      {/* Rotate */}
+                      <button
+                        onClick={() => { handleRotate(); setHwOptionsOpen(false); }}
+                        className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-[11px] font-bold transition-colors ${isLandscape ? 'text-green-400' : 'text-white/80 hover:bg-white/8'}`}
+                      >
+                        <RotateCcw size={13} /> Screen Rotate {isLandscape ? '(On)' : ''}
+                      </button>
+                      {/* Download — only in Write mode 3-dot */}
+                      {hwNotesViewMode === 'html' && (activeHw as any).htmlNotes && (
+                        <button
+                          onClick={async () => {
+                            setHwOptionsOpen(false);
+                            try {
+                              const safeTitle = (activeHw.title || 'Homework').replace(/[^a-z0-9_\- ]/gi, '_').slice(0, 60);
+                              const _dlOk = await checkAndDoDownload(async () => {
+                                await downloadAsMHTML('hw-html-download', safeTitle, { appName: settings?.appShortName || settings?.appName || 'IIC', pageTitle: activeHw.title || 'Homework', subtitle: 'Homework Notes — Write Mode' });
+                              });
+                              if (_dlOk) showAlert('📥 Saved!', 'SUCCESS');
+                            } catch (e) {
+                              showAlert('Download failed. Please try again.', 'ERROR');
+                            }
+                          }}
+                          className="w-full flex items-center gap-2.5 px-3 py-2.5 text-[11px] font-bold text-sky-300 border-t border-white/10 hover:bg-white/8 transition-colors"
+                        >
+                          <Download size={13} /> Save Offline
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
-              )}
-              {/* Save offline — Write Mode only */}
-              {hwNotesViewMode === 'html' && (activeHw as any).htmlNotes && (
-              <button
-                onClick={async () => {
-                  try {
-                    const safeTitle = (activeHw.title || 'Homework').replace(/[^a-z0-9_\- ]/gi, '_').slice(0, 60);
-                    const _dlOk = await checkAndDoDownload(async () => {
-                      await downloadAsMHTML('hw-html-download', safeTitle, { appName: settings?.appShortName || settings?.appName || 'IIC', pageTitle: activeHw.title || 'Homework', subtitle: 'Homework Notes — Write Mode' });
-                    });
-                    if (_dlOk) showAlert('📥 Saved!', 'SUCCESS');
-                  } catch (e) {
-                    showAlert('Download failed. Please try again.', 'ERROR');
-                  }
-                }}
-                className="bg-white/20 hover:bg-white/30 p-2 rounded-full shrink-0 transition-colors"
-                aria-label="Save this lesson offline"
-                title="Save offline (Write Mode)"
-              >
-                <Download size={16} />
-              </button>
               )}
               <span className="bg-white/20 text-white text-[11px] font-black px-2.5 py-1 rounded-full shrink-0">
                 {flatIdx + 1}/{filteredHw.length}
@@ -8486,152 +8504,6 @@ export const StudentDashboard: React.FC<Props> = ({
                     );
                   })}
                 </div>
-              </div>
-            );
-          })()}
-
-          {/* ── TTS VOICE SETTINGS ── */}
-          {(() => {
-            const _TTS_SPEEDS = [0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
-            const _TTS_LABELS = ['0.75x', '1x', '1.25x', '1.5x', '1.75x', '2x'];
-            const _testSentence = 'IIC — India ka sabse accha educational app. Notes, MCQ, aur AI se apni padhai ko smart banaao!';
-            const _hindiVoices = profileTtsVoices.filter(v => v.lang.startsWith('hi')).slice(0, 5);
-            const _engVoices = profileTtsVoices.filter(v => v.lang.startsWith('en')).slice(0, 5);
-
-            const _playTest = (voiceUri?: string, spdIdx?: number) => {
-              if (!window.speechSynthesis) return;
-              const uri = voiceUri ?? profileTtsSelectedUri;
-              const spd = spdIdx !== undefined ? spdIdx : profileTtsSpeedIdx;
-              if (profileTtsPlaying) { window.speechSynthesis.cancel(); setProfileTtsPlaying(false); return; }
-              const voice = profileTtsVoices.find(v => v.voiceURI === uri) || null;
-              const utter = new SpeechSynthesisUtterance(_testSentence);
-              if (voice) utter.voice = voice;
-              utter.rate = _TTS_SPEEDS[spd] ?? 1.0;
-              utter.onstart = () => setProfileTtsPlaying(true);
-              utter.onend = () => setProfileTtsPlaying(false);
-              utter.onerror = () => setProfileTtsPlaying(false);
-              window.speechSynthesis.cancel();
-              setTimeout(() => window.speechSynthesis.speak(utter), 80);
-            };
-
-            const _selectVoice = (uri: string) => {
-              setProfileTtsSelectedUri(uri);
-              try { localStorage.setItem('nst_preferred_voice_uri', uri); } catch {}
-              _playTest(uri, profileTtsSpeedIdx);
-            };
-
-            const _selectSpeed = (idx: number) => {
-              setProfileTtsSpeedIdx(idx);
-              try { localStorage.setItem('nst_tts_speed', String(idx)); } catch {}
-            };
-
-            return (
-              <div className="rounded-none mb-2.5" style={{ background: _pCard, border: _pBdrSoft }}>
-                {/* Header */}
-                <div className="px-4 pt-3.5 pb-2.5 flex items-center gap-3" style={{ borderBottom: `1px solid ${tierTheme.primary}15` }}>
-                  <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                    style={{ background: `${tierTheme.primary}18`, border: `1px solid ${tierTheme.primary}50` }}>
-                    <span className="text-base">🔊</span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-bold ${_pTxt}`}>TTS Voice Settings</p>
-                    <p className={`text-[10px] mt-0.5 ${_pTxtMuted}`}>Notes ki awaaz aur reading speed chunein</p>
-                  </div>
-                  <button
-                    onClick={() => _playTest()}
-                    className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition active:scale-95 shadow-sm ${profileTtsPlaying ? 'bg-red-500 text-white' : 'text-white'}`}
-                    style={profileTtsPlaying ? {} : { background: tierTheme.primary }}
-                  >
-                    {profileTtsPlaying ? '■ Stop' : '▶ Test'}
-                  </button>
-                </div>
-
-                {/* Test sentence preview */}
-                <div className="px-4 pt-2.5 pb-1">
-                  <div className="rounded-xl px-3 py-2 text-[11px] italic" style={{ background: `${tierTheme.primary}08`, border: `1px solid ${tierTheme.primary}18`, color: _pTxtMutedColor }}>
-                    "{_testSentence}"
-                  </div>
-                </div>
-
-                {/* Speed selector */}
-                <div className="px-4 pt-2 pb-3" style={{ borderBottom: `1px solid ${tierTheme.primary}12` }}>
-                  <p className={`text-[10px] font-black uppercase tracking-wider mb-2 ${_pTxtMuted}`}>Reading Speed</p>
-                  <div className="flex gap-1.5 flex-wrap">
-                    {_TTS_LABELS.map((lbl, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => _selectSpeed(idx)}
-                        className="px-3 py-1.5 rounded-xl text-[11px] font-black transition active:scale-95"
-                        style={profileTtsSpeedIdx === idx
-                          ? { background: tierTheme.primary, color: '#fff', boxShadow: `0 2px 8px ${tierTheme.primary}40` }
-                          : { background: `${tierTheme.primary}10`, color: _pTxtMutedColor, border: `1px solid ${tierTheme.primary}20` }}
-                      >
-                        {lbl}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Hindi Voices */}
-                {_hindiVoices.length > 0 && (
-                  <div className="px-4 pt-3 pb-1">
-                    <p className={`text-[10px] font-black uppercase tracking-wider mb-2 ${_pTxtMuted}`}>🇮🇳 Hindi Voices</p>
-                    <div className="space-y-1.5">
-                      {_hindiVoices.map(v => {
-                        const _isSel = profileTtsSelectedUri === v.voiceURI;
-                        return (
-                          <button key={v.voiceURI} onClick={() => _selectVoice(v.voiceURI)}
-                            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition active:scale-95 text-left"
-                            style={{ background: _isSel ? `${tierTheme.primary}18` : `${_pTxtMutedColor}08`, border: `1px solid ${_isSel ? tierTheme.primary + '50' : _pTxtMutedColor + '18'}` }}>
-                            <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 text-sm"
-                              style={{ background: _isSel ? `${tierTheme.primary}25` : `${_pTxtMutedColor}12` }}>
-                              {_isSel ? '✓' : '🎙️'}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className={`text-xs font-bold truncate ${_isSel ? _pTxt : _pTxtMuted}`}>{v.name}</p>
-                              <p className={`text-[9px] ${_pTxtMuted}`}>{v.lang} · {v.localService ? 'Device' : 'Network'}</p>
-                            </div>
-                            {_isSel && <span className="text-[9px] font-black px-2 py-0.5 rounded-full shrink-0" style={{ background: `${tierTheme.primary}25`, color: tierTheme.primary }}>ACTIVE</span>}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* English Voices */}
-                {_engVoices.length > 0 && (
-                  <div className="px-4 pt-2 pb-3.5">
-                    <p className={`text-[10px] font-black uppercase tracking-wider mb-2 ${_pTxtMuted}`}>🇬🇧 English Voices</p>
-                    <div className="space-y-1.5">
-                      {_engVoices.map(v => {
-                        const _isSel = profileTtsSelectedUri === v.voiceURI;
-                        return (
-                          <button key={v.voiceURI} onClick={() => _selectVoice(v.voiceURI)}
-                            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition active:scale-95 text-left"
-                            style={{ background: _isSel ? `${tierTheme.primary}18` : `${_pTxtMutedColor}08`, border: `1px solid ${_isSel ? tierTheme.primary + '50' : _pTxtMutedColor + '18'}` }}>
-                            <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 text-sm"
-                              style={{ background: _isSel ? `${tierTheme.primary}25` : `${_pTxtMutedColor}12` }}>
-                              {_isSel ? '✓' : '🎙️'}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className={`text-xs font-bold truncate ${_isSel ? _pTxt : _pTxtMuted}`}>{v.name}</p>
-                              <p className={`text-[9px] ${_pTxtMuted}`}>{v.lang} · {v.localService ? 'Device' : 'Network'}</p>
-                            </div>
-                            {_isSel && <span className="text-[9px] font-black px-2 py-0.5 rounded-full shrink-0" style={{ background: `${tierTheme.primary}25`, color: tierTheme.primary }}>ACTIVE</span>}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* No voices loaded yet */}
-                {_hindiVoices.length === 0 && _engVoices.length === 0 && (
-                  <div className="px-4 py-4 text-center">
-                    <p className={`text-xs ${_pTxtMuted}`}>TTS voices load ho rahi hain… ek baar notes se koi note sunein, tab yahaan voices aayengi.</p>
-                  </div>
-                )}
               </div>
             );
           })()}
@@ -15129,39 +15001,56 @@ export const StudentDashboard: React.FC<Props> = ({
                   </button>
                 );
                 return (
-                  <div className="flex items-center gap-0.5 shrink-0">
-                    {/* Read button — hidden when read mode active; Save appears in its place */}
+                  <div className="flex items-center gap-0.5 shrink-0 relative">
+                    {/* Read button — when active, Save appears in its place */}
                     {_isReadMode ? _saveBtn : (
                       <button
-                        onClick={() => { stopSpeech(); setLucentNotesViewMode('chunk'); }}
+                        onClick={() => { stopSpeech(); setLucentNotesViewMode('chunk'); setLucentOptionsOpen(false); }}
                         className="flex items-center gap-0.5 px-2 py-1 rounded-lg text-[10px] font-black transition-all border bg-white/20 text-white border-white/30 hover:bg-white/30"
                         title="Read Mode"
                       >
                         <Volume2 size={11} /> Read
                       </button>
                     )}
-                    {/* Write button — hidden when write mode active; Save appears in its place */}
+                    {/* Write button — when active, Save appears in its place */}
                     {_isWriteMode ? _saveBtn : (
                       <button
-                        onClick={() => { stopSpeech(); handleWriteModeGate(() => setLucentNotesViewMode('html')); }}
+                        onClick={() => { stopSpeech(); handleWriteModeGate(() => setLucentNotesViewMode('html')); setLucentOptionsOpen(false); }}
                         className="flex items-center gap-0.5 px-2 py-1 rounded-lg text-[10px] font-black transition-all border bg-white/20 text-white border-white/30 hover:bg-white/30"
                         title="Write Mode"
                       >
                         <FileText size={11} /> Write
                       </button>
                     )}
-                    <div className="flex items-center gap-0 bg-white/20 rounded-lg overflow-hidden border border-white/30 shrink-0">
-                      <button onClick={zoomOut} className="px-1.5 py-1 text-white text-[11px] font-black hover:bg-white/20 transition-colors" title="Zoom Out">A-</button>
-                      <span className="px-0.5 text-white/80 text-[9px] font-bold min-w-[24px] text-center">{Math.round(noteZoom * 100)}%</span>
-                      <button onClick={zoomIn} className="px-1.5 py-1 text-white text-[11px] font-black hover:bg-white/20 transition-colors" title="Zoom In">A+</button>
-                    </div>
+                    {/* 3-dot menu button */}
                     <button
-                      onClick={handleRotate}
-                      className={`flex items-center gap-0.5 px-2 py-1 rounded-lg text-[10px] font-black transition-all border ${isLandscape ? 'bg-green-400 text-white border-green-400 shadow-sm' : 'bg-white/20 text-white border-white/30 hover:bg-white/30'}`}
-                      title="Screen Rotate"
+                      onClick={() => setLucentOptionsOpen(p => !p)}
+                      className="flex items-center justify-center w-7 h-7 rounded-lg bg-white/20 border border-white/30 text-white hover:bg-white/30 transition-colors shrink-0"
+                      title="More options"
                     >
-                      <RotateCcw size={11} /> Rot
+                      <MoreVertical size={13} />
                     </button>
+                    {/* 3-dot dropdown */}
+                    {lucentOptionsOpen && (
+                      <div className="absolute top-full right-0 mt-1 z-50 rounded-xl shadow-2xl border border-white/20 overflow-hidden min-w-[160px]" style={{ background: 'rgba(15,15,25,0.97)', backdropFilter: 'blur(12px)' }}>
+                        {/* Font size row */}
+                        <div className="px-3 py-2 border-b border-white/10">
+                          <p className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-1.5">Font Size</p>
+                          <div className="flex items-center gap-0 bg-white/10 rounded-lg overflow-hidden border border-white/15">
+                            <button onClick={zoomOut} className="px-3 py-1.5 text-white text-[11px] font-black hover:bg-white/15 transition-colors">A-</button>
+                            <span className="flex-1 text-white/70 text-[10px] font-bold text-center">{Math.round(noteZoom * 100)}%</span>
+                            <button onClick={zoomIn} className="px-3 py-1.5 text-white text-[11px] font-black hover:bg-white/15 transition-colors">A+</button>
+                          </div>
+                        </div>
+                        {/* Rotate */}
+                        <button
+                          onClick={() => { handleRotate(); setLucentOptionsOpen(false); }}
+                          className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-[11px] font-bold transition-colors ${isLandscape ? 'text-green-400' : 'text-white/80 hover:bg-white/8'}`}
+                        >
+                          <RotateCcw size={13} /> Screen Rotate {isLandscape ? '(On)' : ''}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 );
               })()}

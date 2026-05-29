@@ -81,6 +81,7 @@ export function ThemeBrowser({ user, settings, isAdmin, onApplyTheme, onSchedule
   const [search, setSearch] = useState('');
   const [selectedTheme, setSelectedTheme] = useState<AppTheme | null>(null);
   const [showSchedulePanel, setShowSchedulePanel] = useState(false);
+  const [showRealtimePanel, setShowRealtimePanel] = useState(false);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [rarityFilter, setRarityFilter] = useState<ThemeRarity | 'ALL'>('ALL');
   const [animatedOnly, setAnimatedOnly] = useState(false);
@@ -154,11 +155,35 @@ export function ThemeBrowser({ user, settings, isAdmin, onApplyTheme, onSchedule
       } as any,
     } as AppTheme);
     setShowSchedulePanel(false);
+    setShowRealtimePanel(false);
     setSelectedTheme(null);
     setSchedSaved(true);
     setTimeout(() => setSchedSaved(false), 3000);
   }, [selectedTheme, schedTarget, schedDurDays, schedDurHours, schedDurMins, schedDurSecs,
       schedDelayDays, schedDelayHours, schedDelayMins, schedDelaySecs,
+      schedApplyProfile, schedApplyBg, onScheduleTheme]);
+
+  const handleBroadcastNow = useCallback(() => {
+    if (!selectedTheme) return;
+    const durationMs = (schedDurDays  * 86400 + schedDurHours  * 3600 + schedDurMins  * 60 + schedDurSecs)  * 1000;
+    const scheduledAt = new Date().toISOString();
+    onScheduleTheme?.({
+      ...selectedTheme,
+      _scheduleConfig: {
+        target: schedTarget,
+        durationMs,
+        delayMs: 0,
+        scheduledAt,
+        applyToProfile: schedApplyProfile,
+        applyToBackground: schedApplyBg,
+      } as any,
+    } as AppTheme);
+    setShowRealtimePanel(false);
+    setShowSchedulePanel(false);
+    setSelectedTheme(null);
+    setSchedSaved(true);
+    setTimeout(() => setSchedSaved(false), 3000);
+  }, [selectedTheme, schedTarget, schedDurDays, schedDurHours, schedDurMins, schedDurSecs,
       schedApplyProfile, schedApplyBg, onScheduleTheme]);
 
   const catCounts = useMemo(() => {
@@ -351,6 +376,8 @@ export function ThemeBrowser({ user, settings, isAdmin, onApplyTheme, onSchedule
           accentColor={accentColor}
           showSchedulePanel={showSchedulePanel}
           setShowSchedulePanel={setShowSchedulePanel}
+          showRealtimePanel={showRealtimePanel}
+          setShowRealtimePanel={setShowRealtimePanel}
           schedTarget={schedTarget}
           setSchedTarget={setSchedTarget}
           schedDelayDays={schedDelayDays}   setSchedDelayDays={setSchedDelayDays}
@@ -369,7 +396,8 @@ export function ThemeBrowser({ user, settings, isAdmin, onApplyTheme, onSchedule
           setSchedApplyBg={setSchedApplyBg}
           onApply={handleApply}
           onSchedule={handleSchedule}
-          onClose={() => { setSelectedTheme(null); setShowSchedulePanel(false); }}
+          onBroadcastNow={handleBroadcastNow}
+          onClose={() => { setSelectedTheme(null); setShowSchedulePanel(false); setShowRealtimePanel(false); }}
         />
       )}
     </div>
@@ -571,6 +599,7 @@ function ThemeCard({ theme, locked, onSelect, accentColor }: {
 function ThemeDetailModal({
   theme, isAdmin, userLevel, accentColor,
   showSchedulePanel, setShowSchedulePanel,
+  showRealtimePanel, setShowRealtimePanel,
   schedTarget, setSchedTarget,
   schedDelayDays, setSchedDelayDays,
   schedDelayHours, setSchedDelayHours,
@@ -583,7 +612,7 @@ function ThemeDetailModal({
   schedDelayMs, schedDurMs,
   schedApplyProfile, setSchedApplyProfile,
   schedApplyBg, setSchedApplyBg,
-  onApply, onSchedule, onClose,
+  onApply, onSchedule, onBroadcastNow, onClose,
 }: {
   theme: AppTheme;
   isAdmin: boolean;
@@ -591,6 +620,8 @@ function ThemeDetailModal({
   accentColor: string;
   showSchedulePanel: boolean;
   setShowSchedulePanel: (v: boolean) => void;
+  showRealtimePanel: boolean;
+  setShowRealtimePanel: (v: boolean) => void;
   schedTarget: 'ALL' | 'FREE' | 'BASIC' | 'ULTRA';
   setSchedTarget: (v: 'ALL' | 'FREE' | 'BASIC' | 'ULTRA') => void;
   schedDelayDays: number; setSchedDelayDays: (v: number) => void;
@@ -609,11 +640,23 @@ function ThemeDetailModal({
   setSchedApplyBg: (v: boolean) => void;
   onApply: (t: AppTheme) => void;
   onSchedule: () => void;
+  onBroadcastNow: () => void;
   onClose: () => void;
 }) {
   const rarityColor = RARITY_COLORS[theme.rarity];
   const isLocked = !isAdmin && !!theme.unlockLevel && userLevel < theme.unlockLevel;
   const isLegendary = theme.rarity === 'LEGENDARY';
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if ((showSchedulePanel || showRealtimePanel) && scrollRef.current) {
+      setTimeout(() => {
+        if (scrollRef.current) {
+          scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+        }
+      }, 100);
+    }
+  }, [showSchedulePanel, showRealtimePanel]);
 
   return (
     <div
@@ -623,9 +666,10 @@ function ThemeDetailModal({
       <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" />
       <div
         className="relative w-full max-w-sm mx-2 mb-4 rounded-3xl overflow-hidden shadow-2xl border border-white/10"
-        style={{ background: '#0a0c14', maxHeight: '92vh', overflowY: 'auto' }}
+        style={{ background: '#0a0c14', maxHeight: '92vh' }}
         onClick={e => e.stopPropagation()}
       >
+      <div ref={scrollRef} style={{ overflowY: 'auto', maxHeight: '92vh', WebkitOverflowScrolling: 'touch' }}>
         {/* Preview top bar */}
         <div
           className="relative h-32 flex flex-col justify-between p-4"
@@ -808,6 +852,8 @@ function ThemeDetailModal({
               theme={theme}
               showSchedulePanel={showSchedulePanel}
               setShowSchedulePanel={setShowSchedulePanel}
+              showRealtimePanel={showRealtimePanel}
+              setShowRealtimePanel={setShowRealtimePanel}
               schedTarget={schedTarget}
               setSchedTarget={setSchedTarget}
               schedDelayDays={schedDelayDays} setSchedDelayDays={setSchedDelayDays}
@@ -826,6 +872,7 @@ function ThemeDetailModal({
               setSchedApplyBg={setSchedApplyBg}
               onApply={onApply}
               onSchedule={onSchedule}
+              onBroadcastNow={onBroadcastNow}
               accentColor={accentColor}
             />
           ) : (
@@ -846,6 +893,7 @@ function ThemeDetailModal({
             </button>
           )}
         </div>
+      </div>
       </div>
     </div>
   );
@@ -1000,6 +1048,7 @@ function fmtDuration(ms: number): string {
 // ─── Admin Action Buttons ─────────────────────────────────────────────────────
 function AdminActionButtons({
   theme, showSchedulePanel, setShowSchedulePanel,
+  showRealtimePanel, setShowRealtimePanel,
   schedTarget, setSchedTarget,
   schedDelayDays, setSchedDelayDays,
   schedDelayHours, setSchedDelayHours,
@@ -1012,11 +1061,13 @@ function AdminActionButtons({
   schedDelayMs, schedDurMs,
   schedApplyProfile, setSchedApplyProfile,
   schedApplyBg, setSchedApplyBg,
-  onApply, onSchedule, accentColor,
+  onApply, onSchedule, onBroadcastNow, accentColor,
 }: {
   theme: AppTheme;
   showSchedulePanel: boolean;
   setShowSchedulePanel: (v: boolean) => void;
+  showRealtimePanel: boolean;
+  setShowRealtimePanel: (v: boolean) => void;
   schedTarget: 'ALL' | 'FREE' | 'BASIC' | 'ULTRA';
   setSchedTarget: (v: 'ALL' | 'FREE' | 'BASIC' | 'ULTRA') => void;
   schedDelayDays: number; setSchedDelayDays: (v: number) => void;
@@ -1035,6 +1086,7 @@ function AdminActionButtons({
   setSchedApplyBg: (v: boolean) => void;
   onApply: (t: AppTheme) => void;
   onSchedule: () => void;
+  onBroadcastNow: () => void;
   accentColor: string;
 }) {
   return (
@@ -1058,14 +1110,108 @@ function AdminActionButtons({
         Try — Sirf Mere Liye Apply Karo
       </button>
 
-      {/* Schedule for users */}
+      {/* Real-time broadcast */}
       <button
-        onClick={() => setShowSchedulePanel(!showSchedulePanel)}
+        onClick={() => { setShowRealtimePanel(!showRealtimePanel); setShowSchedulePanel(false); }}
+        className="w-full py-3 rounded-2xl font-black text-sm text-white active:scale-95 transition-all border flex items-center justify-center gap-2"
+        style={{ background: showRealtimePanel ? '#0a1a10' : '#080f0a', borderColor: 'rgba(34,197,94,0.35)' }}
+      >
+        <span className="text-green-400 flex items-center gap-1.5">
+          <span className="inline-block w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+          Abhi Real-time Broadcast Karo
+        </span>
+        {showRealtimePanel ? <ChevronUp size={12} className="text-green-400" /> : <ChevronDown size={12} className="text-green-400" />}
+      </button>
+
+      {/* Real-time Panel */}
+      {showRealtimePanel && (
+        <div className="rounded-2xl p-4 border border-green-500/25 space-y-4" style={{ background: '#050d07' }}>
+          <p className="text-[9px] font-black text-green-400 uppercase tracking-wider flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse inline-block" /> Live Broadcast — Abhi Shuru
+          </p>
+          <p className="text-[8px] text-white/35 leading-relaxed">
+            Theme <span className="text-green-300 font-black">{theme.emoji} {theme.name}</span> turant sabke liye live ho jayega. Koi delay nahi.
+          </p>
+
+          {/* Target tier */}
+          <div>
+            <label className="text-[9px] text-white/40 font-black uppercase tracking-wider">Target Tier</label>
+            <div className="flex gap-1.5 mt-1.5">
+              {(['ALL', 'FREE', 'BASIC', 'ULTRA'] as const).map(t => (
+                <button
+                  key={t}
+                  onClick={() => setSchedTarget(t)}
+                  className="flex-1 py-2 rounded-xl text-[8px] font-black border transition-all active:scale-90"
+                  style={{
+                    background: schedTarget === t ? '#16a34a20' : '#0d0f1a',
+                    borderColor: schedTarget === t ? '#16a34a80' : 'rgba(255,255,255,0.08)',
+                    color: schedTarget === t ? '#4ade80' : 'rgba(255,255,255,0.35)',
+                  }}
+                >
+                  {t === 'ALL' ? '🌍 ALL' : t === 'FREE' ? '🎓 FREE' : t === 'BASIC' ? '⭐ BASIC' : '💎 ULTRA'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Duration */}
+          <DHMSPicker
+            label="Kitne time tak chalega?"
+            days={schedDurDays}  hours={schedDurHours}
+            mins={schedDurMins}  secs={schedDurSecs}
+            onDays={setSchedDurDays} onHours={setSchedDurHours}
+            onMins={setSchedDurMins} onSecs={setSchedDurSecs}
+            accent="#4ade80"
+          />
+
+          {/* Apply to profile/bg */}
+          <div className="space-y-2">
+            <ToggleRow
+              label="Profile Page Background"
+              sub="User ke profile page ka background badlega"
+              value={schedApplyProfile}
+              onChange={setSchedApplyProfile}
+              color="#4ade80"
+            />
+            <ToggleRow
+              label="App Background"
+              sub="Puri app ka background color badlega"
+              value={schedApplyBg}
+              onChange={setSchedApplyBg}
+              color="#4ade80"
+            />
+          </div>
+
+          {/* Summary */}
+          <div className="rounded-xl p-3 border border-green-500/15 bg-green-500/5">
+            <p className="text-[8px] text-green-300/70 font-bold leading-relaxed">
+              ⚡ {theme.emoji} {theme.name} → Abhi live,{' '}
+              {schedDurMs > 0 ? fmtDuration(schedDurMs) : '∞'} chalega,{' '}
+              target: <span className="text-green-300">{schedTarget}</span>
+              {schedApplyProfile ? ' · Profile ✓' : ''}{schedApplyBg ? ' · AppBg ✓' : ''}
+            </p>
+          </div>
+
+          <button
+            onClick={onBroadcastNow}
+            disabled={schedDurMs <= 0}
+            className="w-full py-3 rounded-2xl font-black text-sm text-white active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{ background: 'linear-gradient(135deg, #16a34a, #15803d)', boxShadow: '0 6px 20px #16a34a40' }}
+          >
+            <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+            Abhi Broadcast Karo
+          </button>
+        </div>
+      )}
+
+      {/* Scheduled broadcast */}
+      <button
+        onClick={() => { setShowSchedulePanel(!showSchedulePanel); setShowRealtimePanel(false); }}
         className="w-full py-3 rounded-2xl font-black text-sm text-white active:scale-95 transition-all border flex items-center justify-center gap-2"
         style={{ background: '#120d00', borderColor: 'rgba(251,191,36,0.3)' }}
       >
         <Calendar size={13} className="text-amber-400" />
-        <span className="text-amber-300">Sabke Liye Schedule Karo</span>
+        <span className="text-amber-300">Baad Mein Schedule Karo</span>
         {showSchedulePanel ? <ChevronUp size={12} className="text-amber-400" /> : <ChevronDown size={12} className="text-amber-400" />}
       </button>
 
@@ -1156,7 +1302,8 @@ function AdminActionButtons({
 
           <button
             onClick={onSchedule}
-            className="w-full py-3 rounded-2xl font-black text-sm text-white active:scale-95 transition-all flex items-center justify-center gap-2"
+            disabled={schedDurMs <= 0}
+            className="w-full py-3 rounded-2xl font-black text-sm text-white active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
             style={{ background: `linear-gradient(135deg, #d97706, #c2410c)`, boxShadow: '0 6px 20px #d9770640' }}
           >
             <Calendar size={14} />
