@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { FeatureHints } from "./FeatureHints";
+import { ScheduledThemeBadge } from "./ScheduledThemeBadge";
 import { TopBarEffectsLayer } from "../utils/topBarEffects";
 import { getLevelInfo, getNextLevelInfo, getLevelProgress, LEVEL_INFO, ACTIVITY_SCORES, getLevelTopBarEffects, getLevelLimitBonus, getLevelDailyLimits, getLevelDailyLimitsWithOverride, getEffectiveDailyLimit, UNLIMITED } from "../utils/levelSystem";
 import { tryEarnScore, awardMilestone, getDailyScoreEarned, DAILY_SCORE_LIMIT, getDailyScoreLimit, getActiveBoost } from "../utils/scoreSystem";
@@ -578,10 +579,49 @@ export const StudentDashboard: React.FC<Props> = ({
     return entry.themeData;
   })();
 
+  // Scheduled theme from library — active broadcast by admin for a time window
+  const _scheduledThemeActive = (() => {
+    const scheduled = (settings as any)?.scheduledThemes as import('../types').ScheduledTheme[] | undefined;
+    if (!scheduled?.length) return null;
+    const now = Date.now();
+    const tier = getUserTier(user) as string;
+    const tierMap: Record<string, string> = { ultra: 'ULTRA', basic: 'BASIC', free: 'FREE' };
+    const mappedTier = tierMap[tier] || 'FREE';
+    return scheduled.find(t => {
+      if (t.target !== 'ALL' && t.target !== mappedTier) return false;
+      const start = new Date(t.scheduledAt).getTime();
+      const end = start + t.durationHours * 3600000;
+      return now >= start && now < end;
+    }) || null;
+  })();
+
   const tierTheme =
     // 1. Admin broadcast (forced, temporary, targeted) — always wins
     _adminGlobalActive && _adminGlobal
       ? buildGranularTierTheme(getTierTheme(user), _adminGlobal.theme)
+      // 1.5. Scheduled library theme (admin-scheduled, time-based broadcast)
+      : _scheduledThemeActive
+        ? buildGranularTierTheme(getTierTheme(user), {
+            id: _scheduledThemeActive.id,
+            userId: 'admin',
+            userName: 'Admin',
+            createdAt: _scheduledThemeActive.createdAt,
+            bgColor: _scheduledThemeActive.themeColors.bgColor,
+            topBarStart: _scheduledThemeActive.themeColors.topBarStart,
+            topBarEnd: _scheduledThemeActive.themeColors.topBarEnd,
+            navBg: _scheduledThemeActive.themeColors.navBg,
+            navActive: _scheduledThemeActive.themeColors.navActive,
+            navBorder: _scheduledThemeActive.themeColors.navBorder,
+            cardBg: _scheduledThemeActive.themeColors.cardBg,
+            cardBorder: _scheduledThemeActive.themeColors.cardBorder,
+            btnStart: _scheduledThemeActive.themeColors.btnStart,
+            btnEnd: _scheduledThemeActive.themeColors.btnEnd,
+            textColor: _scheduledThemeActive.themeColors.textPrimary,
+            textSecondary: _scheduledThemeActive.themeColors.textSecondary,
+            accentGlow: _scheduledThemeActive.themeColors.accentGlow,
+            progressColor: _scheduledThemeActive.themeColors.progressColor,
+            accentColor: _scheduledThemeActive.themeColors.btnStart,
+          } as import('../types').UserCustomTheme)
       // 2. User's chosen theme from admin history (if not expired)
       : _userHistoryTheme
         ? buildGranularTierTheme(getTierTheme(user), _userHistoryTheme)
@@ -7304,7 +7344,7 @@ export const StudentDashboard: React.FC<Props> = ({
                       onClick={() => { hapticStrong(); setContentTypePref(f.val as any); }}
                       className="px-3 py-1 rounded-full text-[11px] font-black transition-all"
                       style={isActive2
-                        ? { background: (() => { const ia = user.isPremium && user.subscriptionEndDate && new Date(user.subscriptionEndDate) > new Date(); const lv = user.subscriptionLevel||''; return ia&&(lv==='ULTRA'||lv==='PRO')?'#1E2A4A':ia?'#1D4ED8':'#38BDF8'; })(), color: '#fff' }
+                        ? { background: tierTheme.primary, color: '#fff' }
                         : { background: 'transparent', color: '#64748b' }}
                     >
                       {f.label}
@@ -8339,7 +8379,14 @@ export const StudentDashboard: React.FC<Props> = ({
                 <div className="px-3 pb-3 space-y-2">
                   {/* Default option */}
                   <button
-                    onClick={() => _applyTheme('default')}
+                    onClick={() => {
+                      if (!_activeId || _activeId === 'default') return;
+                      setConfirmDialog({
+                        isOpen: true,
+                        message: `__THEME_CONFIRM__Default Theme`,
+                        onConfirm: () => { _applyTheme('default'); setConfirmDialog(null); },
+                      });
+                    }}
                     className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2.5 transition-all active:scale-95 text-left"
                     style={{
                       background: (!_activeId || _activeId === 'default') ? `${tierTheme.primary}18` : `${_pTxtMutedColor}08`,
@@ -8352,9 +8399,12 @@ export const StudentDashboard: React.FC<Props> = ({
                       <p className={`text-xs font-bold ${_pTxt}`}>Default Theme</p>
                       <p className={`text-[10px] ${_pTxtMuted}`}>Tier ka default theme</p>
                     </div>
-                    {(!_activeId || _activeId === 'default') && (
+                    {(!_activeId || _activeId === 'default') ? (
                       <span className="text-[9px] font-black px-2 py-0.5 rounded-full shrink-0"
                         style={{ background: `${tierTheme.primary}25`, color: tierTheme.primary }}>ACTIVE</span>
+                    ) : (
+                      <span className="text-[9px] font-bold px-2 py-0.5 rounded-full shrink-0 border"
+                        style={{ color: _pTxtMutedColor, borderColor: `${_pTxtMutedColor}30` }}>Apply</span>
                     )}
                   </button>
 
@@ -8376,7 +8426,14 @@ export const StudentDashboard: React.FC<Props> = ({
                     return (
                       <button
                         key={entry.id}
-                        onClick={() => !_expired && _applyTheme(entry.id)}
+                        onClick={() => {
+                          if (_expired || _isActive) return;
+                          setConfirmDialog({
+                            isOpen: true,
+                            message: `__THEME_CONFIRM__${entry.name}||${_c1}||${_c2}`,
+                            onConfirm: () => { _applyTheme(entry.id); setConfirmDialog(null); },
+                          });
+                        }}
                         disabled={_expired}
                         className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2.5 transition-all active:scale-95 text-left"
                         style={{
@@ -8391,10 +8448,13 @@ export const StudentDashboard: React.FC<Props> = ({
                           <p className={`text-xs font-bold ${_pTxt} truncate`}>{entry.name}</p>
                           <p className={`text-[10px] ${_expired ? 'text-red-400' : _pTxtMuted}`}>{_timeLeft}</p>
                         </div>
-                        {_isActive && !_expired && (
+                        {_isActive && !_expired ? (
                           <span className="text-[9px] font-black px-2 py-0.5 rounded-full shrink-0"
                             style={{ background: `${_c1}25`, color: _c1 }}>ACTIVE</span>
-                        )}
+                        ) : !_expired ? (
+                          <span className="text-[9px] font-bold px-2 py-0.5 rounded-full shrink-0 border"
+                            style={{ color: _c1, borderColor: `${_c1}40` }}>Apply</span>
+                        ) : null}
                       </button>
                     );
                   })}
@@ -8998,6 +9058,13 @@ export const StudentDashboard: React.FC<Props> = ({
 
           {/* RIGHT: streak + search + mail + dots */}
           <div className="flex items-center gap-1 shrink-0">
+
+            {/* Scheduled Theme Badge */}
+            <ScheduledThemeBadge
+              settings={settings}
+              userTier={getUserTier(user)}
+              accentColor={(tierTheme as any).btnStart || tierTheme.primary}
+            />
 
             {/* Streak pill */}
             <button
@@ -19663,35 +19730,83 @@ RULES:
         );
       })()}
 
-      {confirmDialog?.isOpen && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm px-6 animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 flex flex-col gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center shrink-0">
-                <span className="text-xl">🗑️</span>
-              </div>
-              <div>
-                <p className="font-black text-slate-800 text-sm">Delete karein?</p>
-                <p className="text-xs text-slate-500 mt-0.5">{confirmDialog.message}</p>
+      {confirmDialog?.isOpen && (() => {
+        const _isThemeConfirm = confirmDialog.message.startsWith('__THEME_CONFIRM__');
+        if (_isThemeConfirm) {
+          const _parts = confirmDialog.message.replace('__THEME_CONFIRM__', '').split('||');
+          const _themeName = _parts[0] || 'Theme';
+          const _c1 = _parts[1] || tierTheme.primary;
+          const _c2 = _parts[2] || _c1;
+          return (
+            <div className="fixed inset-0 z-[9999] flex items-end justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-150" onClick={() => setConfirmDialog(null)}>
+              <div className="bg-white rounded-t-3xl shadow-2xl w-full max-w-sm flex flex-col overflow-hidden mb-0" onClick={e => e.stopPropagation()}>
+                {/* Color preview bar */}
+                <div className="h-20 relative" style={{ background: `linear-gradient(135deg, ${_c1}, ${_c2})` }}>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="flex gap-2">
+                      {[_c1, _c2, _c1 + 'bb', _c2 + 'bb'].map((c, i) => (
+                        <div key={i} className="w-7 h-7 rounded-full border-2 border-white/40 shadow-lg" style={{ background: c }} />
+                      ))}
+                    </div>
+                  </div>
+                  <button onClick={() => setConfirmDialog(null)} className="absolute top-3 right-3 w-7 h-7 rounded-full bg-black/20 flex items-center justify-center text-white text-xs font-bold active:scale-90 transition-transform">✕</button>
+                </div>
+                <div className="p-5 space-y-4">
+                  <div className="text-center">
+                    <p className="font-black text-slate-800 text-base">🎨 Theme Apply Karo?</p>
+                    <p className="text-sm font-bold mt-1" style={{ color: _c1 }}>{_themeName}</p>
+                    <p className="text-xs text-slate-400 mt-1">Kya aap sure hain? Ye theme aapke account pe apply ho jaayegi.</p>
+                  </div>
+                  <div className="flex gap-2.5">
+                    <button
+                      onClick={() => setConfirmDialog(null)}
+                      className="flex-1 py-3 rounded-2xl bg-slate-100 text-slate-600 font-black text-sm active:scale-95 transition-all"
+                    >
+                      Nahi
+                    </button>
+                    <button
+                      onClick={confirmDialog.onConfirm}
+                      className="flex-1 py-3 rounded-2xl text-white font-black text-sm active:scale-95 transition-all shadow-lg"
+                      style={{ background: `linear-gradient(135deg, ${_c1}, ${_c2})`, boxShadow: `0 6px 20px ${_c1}50` }}
+                    >
+                      Haan, Apply!
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setConfirmDialog(null)}
-                className="flex-1 py-2.5 rounded-xl bg-slate-100 text-slate-700 font-black text-sm active:scale-95 transition-all hover:bg-slate-200"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmDialog.onConfirm}
-                className="flex-1 py-2.5 rounded-xl bg-red-500 text-white font-black text-sm active:scale-95 transition-all hover:bg-red-600"
-              >
-                Delete
-              </button>
+          );
+        }
+        return (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm px-6 animate-in fade-in duration-150">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 flex flex-col gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center shrink-0">
+                  <span className="text-xl">🗑️</span>
+                </div>
+                <div>
+                  <p className="font-black text-slate-800 text-sm">Delete karein?</p>
+                  <p className="text-xs text-slate-500 mt-0.5">{confirmDialog.message}</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setConfirmDialog(null)}
+                  className="flex-1 py-2.5 rounded-xl bg-slate-100 text-slate-700 font-black text-sm active:scale-95 transition-all hover:bg-slate-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmDialog.onConfirm}
+                  className="flex-1 py-2.5 rounded-xl bg-red-500 text-white font-black text-sm active:scale-95 transition-all hover:bg-red-600"
+                >
+                  Delete
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ── Write Mode Unlock Prompt ── */}
       {showWMUnlockPrompt && (() => {

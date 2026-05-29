@@ -1,6 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { User, UserCustomTheme, UserCustomAnimation } from '../types';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { User, UserCustomTheme, UserCustomAnimation, ScheduledTheme } from '../types';
 import { TOP_BAR_EFFECTS, TopBarEffectsLayer } from '../utils/topBarEffects';
+import { ThemeBrowser } from './ThemeBrowser';
+import type { AppTheme } from '../utils/themeLibrary';
 import {
     saveUserTheme, saveUserAnimation,
     publishTheme, publishAnimation,
@@ -193,7 +195,7 @@ const PRESET_THEMES: Array<{ name: string; emoji: string; colors: ThemeState }> 
     },
 ];
 
-type Tab = 'THEME' | 'ANIMATION' | 'GALLERY';
+type Tab = 'THEME' | 'ANIMATION' | 'GALLERY' | 'LIBRARY';
 type ColorSection = 'BACKGROUND' | 'TOPBAR' | 'NAVIGATION' | 'CARDS' | 'BUTTONS' | 'TEXT' | 'ACCENTS';
 
 const SECTION_INFO: Record<ColorSection, { label: string; icon: React.ReactNode; desc: string }> = {
@@ -260,7 +262,7 @@ export const ThemeAnimationBuilder: React.FC<Props> = ({ user, onUpdateUser, onB
     const isAdmin = user.role === 'ADMIN' || user.role === 'SUB_ADMIN';
     const totalCoins = getTotalCredits(user);
 
-    const [tab, setTab] = useState<Tab>('THEME');
+    const [tab, setTab] = useState<Tab>('LIBRARY');
     const [activeSection, setActiveSection] = useState<ColorSection>('TOPBAR');
 
     const getInitialTheme = (): ThemeState => {
@@ -448,6 +450,88 @@ export const ThemeAnimationBuilder: React.FC<Props> = ({ user, onUpdateUser, onB
     const EFFECT_CATEGORIES = [...new Set(TOP_BAR_EFFECTS.map(e => e.category))];
     const selectedEffectObj = TOP_BAR_EFFECTS.find(e => e.id === selectedEffect);
 
+    const handleApplyFromLibrary = useCallback((appTheme: AppTheme) => {
+        const c = appTheme.colors;
+        setTheme({
+            bgColor: c.bgColor,
+            topBarStart: c.topBarStart,
+            topBarEnd: c.topBarEnd,
+            navBg: c.navBg,
+            navActive: c.navActive,
+            navBorder: c.navBorder,
+            cardBg: c.cardBg,
+            cardBorder: c.cardBorder,
+            btnStart: c.btnStart,
+            btnEnd: c.btnEnd,
+            textPrimary: c.textPrimary,
+            textSecondary: c.textSecondary,
+            accentGlow: c.accentGlow,
+            progressColor: c.progressColor,
+        });
+        if (appTheme.topBarEffect) {
+            setSelectedEffect(appTheme.topBarEffect);
+            if (appTheme.animColor) setAnimColor(appTheme.animColor);
+        }
+        setTab('THEME');
+    }, []);
+
+    const handleScheduleFromLibrary = useCallback(async (appTheme: AppTheme) => {
+        const cfg = (appTheme as any)._scheduleConfig as {
+            target: 'ALL' | 'FREE' | 'BASIC' | 'ULTRA';
+            durationHours: number;
+            scheduledAt: string;
+            applyToProfile?: boolean;
+            applyToBackground?: boolean;
+        } | undefined;
+        if (!cfg) return;
+
+        const { doc, updateDoc } = await import('firebase/firestore');
+        const { db } = await import('../firebase');
+        const scheduledTheme: ScheduledTheme = {
+            id: `sched_${Date.now()}`,
+            themeId: appTheme.id,
+            themeName: appTheme.name,
+            themeEmoji: appTheme.emoji,
+            themeColors: {
+                bgColor: appTheme.colors.bgColor,
+                topBarStart: appTheme.colors.topBarStart,
+                topBarEnd: appTheme.colors.topBarEnd,
+                navBg: appTheme.colors.navBg,
+                navActive: appTheme.colors.navActive,
+                navBorder: appTheme.colors.navBorder,
+                cardBg: appTheme.colors.cardBg,
+                cardBorder: appTheme.colors.cardBorder,
+                btnStart: appTheme.colors.btnStart,
+                btnEnd: appTheme.colors.btnEnd,
+                textPrimary: appTheme.colors.textPrimary,
+                textSecondary: appTheme.colors.textSecondary,
+                accentGlow: appTheme.colors.accentGlow,
+                progressColor: appTheme.colors.progressColor,
+            },
+            topBarEffect: appTheme.topBarEffect,
+            animColor: appTheme.animColor,
+            scheduledAt: cfg.scheduledAt,
+            durationHours: cfg.durationHours,
+            target: cfg.target,
+            applyToProfile: cfg.applyToProfile,
+            applyToBackground: cfg.applyToBackground,
+            createdBy: user.id,
+            createdAt: new Date().toISOString(),
+        };
+        try {
+            const settingsRef = doc(db, 'settings', 'global');
+            await updateDoc(settingsRef, {
+                scheduledThemes: (() => {
+                    // Keep only non-expired scheduled themes + new one
+                    return [scheduledTheme];
+                })(),
+            });
+        } catch (e) {
+            console.error('Failed to schedule theme:', e);
+            alert('Error: Could not save scheduled theme. Check Firestore permissions.');
+        }
+    }, [user.id]);
+
     return (
         <div className="min-h-screen pb-32 select-none" style={{ background: '#06080f' }}>
 
@@ -527,8 +611,9 @@ export const ThemeAnimationBuilder: React.FC<Props> = ({ user, onUpdateUser, onB
                     style={{ background: '#0d0f1a', border: '1px solid rgba(255,255,255,0.06)' }}
                 >
                     {([
-                        { id: 'THEME' as Tab, label: '🎨 Theme', sub: isAdmin ? 'Free' : `${THEME_COST} coins` },
-                        { id: 'ANIMATION' as Tab, label: '✨ Animation', sub: isAdmin ? 'Free' : `${ANIMATION_COST} coins` },
+                        { id: 'LIBRARY' as Tab, label: '📚 Library', sub: '1000+' },
+                        { id: 'THEME' as Tab, label: '🎨 Custom', sub: isAdmin ? 'Free' : `${THEME_COST} coins` },
+                        { id: 'ANIMATION' as Tab, label: '✨ Anim', sub: isAdmin ? 'Free' : `${ANIMATION_COST} coins` },
                         { id: 'GALLERY' as Tab, label: '🌍 Gallery', sub: 'Community' },
                     ]).map(t => (
                         <button
@@ -950,6 +1035,22 @@ export const ThemeAnimationBuilder: React.FC<Props> = ({ user, onUpdateUser, onB
                 {/* ══════════════════════════════════
                     GALLERY TAB
                 ══════════════════════════════════ */}
+                {/* ══════════════════════════════════
+                    LIBRARY TAB
+                ══════════════════════════════════ */}
+                {tab === 'LIBRARY' && (
+                    <div style={{ margin: '0 -16px' }}>
+                        <ThemeBrowser
+                            user={user}
+                            isAdmin={isAdmin}
+                            accentColor={theme.btnStart}
+                            onApplyTheme={handleApplyFromLibrary}
+                            onScheduleTheme={handleScheduleFromLibrary}
+                            onBack={() => setTab('THEME')}
+                        />
+                    </div>
+                )}
+
                 {tab === 'GALLERY' && (
                     <div className="space-y-4">
 
