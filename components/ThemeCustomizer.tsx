@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, UserCustomTheme, SystemSettings } from '../types';
+import { User, UserCustomTheme, SystemSettings, AdminSavedTheme, ThemeHistoryEntry } from '../types';
 import { saveUserToLive, saveSystemSettings } from '../firebase';
 import { getTotalCredits, applyDeduction } from '../utils/creditSystem';
 import {
@@ -60,7 +60,46 @@ const DEFAULT_THEME: ThemeState = {
     mcqTabActive: '#3b82f6',
 };
 
-const PRESETS: Array<{ name: string; emoji: string; colors: ThemeState }> = [
+const PRESETS: Array<{ name: string; emoji: string; colors: ThemeState; isDefault?: boolean }> = [
+    {
+        name: 'Default — ULTRA', emoji: '💙', isDefault: true,
+        colors: {
+            bgColor: '#ffffff', topBarStart: '#020714', topBarEnd: '#071232',
+            navBg: '#ffffff', navActive: '#1e3a8a', navBorder: '#bfdbfe',
+            cardBg: '#eff6ff', cardBorder: '#bfdbfe',
+            btnStart: '#1e3a8a', btnEnd: '#2563eb',
+            textPrimary: '#1e3a8a', textSecondary: '#1d4ed8',
+            accentGlow: '#2563eb', progressColor: '#1e3a8a',
+            flashcardBg1: '#04091e', flashcardBg2: '#071232',
+            chapterAccent: '#1e3a8a', mcqTabActive: '#1e3a8a',
+        }
+    },
+    {
+        name: 'Default — BASIC', emoji: '⭐', isDefault: true,
+        colors: {
+            bgColor: '#ffffff', topBarStart: '#060c1a', topBarEnd: '#0a1535',
+            navBg: '#ffffff', navActive: '#2563eb', navBorder: '#dbeafe',
+            cardBg: '#eff6ff', cardBorder: '#dbeafe',
+            btnStart: '#2563eb', btnEnd: '#3b82f6',
+            textPrimary: '#1d4ed8', textSecondary: '#2563eb',
+            accentGlow: '#3b82f6', progressColor: '#2563eb',
+            flashcardBg1: '#0c1e55', flashcardBg2: '#1a3a8a',
+            chapterAccent: '#2563eb', mcqTabActive: '#2563eb',
+        }
+    },
+    {
+        name: 'Default — FREE', emoji: '🎓', isDefault: true,
+        colors: {
+            bgColor: '#ffffff', topBarStart: '#0369a1', topBarEnd: '#0284c7',
+            navBg: '#ffffff', navActive: '#0ea5e9', navBorder: '#bae6fd',
+            cardBg: '#f0f9ff', cardBorder: '#bae6fd',
+            btnStart: '#0284c7', btnEnd: '#0ea5e9',
+            textPrimary: '#0369a1', textSecondary: '#0284c7',
+            accentGlow: '#38bdf8', progressColor: '#0ea5e9',
+            flashcardBg1: '#0284c7', flashcardBg2: '#0ea5e9',
+            chapterAccent: '#0ea5e9', mcqTabActive: '#0ea5e9',
+        }
+    },
     {
         name: 'Ocean Blue', emoji: '🌊',
         colors: {
@@ -570,6 +609,14 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
     /* Local live state so admin sees immediate feedback after apply/remove */
     const [liveAdminTheme, setLiveAdminTheme]   = useState(settings?.adminAppliedTheme);
 
+    /* ── THEME LIBRARY STATE (admin) ── */
+    const [showSaveModal, setShowSaveModal]           = useState(false);
+    const [saveThemeName, setSaveThemeName]           = useState('');
+    const [librarySaving, setLibrarySaving]           = useState(false);
+    const [broadcastThemeName, setBroadcastThemeName] = useState('');
+    /* ── USER HISTORY STATE ── */
+    const [userThemeSaving, setUserThemeSaving]       = useState(false);
+
     const setColor = (key: keyof ThemeState) => (v: string) =>
         setTheme(prev => ({ ...prev, [key]: v }));
 
@@ -590,7 +637,7 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
             cardColor:     isAdmin ? theme.cardBg : '#f8fafc',
             topBarStart:   theme.topBarStart,
             topBarEnd:     theme.topBarEnd,
-            navBg:         '#ffffff',
+            navBg:         isAdmin ? theme.navBg : '#ffffff',
             navActive:     theme.navActive,
             navBorder:     theme.navBorder,
             cardBg:        isAdmin ? theme.cardBg : '#f8fafc',
@@ -709,12 +756,28 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
             minLevel: globalMinLevel > 0 ? globalMinLevel : null,
             maxLevel: globalMaxLevel > 0 ? globalMaxLevel : null,
         };
-        const newSettings = { ...(settings || {}), adminAppliedTheme };
+        // Add entry to themeHistory (users can see & switch to this theme)
+        const historyEntry: ThemeHistoryEntry = {
+            id: `hist_${Date.now()}`,
+            name: broadcastThemeName.trim() || `Broadcast — ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`,
+            themeData: themeObj,
+            targetTier: globalTier,
+            appliedAt: new Date().toISOString(),
+            expiresAt: expiresAt ?? null,
+        };
+        const prevHistory: ThemeHistoryEntry[] = (settings as any)?.themeHistory || [];
+        // Keep last 30 entries (filter super-old expired ones > 30 days)
+        const cleanHistory = prevHistory.filter(e =>
+            !e.expiresAt || new Date(e.expiresAt).getTime() > Date.now() - 30 * 86400000
+        );
+        const newHistory = [historyEntry, ...cleanHistory].slice(0, 30);
+        const newSettings = { ...(settings || {}), adminAppliedTheme, themeHistory: newHistory };
         try {
             await saveSystemSettings(newSettings);
             onUpdateSettings?.(newSettings as any);
             setLiveAdminTheme(adminAppliedTheme as any);
-            alert(`✅ Theme broadcast ho gayi!\n${globalTier === 'all' ? 'Sabhi users' : globalTier.toUpperCase() + ' users'} ko yeh theme milegi.`);
+            setBroadcastThemeName('');
+            alert(`✅ Theme broadcast ho gayi!\n${globalTier === 'all' ? 'Sabhi users' : globalTier.toUpperCase() + ' users'} ko yeh theme milegi.\n\nHistory mein naam: "${historyEntry.name}"`);
         } catch {
             alert('❌ Kuch galat hua — dobara try karo.');
         }
@@ -820,11 +883,89 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
         const updated: User = { ...user };
         delete (updated as any).personalTheme;
         delete (updated as any).personalThemeColor;
-        delete (updated as any).useDefaultTheme;   // undefined = locked by default, no need to store true
+        delete (updated as any).useDefaultTheme;
         onUpdateUser(updated);
         try { await saveUserToLive(updated); } catch {}
         setSaving(false);
         setTheme({ ...DEFAULT_THEME });
+    };
+
+    /* ─────────────────────────────────────────
+       ADMIN THEME LIBRARY
+    ───────────────────────────────────────── */
+    const doSaveToLibrary = async () => {
+        if (!saveThemeName.trim()) { alert('Theme ka naam do!'); return; }
+        setLibrarySaving(true);
+        const themeObj = buildThemeObj();
+        const entry: AdminSavedTheme = {
+            id: `lib_${Date.now()}`,
+            name: saveThemeName.trim(),
+            themeData: themeObj,
+            createdAt: new Date().toISOString(),
+            createdBy: user.name,
+        };
+        const existing: AdminSavedTheme[] = (settings as any)?.adminThemeLibrary || [];
+        const newLibrary = [entry, ...existing].slice(0, 50);
+        const newSettings = { ...(settings || {}), adminThemeLibrary: newLibrary };
+        try {
+            await saveSystemSettings(newSettings);
+            onUpdateSettings?.(newSettings as any);
+            setSaveThemeName('');
+            setShowSaveModal(false);
+            alert(`✅ "${entry.name}" library mein save ho gayi!`);
+        } catch {
+            alert('❌ Save nahi hua — dobara try karo.');
+        }
+        setLibrarySaving(false);
+    };
+
+    const doDeleteFromLibrary = async (id: string) => {
+        if (!confirm('Is theme ko library se delete karo?')) return;
+        const existing: AdminSavedTheme[] = (settings as any)?.adminThemeLibrary || [];
+        const newLibrary = existing.filter(e => e.id !== id);
+        const newSettings = { ...(settings || {}), adminThemeLibrary: newLibrary };
+        try {
+            await saveSystemSettings(newSettings);
+            onUpdateSettings?.(newSettings as any);
+        } catch {
+            alert('❌ Delete nahi hua.');
+        }
+    };
+
+    const doLoadFromLibrary = (saved: AdminSavedTheme) => {
+        const td = saved.themeData;
+        setTheme({
+            bgColor:       td.bgColor       || '#ffffff',
+            topBarStart:   td.topBarStart   || '#1e3a5f',
+            topBarEnd:     td.topBarEnd     || '#0f1e3c',
+            navBg:         td.navBg         || '#ffffff',
+            navActive:     td.navActive     || '#3b82f6',
+            navBorder:     td.navBorder     || '#e2e8f0',
+            cardBg:        td.cardBg        || td.cardColor || '#f8fafc',
+            cardBorder:    td.cardBorder    || '#e2e8f0',
+            btnStart:      td.btnStart      || td.accentColor || '#3b82f6',
+            btnEnd:        td.btnEnd        || '#6366f1',
+            textPrimary:   td.textColor     || td.btnStart || '#1e293b',
+            textSecondary: td.textSecondary || '#64748b',
+            accentGlow:    td.accentGlow    || '#3b82f6',
+            progressColor: td.progressColor || '#3b82f6',
+            flashcardBg1:  td.flashcardBg1,
+            flashcardBg2:  td.flashcardBg2,
+            chapterAccent: td.chapterAccent,
+            mcqTabActive:  td.mcqTabActive,
+        });
+        setBroadcastThemeName(saved.name);
+    };
+
+    /* ─────────────────────────────────────────
+       USER: SET ACTIVE HISTORY THEME
+    ───────────────────────────────────────── */
+    const doSetUserActiveTheme = async (themeId: string | 'default') => {
+        setUserThemeSaving(true);
+        const updated = { ...user, activeAppliedThemeId: themeId } as User;
+        onUpdateUser(updated);
+        try { await saveUserToLive(updated); } catch {}
+        setUserThemeSaving(false);
     };
 
     const sectionColors: Record<ColorSection, React.ReactNode> = {
@@ -927,20 +1068,57 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
                         </div>
 
                         {/* Section label */}
-                        <p className="px-4 pb-2 text-[10px] font-bold text-white/30 uppercase tracking-widest shrink-0">30 Ready-made Presets</p>
+                        <p className="px-4 pb-2 text-[10px] font-bold text-white/30 uppercase tracking-widest shrink-0">33 Ready-made Presets</p>
 
                         {/* Preset grid — scrollable */}
                         <div className="overflow-y-auto flex-1 px-3 pb-2" style={{ WebkitOverflowScrolling: 'touch' }}>
-                            <div className="grid grid-cols-3 gap-2">
-                                {PRESETS.map((p, i) => {
+                            {/* ── Default Tier Themes ── */}
+                            <p className="text-[9px] font-black text-amber-400/70 uppercase tracking-widest mb-1.5 mt-0.5">App Default Themes</p>
+                            <div className="grid grid-cols-3 gap-2 mb-3">
+                                {PRESETS.filter(p => p.isDefault).map((p, _i) => {
+                                    const i = PRESETS.indexOf(p);
                                     const sel = popupPresetIdx === i;
                                     return (
                                         <button
                                             key={p.name}
-                                            onClick={() => {
-                                                setPopupPresetIdx(i);
-                                                setTheme({ ...p.colors });
+                                            onClick={() => { setPopupPresetIdx(i); setTheme({ ...p.colors }); }}
+                                            className="rounded-2xl overflow-hidden active:scale-95 transition-all flex flex-col"
+                                            style={{
+                                                border: sel ? `2px solid ${p.colors.btnStart}` : '2px solid rgba(251,191,36,0.22)',
+                                                background: '#0a0c14',
+                                                boxShadow: sel ? `0 0 12px ${p.colors.btnStart}60` : '0 0 0 0',
                                             }}
+                                        >
+                                            <div className="h-10 w-full relative" style={{ background: `linear-gradient(135deg, ${p.colors.topBarStart}, ${p.colors.topBarEnd})` }}>
+                                                <div className="absolute top-1 left-1 bg-amber-400/90 rounded px-1 py-px text-[7px] font-black text-black leading-none tracking-wide">DEFAULT</div>
+                                                <div className="absolute bottom-1.5 right-1.5 flex gap-1">
+                                                    <div className="w-3 h-3 rounded-full border border-white/30" style={{ background: p.colors.navActive }} />
+                                                    <div className="w-3 h-3 rounded-full border border-white/30" style={{ background: p.colors.btnStart }} />
+                                                </div>
+                                                {sel && (
+                                                    <div className="absolute top-1 right-1 w-4 h-4 rounded-full bg-white/90 flex items-center justify-center">
+                                                        <Check size={9} className="text-black" strokeWidth={3} />
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="px-2 py-1.5 flex items-center gap-1">
+                                                <span className="text-sm leading-none">{p.emoji}</span>
+                                                <p className="text-[9px] font-bold leading-tight truncate" style={{ color: sel ? p.colors.btnStart : 'rgba(251,191,36,0.80)' }}>{p.name}</p>
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            {/* ── All Other Presets ── */}
+                            <p className="text-[9px] font-black text-white/30 uppercase tracking-widest mb-1.5">Custom Presets</p>
+                            <div className="grid grid-cols-3 gap-2">
+                                {PRESETS.filter(p => !p.isDefault).map((p, _i) => {
+                                    const i = PRESETS.indexOf(p);
+                                    const sel = popupPresetIdx === i;
+                                    return (
+                                        <button
+                                            key={p.name}
+                                            onClick={() => { setPopupPresetIdx(i); setTheme({ ...p.colors }); }}
                                             className="rounded-2xl overflow-hidden active:scale-95 transition-all flex flex-col"
                                             style={{
                                                 border: sel ? `2px solid ${p.colors.btnStart}` : '2px solid rgba(255,255,255,0.06)',
@@ -948,9 +1126,7 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
                                                 boxShadow: sel ? `0 0 12px ${p.colors.btnStart}60` : 'none',
                                             }}
                                         >
-                                            {/* Gradient swatch */}
                                             <div className="h-10 w-full relative" style={{ background: `linear-gradient(135deg, ${p.colors.topBarStart}, ${p.colors.topBarEnd})` }}>
-                                                {/* Accent dots */}
                                                 <div className="absolute bottom-1.5 right-1.5 flex gap-1">
                                                     <div className="w-3 h-3 rounded-full border border-white/30" style={{ background: p.colors.navActive }} />
                                                     <div className="w-3 h-3 rounded-full border border-white/30" style={{ background: p.colors.btnStart }} />
@@ -961,7 +1137,6 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
                                                     </div>
                                                 )}
                                             </div>
-                                            {/* Name row */}
                                             <div className="px-2 py-1.5 flex items-center gap-1">
                                                 <span className="text-sm leading-none">{p.emoji}</span>
                                                 <p className="text-[9px] font-bold leading-tight truncate" style={{ color: sel ? p.colors.btnStart : 'rgba(255,255,255,0.55)' }}>{p.name}</p>
@@ -1178,6 +1353,153 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
                         </div>
                     )}
                 </div>
+
+                {/* ═══════════════════════════════════════
+                    ADMIN: THEME LIBRARY
+                ═══════════════════════════════════════ */}
+                {isAdmin && (
+                    <div>
+                        <div className="flex items-center justify-between mb-2.5">
+                            <p className="text-[9px] font-black text-white/30 uppercase tracking-widest flex items-center gap-1.5">
+                                📚 Theme Library
+                            </p>
+                            <button
+                                onClick={() => { setSaveThemeName(''); setShowSaveModal(true); }}
+                                className="flex items-center gap-1 px-3 py-1.5 rounded-full text-[9px] font-black text-amber-300 border border-amber-500/25 active:scale-95 transition-all"
+                                style={{ background: 'rgba(245,158,11,0.10)' }}
+                            >
+                                + Save Current Theme
+                            </button>
+                        </div>
+                        {(() => {
+                            const library: AdminSavedTheme[] = (settings as any)?.adminThemeLibrary || [];
+                            if (!library.length) return (
+                                <div className="rounded-2xl p-4 text-center" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                                    <p className="text-2xl mb-1.5">📭</p>
+                                    <p className="text-xs font-bold text-white/30">Abhi koi saved theme nahi hai</p>
+                                    <p className="text-[9px] text-white/20 mt-1">Upar "Save Current Theme" pe click karo</p>
+                                </div>
+                            );
+                            return (
+                                <div className="space-y-2">
+                                    {library.map(saved => (
+                                        <div key={saved.id} className="rounded-2xl px-3 py-2.5 flex items-center gap-2.5"
+                                            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                            <div className="w-9 h-9 rounded-xl shrink-0 border border-white/10"
+                                                style={{ background: `linear-gradient(135deg, ${saved.themeData.topBarStart || '#1e3a5f'}, ${saved.themeData.btnStart || '#3b82f6'})` }} />
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-xs font-black text-white truncate">{saved.name}</p>
+                                                <p className="text-[9px] text-white/30">{new Date(saved.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                                            </div>
+                                            <button
+                                                onClick={() => doLoadFromLibrary(saved)}
+                                                className="px-2.5 py-1 rounded-full text-[9px] font-black text-amber-300 border border-amber-500/25 active:scale-95 transition-all shrink-0"
+                                                style={{ background: 'rgba(245,158,11,0.10)' }}
+                                                title="Editor mein load karo"
+                                            >Load</button>
+                                            <button
+                                                onClick={() => { doLoadFromLibrary(saved); setShowGlobalPopup(true); }}
+                                                className="px-2.5 py-1 rounded-full text-[9px] font-black text-indigo-300 border border-indigo-500/25 active:scale-95 transition-all shrink-0"
+                                                style={{ background: 'rgba(99,102,241,0.10)' }}
+                                                title="Load karke broadcast popup kholo"
+                                            >Apply</button>
+                                            <button
+                                                onClick={() => doDeleteFromLibrary(saved.id)}
+                                                className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] text-red-400 border border-red-500/20 active:scale-95 transition-all shrink-0"
+                                                style={{ background: 'rgba(239,68,68,0.08)' }}
+                                            >✕</button>
+                                        </div>
+                                    ))}
+                                </div>
+                            );
+                        })()}
+                    </div>
+                )}
+
+                {/* ═══════════════════════════════════════
+                    USER: ADMIN APPLIED THEMES HISTORY
+                ═══════════════════════════════════════ */}
+                {!isAdmin && (() => {
+                    const history: ThemeHistoryEntry[] = (settings as any)?.themeHistory || [];
+                    const userTierStr = user.isPremium && (user as any).subscriptionLevel === 'ULTRA' ? 'ultra'
+                        : user.isPremium && (user as any).subscriptionLevel === 'BASIC' ? 'basic' : 'free';
+                    const applicable = history.filter(e => e.targetTier === 'all' || e.targetTier === userTierStr);
+                    if (!applicable.length) return null;
+                    const activeId = (user as any).activeAppliedThemeId as string | undefined;
+                    return (
+                        <div>
+                            <p className="text-[9px] font-black text-white/30 uppercase tracking-widest mb-2.5 flex items-center gap-1.5">
+                                🎨 Admin Applied Themes
+                            </p>
+                            <div className="space-y-2">
+                                {/* Default option */}
+                                <button
+                                    onClick={() => doSetUserActiveTheme('default')}
+                                    disabled={userThemeSaving}
+                                    className="w-full flex items-center gap-2.5 rounded-2xl px-3 py-2.5 transition-all active:scale-95 border text-left"
+                                    style={{
+                                        background: (!activeId || activeId === 'default') ? 'rgba(59,130,246,0.12)' : 'rgba(255,255,255,0.03)',
+                                        borderColor: (!activeId || activeId === 'default') ? 'rgba(59,130,246,0.40)' : 'rgba(255,255,255,0.07)',
+                                    }}
+                                >
+                                    <div className="w-9 h-9 rounded-xl shrink-0 border-2 border-white/15" style={{ background: 'linear-gradient(135deg,#1e3a5f,#3b82f6)' }} />
+                                    <div className="flex-1">
+                                        <p className="text-xs font-black text-white">Default Tier Theme</p>
+                                        <p className="text-[9px] text-white/30">Apne tier ka default theme</p>
+                                    </div>
+                                    {(!activeId || activeId === 'default') && (
+                                        <span className="text-[9px] font-black px-2 py-0.5 rounded-full text-green-300 shrink-0" style={{ background: 'rgba(34,197,94,0.15)' }}>ACTIVE</span>
+                                    )}
+                                </button>
+
+                                {applicable.map(entry => {
+                                    const expired = !!(entry.expiresAt && new Date(entry.expiresAt) <= new Date());
+                                    const isActive = activeId === entry.id;
+                                    const timeLeft = (() => {
+                                        if (!entry.expiresAt) return 'Permanent';
+                                        const ms = new Date(entry.expiresAt).getTime() - Date.now();
+                                        if (ms <= 0) return 'Expired';
+                                        const d = Math.floor(ms / 86400000);
+                                        const h = Math.floor((ms % 86400000) / 3600000);
+                                        const m = Math.floor((ms % 3600000) / 60000);
+                                        if (d > 0) return `${d}d ${h}h bachi`;
+                                        if (h > 0) return `${h}h ${m}m bachi`;
+                                        return `${m}m bachi`;
+                                    })();
+                                    return (
+                                        <button
+                                            key={entry.id}
+                                            onClick={() => !expired && doSetUserActiveTheme(entry.id)}
+                                            disabled={expired || userThemeSaving}
+                                            className="w-full flex items-center gap-2.5 rounded-2xl px-3 py-2.5 transition-all active:scale-95 border disabled:opacity-40 text-left"
+                                            style={{
+                                                background: isActive ? `${entry.themeData.btnStart || '#3b82f6'}15` : expired ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.04)',
+                                                borderColor: isActive ? `${entry.themeData.btnStart || '#3b82f6'}50` : expired ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.08)',
+                                            }}
+                                        >
+                                            <div className="w-9 h-9 rounded-xl shrink-0 border border-white/10"
+                                                style={{
+                                                    background: `linear-gradient(135deg, ${entry.themeData.topBarStart || '#1e3a5f'}, ${entry.themeData.btnStart || '#3b82f6'})`,
+                                                    opacity: expired ? 0.4 : 1,
+                                                }} />
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-xs font-black text-white truncate">{entry.name}</p>
+                                                <p className="text-[9px]" style={{ color: expired ? '#ef4444' : entry.expiresAt ? '#f59e0b' : '#22c55e' }}>
+                                                    {expired ? '⛔ Expire ho gayi' : entry.expiresAt ? `⏱ ${timeLeft}` : '✅ Permanent'}
+                                                </p>
+                                            </div>
+                                            {isActive && !expired ? (
+                                                <span className="text-[9px] font-black px-2 py-0.5 rounded-full text-green-300 shrink-0" style={{ background: 'rgba(34,197,94,0.15)' }}>ACTIVE</span>
+                                            ) : !expired ? (
+                                                <span className="text-[9px] font-black px-2 py-0.5 rounded-full text-white/40 border border-white/10 shrink-0">Use</span>
+                                            ) : null}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    );
+                })()}
 
                 {/* ── LIVE PREVIEW ── */}
                 <div>
@@ -1765,6 +2087,21 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
                     </div>
 
                     <div className="p-5 flex flex-col gap-5">
+                        {/* Theme Name for History */}
+                        <div>
+                            <p className="text-white/60 text-xs font-bold mb-1.5 flex items-center gap-1.5">
+                                📌 Theme Ka Naam <span className="text-white/30 font-normal">(users ko dikhega)</span>
+                            </p>
+                            <input
+                                type="text"
+                                value={broadcastThemeName}
+                                onChange={e => setBroadcastThemeName(e.target.value)}
+                                placeholder={`Broadcast — ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`}
+                                className="w-full rounded-xl px-3 py-2.5 text-sm font-bold text-white outline-none"
+                                style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(99,102,241,0.30)' }}
+                                maxLength={40}
+                            />
+                        </div>
                         {/* Duration */}
                         <div>
                             <div className="flex items-center gap-2 mb-2.5">
@@ -1894,6 +2231,61 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
                             <Globe size={16} />
                             {saving ? 'Applying...' : 'App Pe Apply Karo ✓'}
                         </button>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {/* ══════════════════════════════════════════════════
+            ADMIN: SAVE THEME TO LIBRARY MODAL
+        ══════════════════════════════════════════════════ */}
+        {showSaveModal && (
+            <div className="fixed inset-0 z-[400] flex items-center justify-center px-6" style={{ background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(8px)' }}>
+                <div className="w-full max-w-xs rounded-3xl overflow-hidden shadow-2xl" style={{ background: '#0d0f1a', border: `1px solid ${theme.btnStart}40` }}>
+                    <div className="h-1.5 w-full" style={{ background: `linear-gradient(90deg, ${theme.btnStart}, ${theme.btnEnd})` }} />
+                    <div className="p-5">
+                        <div className="text-center mb-4">
+                            <div className="text-3xl mb-2">📚</div>
+                            <p className="text-base font-black text-white">Theme Library Mein Save Karo</p>
+                            <p className="text-xs text-white/40 mt-1">Is theme design ko ek naam do</p>
+                        </div>
+                        {/* Color preview strip */}
+                        <div className="rounded-2xl overflow-hidden mb-4 border border-white/08">
+                            <div className="h-10 w-full" style={{ background: `linear-gradient(135deg, ${theme.topBarStart}, ${theme.topBarEnd})` }} />
+                            <div className="flex items-center gap-2 px-3 py-2" style={{ background: '#0a0c14' }}>
+                                <div className="w-4 h-4 rounded-full border border-white/15" style={{ background: `linear-gradient(135deg, ${theme.btnStart}, ${theme.btnEnd})` }} />
+                                <div className="w-4 h-4 rounded-full border border-white/15" style={{ background: theme.navActive }} />
+                                <div className="w-4 h-4 rounded-full border border-white/15" style={{ background: theme.cardBorder }} />
+                                <div className="w-4 h-4 rounded-full border border-white/15" style={{ background: theme.accentGlow }} />
+                                <p className="text-[9px] text-white/30 ml-auto">Color Preview</p>
+                            </div>
+                        </div>
+                        <input
+                            type="text"
+                            value={saveThemeName}
+                            onChange={e => setSaveThemeName(e.target.value)}
+                            placeholder="e.g. Diwali Special, Monsoon Blue, Summer Vibes..."
+                            className="w-full rounded-2xl px-4 py-3 text-sm font-bold text-white outline-none mb-4"
+                            style={{ background: 'rgba(255,255,255,0.07)', border: `1px solid ${theme.btnStart}40` }}
+                            maxLength={40}
+                            autoFocus
+                            onKeyDown={e => e.key === 'Enter' && doSaveToLibrary()}
+                        />
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => setShowSaveModal(false)}
+                                className="flex-1 py-3 rounded-2xl font-bold text-sm text-white/40 border border-white/10 active:scale-95 transition-all"
+                                style={{ background: 'rgba(255,255,255,0.04)' }}
+                            >Cancel</button>
+                            <button
+                                onClick={doSaveToLibrary}
+                                disabled={librarySaving || !saveThemeName.trim()}
+                                className="flex-1 py-3 rounded-2xl font-black text-sm text-white active:scale-95 transition-all disabled:opacity-40"
+                                style={{ background: `linear-gradient(135deg, ${theme.btnStart}, ${theme.btnEnd})`, boxShadow: `0 4px 14px ${theme.btnStart}50` }}
+                            >
+                                {librarySaving ? 'Saving...' : '💾 Save Karo'}
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
