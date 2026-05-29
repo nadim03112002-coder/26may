@@ -442,6 +442,11 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
   const [resetThemeLoading, setResetThemeLoading] = useState(false);
   const [resetThemeResult, setResetThemeResult] = useState<{count: number; status: 'success'|'error'; msg?: string} | null>(null);
   const [resetThemeConfirm, setResetThemeConfirm] = useState(false);
+  const [quickResetLoading, setQuickResetLoading] = useState(false);
+  const [quickResetDone, setQuickResetDone] = useState<string | null>(null);
+  const [quickResetConfirm, setQuickResetConfirm] = useState(false);
+  const [saveDefaultLoading, setSaveDefaultLoading] = useState(false);
+  const [saveDefaultDone, setSaveDefaultDone] = useState<string | null>(null);
 
   // --- DATABASE EDITOR ---
   const [dbKey, setDbKey] = useState('nst_users');
@@ -5513,6 +5518,83 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                               />
                           </div>
                           <div className="md:col-span-2">
+                              {/* ── QUICK RESET ALL THEMES ── */}
+                              <div className="mb-4 p-3 rounded-xl border border-orange-200 bg-orange-50">
+                                <div className="flex items-center justify-between gap-2 mb-1">
+                                  <div>
+                                    <p className="text-xs font-black text-orange-800">🔄 Sabka Theme Default Karo — Ek Click</p>
+                                    <p className="text-[10px] text-orange-600 mt-0.5">Sabhi users ke personal/redeemed themes + admin broadcast theme — sab hatao, sab default tier pe aao</p>
+                                  </div>
+                                  {!quickResetConfirm && !quickResetDone && (
+                                    <button
+                                      onClick={() => setQuickResetConfirm(true)}
+                                      disabled={quickResetLoading}
+                                      className="shrink-0 px-3 py-1.5 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-[11px] font-black flex items-center gap-1 transition-all disabled:opacity-50"
+                                    >
+                                      <RotateCcw size={12} /> Reset
+                                    </button>
+                                  )}
+                                </div>
+                                {quickResetDone && (
+                                  <div className="flex items-center gap-2 text-[11px] font-bold text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-1.5">
+                                    <CheckCircle size={13} /> {quickResetDone}
+                                    <button onClick={() => setQuickResetDone(null)} className="ml-auto text-green-500 hover:text-green-700 text-[10px]">✕</button>
+                                  </div>
+                                )}
+                                {quickResetConfirm && !quickResetDone && (
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <p className="text-[10px] font-bold text-orange-700 flex-1">⚠️ Confirm? Sabhi user themes + broadcast theme delete ho jayenge!</p>
+                                    <button onClick={() => setQuickResetConfirm(false)} className="px-2 py-1 rounded-lg bg-slate-100 text-slate-600 text-[10px] font-bold">Cancel</button>
+                                    <button
+                                      disabled={quickResetLoading}
+                                      onClick={async () => {
+                                        setQuickResetLoading(true);
+                                        try {
+                                          // 1. Reset all user themes in Firestore
+                                          const snapshot = await getDocs(collection(db, 'users'));
+                                          const toReset = snapshot.docs.filter(d => {
+                                            const data = d.data();
+                                            return data.personalTheme || data.personalThemeColor || data.tempThemeColor;
+                                          });
+                                          let count = 0;
+                                          const BATCH_SIZE = 400;
+                                          for (let i = 0; i < toReset.length; i += BATCH_SIZE) {
+                                            const batch = writeBatch(db);
+                                            toReset.slice(i, i + BATCH_SIZE).forEach(docSnap => {
+                                              batch.update(doc(db, 'users', docSnap.id), {
+                                                personalTheme: deleteField(),
+                                                personalThemeColor: deleteField(),
+                                                tempThemeColor: deleteField(),
+                                                tempThemeColorExpiry: deleteField(),
+                                              });
+                                              count++;
+                                            });
+                                            await batch.commit();
+                                          }
+                                          // 2. Clear admin broadcast theme + active theme from settings
+                                          const updatedSettings = {
+                                            ...localSettings,
+                                            adminAppliedTheme: undefined as any,
+                                            adminActiveTheme: undefined as any,
+                                          };
+                                          setLocalSettings(updatedSettings);
+                                          await saveSystemSettings(updatedSettings);
+                                          if (onUpdateSettings) onUpdateSettings(updatedSettings);
+                                          setQuickResetDone(`${count} users default theme pe aa gaye ✅ Broadcast theme bhi clear!`);
+                                          setQuickResetConfirm(false);
+                                        } catch (err: any) {
+                                          setQuickResetDone('Error: ' + (err?.message || 'kuch gadbad hui'));
+                                        } finally {
+                                          setQuickResetLoading(false);
+                                        }
+                                      }}
+                                      className="px-3 py-1 rounded-lg bg-orange-600 hover:bg-orange-700 text-white text-[10px] font-black flex items-center gap-1 disabled:opacity-50"
+                                    >
+                                      {quickResetLoading ? <><Loader2 size={11} className="animate-spin" /> Resetting…</> : '✓ Haan, Reset Karo'}
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
                               <label className="text-xs font-bold text-slate-600 uppercase block mb-2">🎨 App Theme Color — Ek Click Me Sabhi Jagah Change</label>
                               {/* Named Presets */}
                               <div className="grid grid-cols-4 gap-2 mb-3">
@@ -5564,6 +5646,88 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                                 <div className="w-10 h-10 rounded-xl border-2 border-slate-200 shrink-0" style={{ background: localSettings.themeColor || '#2563eb' }} />
                               </div>
                               <p className="text-[10px] text-slate-400 mt-1.5">⚡ Ye color in sabhi jagahon par apply hoga: Top Bar · Bottom Nav · Profile Card · Chat · Badges · Borders · Buttons</p>
+
+                              {/* ── APP BACKGROUND COLOR ── */}
+                              <div className="mt-4 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                                <label className="text-xs font-black text-slate-700 uppercase block mb-2">🖼️ App Background Color — Poori App Ka Background</label>
+                                <div className="flex items-center gap-3">
+                                  <input
+                                    type="color"
+                                    value={localSettings.appBackground || '#ffffff'}
+                                    onChange={(e) => setLocalSettings({...localSettings, appBackground: e.target.value})}
+                                    className="w-10 h-10 rounded-lg cursor-pointer border border-slate-300 shrink-0"
+                                  />
+                                  <div className="flex-1">
+                                    <input
+                                      type="text"
+                                      value={localSettings.appBackground || '#ffffff'}
+                                      onChange={(e) => setLocalSettings({...localSettings, appBackground: e.target.value})}
+                                      className="w-full p-1.5 border rounded-lg text-xs uppercase font-mono bg-white"
+                                      placeholder="#ffffff"
+                                    />
+                                  </div>
+                                  <div className="w-10 h-10 rounded-xl border-2 border-slate-200 shrink-0" style={{ background: localSettings.appBackground || '#ffffff' }} />
+                                  {localSettings.appBackground && localSettings.appBackground !== '#ffffff' && (
+                                    <button
+                                      onClick={() => setLocalSettings({...localSettings, appBackground: '#ffffff'})}
+                                      className="text-[10px] font-black text-red-500 hover:text-red-700 px-2 py-1 rounded-lg border border-red-200 hover:bg-red-50 transition-all"
+                                    >Reset</button>
+                                  )}
+                                </div>
+                                <div className="flex gap-2 mt-2 flex-wrap">
+                                  {['#ffffff','#f8fafc','#f0f4ff','#fff7ed','#f0fdf4','#fdf4ff','#fffbeb','#f0f9ff'].map(c => (
+                                    <button
+                                      key={c}
+                                      onClick={() => setLocalSettings({...localSettings, appBackground: c})}
+                                      className="w-7 h-7 rounded-lg border-2 transition-all hover:scale-110"
+                                      style={{ background: c, borderColor: (localSettings.appBackground||'#ffffff') === c ? '#7c3aed' : '#e2e8f0' }}
+                                      title={c}
+                                    />
+                                  ))}
+                                </div>
+                                <p className="text-[10px] text-slate-400 mt-1.5">🏠 Ye background Home, Important Notes, Compare, aur sabhi pages par apply hoga. Default: White (#ffffff)</p>
+                              </div>
+
+                              {/* ── PROFILE PAGE BACKGROUND COLOR ── */}
+                              <div className="mt-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                                <label className="text-xs font-black text-slate-700 uppercase block mb-2">👤 Profile Page Background — Sirf Profile Ka Background</label>
+                                <div className="flex items-center gap-3">
+                                  <input
+                                    type="color"
+                                    value={localSettings.profileBackground || '#f0f4f8'}
+                                    onChange={(e) => setLocalSettings({...localSettings, profileBackground: e.target.value})}
+                                    className="w-10 h-10 rounded-lg cursor-pointer border border-slate-300 shrink-0"
+                                  />
+                                  <div className="flex-1">
+                                    <input
+                                      type="text"
+                                      value={localSettings.profileBackground || '#f0f4f8'}
+                                      onChange={(e) => setLocalSettings({...localSettings, profileBackground: e.target.value})}
+                                      className="w-full p-1.5 border rounded-lg text-xs uppercase font-mono bg-white"
+                                      placeholder="#f0f4f8"
+                                    />
+                                  </div>
+                                  <div className="w-10 h-10 rounded-xl border-2 border-slate-200 shrink-0" style={{ background: localSettings.profileBackground || '#f0f4f8' }} />
+                                  {localSettings.profileBackground && localSettings.profileBackground !== '#f0f4f8' && (
+                                    <button
+                                      onClick={() => setLocalSettings({...localSettings, profileBackground: '#f0f4f8'})}
+                                      className="text-[10px] font-black text-red-500 hover:text-red-700 px-2 py-1 rounded-lg border border-red-200 hover:bg-red-50 transition-all"
+                                    >Reset</button>
+                                  )}
+                                </div>
+                                <div className="flex gap-2 mt-2 flex-wrap">
+                                  {['#f0f4f8','#ffffff','#e8f0fe','#fce8f3','#e6f4ea','#fff3e0','#f3e8ff','#e0f7fa','#fafafa','#1e293b'].map(c => (
+                                    <button
+                                      key={c}
+                                      onClick={() => setLocalSettings({...localSettings, profileBackground: c})}
+                                      className="w-7 h-7 rounded-lg border-2 transition-all hover:scale-110"
+                                      style={{ background: c, borderColor: (localSettings.profileBackground||'#f0f4f8') === c ? '#7c3aed' : '#e2e8f0' }}
+                                      title={c}
+                                    />
+                                  ))}
+                                </div>
+                                <p className="text-[10px] text-slate-400 mt-1.5">👤 Sirf Profile page par apply hoga — baaki app ka background alag rahega. Default: Light Gray (#f0f4f8)</p>
+                              </div>
 
                               {/* ── DESIGN TOKENS LIVE PREVIEW ── */}
                               <div className="mt-3">
@@ -5633,6 +5797,238 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                                   );
                                 })()}</div>
                           </div>
+                          {/* ── TIER-WISE DEFAULT COLORS ── */}
+                          <div className="md:col-span-2">
+                            <label className="text-xs font-black text-slate-700 uppercase block mb-2">🎨 Free / Basic / Ultra — Default Tier Colors</label>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                              {/* ULTRA */}
+                              <div className="bg-white p-3 rounded-xl border border-yellow-200 shadow-sm">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <span>⚡</span>
+                                  <label className="text-[11px] font-black text-yellow-700 uppercase">Ultra</label>
+                                  {localSettings.ultraThemeColor && (
+                                    <button onClick={() => setLocalSettings({...localSettings, ultraThemeColor: undefined})} className="ml-auto text-[10px] text-red-400 hover:text-red-600">Reset</button>
+                                  )}
+                                </div>
+                                <button onClick={() => setLocalSettings({...localSettings, ultraThemeColor: '#c8a020'})}
+                                  className="w-full mb-2 py-1 px-2 rounded-lg text-[10px] font-bold flex items-center justify-center gap-1 transition-all active:scale-95"
+                                  style={{background:'linear-gradient(135deg,#7a5c10,#c8a020)',color:'#fff'}}>
+                                  ⚡ Default Gold
+                                </button>
+                                <div className="flex items-center gap-2 mb-2">
+                                  <input type="color" value={localSettings.ultraThemeColor || '#c8a020'} onChange={e => setLocalSettings({...localSettings, ultraThemeColor: e.target.value})} className="w-8 h-8 rounded-lg cursor-pointer border-none shrink-0" />
+                                  <input type="text" value={localSettings.ultraThemeColor || ''} onChange={e => setLocalSettings({...localSettings, ultraThemeColor: e.target.value})} placeholder="#c8a020" className="flex-1 p-1.5 border rounded-lg text-[10px] uppercase font-mono" />
+                                </div>
+                                <div className="grid grid-cols-6 gap-1">
+                                  {['#c8a020','#f59e0b','#e11d48','#7c3aed','#0ea5e9','#10b981'].map(c => (
+                                    <button key={c} onClick={() => setLocalSettings({...localSettings, ultraThemeColor: c})} className="h-5 rounded border-2 transition-all" style={{background: c, borderColor: localSettings.ultraThemeColor === c ? '#1e293b' : 'transparent'}} />
+                                  ))}
+                                </div>
+                              </div>
+                              {/* BASIC */}
+                              <div className="bg-white p-3 rounded-xl border border-blue-200 shadow-sm">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <span>⭐</span>
+                                  <label className="text-[11px] font-black text-blue-700 uppercase">Basic</label>
+                                  {localSettings.basicThemeColor && (
+                                    <button onClick={() => setLocalSettings({...localSettings, basicThemeColor: undefined})} className="ml-auto text-[10px] text-red-400 hover:text-red-600">Reset</button>
+                                  )}
+                                </div>
+                                <button onClick={() => setLocalSettings({...localSettings, basicThemeColor: '#2563eb'})}
+                                  className="w-full mb-2 py-1 px-2 rounded-lg text-[10px] font-bold flex items-center justify-center gap-1 transition-all active:scale-95"
+                                  style={{background:'linear-gradient(135deg,#1d4ed8,#3b82f6)',color:'#fff'}}>
+                                  ⭐ Default Blue
+                                </button>
+                                <div className="flex items-center gap-2 mb-2">
+                                  <input type="color" value={localSettings.basicThemeColor || '#2563eb'} onChange={e => setLocalSettings({...localSettings, basicThemeColor: e.target.value})} className="w-8 h-8 rounded-lg cursor-pointer border-none shrink-0" />
+                                  <input type="text" value={localSettings.basicThemeColor || ''} onChange={e => setLocalSettings({...localSettings, basicThemeColor: e.target.value})} placeholder="#2563eb" className="flex-1 p-1.5 border rounded-lg text-[10px] uppercase font-mono" />
+                                </div>
+                                <div className="grid grid-cols-6 gap-1">
+                                  {['#2563eb','#0ea5e9','#7c3aed','#059669','#f97316','#ec4899'].map(c => (
+                                    <button key={c} onClick={() => setLocalSettings({...localSettings, basicThemeColor: c})} className="h-5 rounded border-2 transition-all" style={{background: c, borderColor: localSettings.basicThemeColor === c ? '#1e293b' : 'transparent'}} />
+                                  ))}
+                                </div>
+                              </div>
+                              {/* FREE */}
+                              <div className="bg-white p-3 rounded-xl border border-green-200 shadow-sm">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <span>🎓</span>
+                                  <label className="text-[11px] font-black text-green-700 uppercase">Free</label>
+                                  {localSettings.freeThemeColor && (
+                                    <button onClick={() => setLocalSettings({...localSettings, freeThemeColor: undefined})} className="ml-auto text-[10px] text-red-400 hover:text-red-600">Reset</button>
+                                  )}
+                                </div>
+                                <button onClick={() => setLocalSettings({...localSettings, freeThemeColor: '#0ea5e9'})}
+                                  className="w-full mb-2 py-1 px-2 rounded-lg text-[10px] font-bold flex items-center justify-center gap-1 transition-all active:scale-95"
+                                  style={{background:'linear-gradient(135deg,#0284c7,#0ea5e9)',color:'#fff'}}>
+                                  🎓 Default Sky
+                                </button>
+                                <div className="flex items-center gap-2 mb-2">
+                                  <input type="color" value={localSettings.freeThemeColor || '#0ea5e9'} onChange={e => setLocalSettings({...localSettings, freeThemeColor: e.target.value})} className="w-8 h-8 rounded-lg cursor-pointer border-none shrink-0" />
+                                  <input type="text" value={localSettings.freeThemeColor || ''} onChange={e => setLocalSettings({...localSettings, freeThemeColor: e.target.value})} placeholder="#0ea5e9" className="flex-1 p-1.5 border rounded-lg text-[10px] uppercase font-mono" />
+                                </div>
+                                <div className="grid grid-cols-6 gap-1">
+                                  {['#0ea5e9','#10b981','#06b6d4','#3b82f6','#a855f7','#f59e0b'].map(c => (
+                                    <button key={c} onClick={() => setLocalSettings({...localSettings, freeThemeColor: c})} className="h-5 rounded border-2 transition-all" style={{background: c, borderColor: localSettings.freeThemeColor === c ? '#1e293b' : 'transparent'}} />
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                            {/* SAVE AS APP DEFAULT */}
+                            <div className="mt-3 p-3 rounded-xl border border-indigo-200 bg-indigo-50">
+                              <div className="flex items-start gap-2">
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-[11px] font-black text-indigo-800">💾 App Default Theme Save Karo</p>
+                                  <p className="text-[10px] text-indigo-600 mt-0.5">
+                                    Abhi jo Ultra / Basic / Free / App colors set hain, unhe "Default" bana do — Reset karne pe yahi wapas aayenge.
+                                  </p>
+                                  {localSettings.defaultThemeSnapshot?.savedAt && (
+                                    <p className="text-[9px] text-indigo-400 mt-0.5 font-mono">
+                                      Last saved: {new Date(localSettings.defaultThemeSnapshot.savedAt).toLocaleString('hi-IN', { dateStyle: 'short', timeStyle: 'short' })}
+                                      {' '}• App: {localSettings.defaultThemeSnapshot.appColor || '—'} | Ultra: {localSettings.defaultThemeSnapshot.ultra || '—'} | Basic: {localSettings.defaultThemeSnapshot.basic || '—'} | Free: {localSettings.defaultThemeSnapshot.free || '—'}
+                                    </p>
+                                  )}
+                                </div>
+                                <button
+                                  disabled={saveDefaultLoading}
+                                  onClick={async () => {
+                                    setSaveDefaultLoading(true);
+                                    setSaveDefaultDone(null);
+                                    try {
+                                      const snapshot = {
+                                        appColor: localSettings.themeColor,
+                                        ultra: localSettings.ultraThemeColor,
+                                        basic: localSettings.basicThemeColor,
+                                        free: localSettings.freeThemeColor,
+                                        savedAt: new Date().toISOString(),
+                                      };
+                                      const updated = { ...localSettings, defaultThemeSnapshot: snapshot };
+                                      setLocalSettings(updated);
+                                      await saveSystemSettings(updated);
+                                      if (onUpdateSettings) onUpdateSettings(updated);
+                                      setSaveDefaultDone('✅ Default theme save ho gaya!');
+                                      setTimeout(() => setSaveDefaultDone(null), 3000);
+                                    } catch (err: any) {
+                                      setSaveDefaultDone('❌ Error: ' + (err?.message || 'save nahi hua'));
+                                    } finally {
+                                      setSaveDefaultLoading(false);
+                                    }
+                                  }}
+                                  className="shrink-0 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-black flex items-center gap-1 transition-all disabled:opacity-50 active:scale-95"
+                                >
+                                  {saveDefaultLoading ? <><Loader2 size={11} className="animate-spin" /> Saving…</> : <><span>💾</span> Save Default</>}
+                                </button>
+                              </div>
+                              {saveDefaultDone && (
+                                <p className={`text-[11px] font-bold mt-2 px-2 py-1 rounded-lg ${saveDefaultDone.startsWith('✅') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                  {saveDefaultDone}
+                                </p>
+                              )}
+                            </div>
+                            <p className="text-[10px] text-slate-400 mt-1.5">💡 Priority: Redeem color &gt; Yahan set tier color &gt; Global theme color</p>
+                          </div>
+
+                          {/* ── BROADCAST THEME ── */}
+                          <div className="md:col-span-2">
+                            <label className="text-xs font-black text-slate-700 uppercase block mb-2">📡 Broadcast Theme — Sabhi Users Pe Ek Saath Apply Karo</label>
+                            {(() => {
+                              const BROADCAST_THEMES = [
+                                { id: 'GOLD',    name: 'Gold',    color: '#c8a020', emoji: '⚡' },
+                                { id: 'ROYAL',   name: 'Royal',   color: '#2563eb', emoji: '👑' },
+                                { id: 'NAVY',    name: 'Navy',    color: '#1e3a8a', emoji: '💙' },
+                                { id: 'EMERALD', name: 'Emerald', color: '#059669', emoji: '💚' },
+                                { id: 'RUBY',    name: 'Ruby',    color: '#e11d48', emoji: '❤️' },
+                                { id: 'VIOLET',  name: 'Violet',  color: '#7c3aed', emoji: '💜' },
+                                { id: 'ROSE',    name: 'Rose',    color: '#f43f5e', emoji: '🌹' },
+                                { id: 'ORANGE',  name: 'Orange',  color: '#f97316', emoji: '🧡' },
+                                { id: 'TEAL',    name: 'Teal',    color: '#0d9488', emoji: '🌊' },
+                                { id: 'CYAN',    name: 'Cyan',    color: '#0891b2', emoji: '🩵' },
+                                { id: 'LIME',    name: 'Lime',    color: '#65a30d', emoji: '🍋' },
+                                { id: 'PINK',    name: 'Pink',    color: '#ec4899', emoji: '🩷' },
+                              ];
+                              const active = localSettings.adminActiveTheme;
+                              const isExpired = active?.expiresAt ? new Date(active.expiresAt) < new Date() : false;
+                              const setTheme = (t: {id:string;name:string;color:string}) =>
+                                setLocalSettings({ ...localSettings, adminActiveTheme: { id: t.id, name: t.name, color: t.color, expiresAt: active?.expiresAt } });
+                              const setExpiry = (iso?: string) =>
+                                setLocalSettings({ ...localSettings, adminActiveTheme: active ? { ...active, expiresAt: iso } : undefined });
+                              const getRemainingText = () => {
+                                if (!active?.expiresAt) return '';
+                                const diff = new Date(active.expiresAt).getTime() - Date.now();
+                                if (diff <= 0) return 'Expired';
+                                const h = Math.floor(diff / 3600000);
+                                const d = Math.floor(h / 24);
+                                return d > 0 ? `${d}d ${h % 24}h baki` : `${h}h baki`;
+                              };
+                              return (
+                                <div className="space-y-3">
+                                  {active && (
+                                    <div className={`p-2.5 rounded-xl border flex items-center gap-2 ${isExpired ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
+                                      <div className="w-7 h-7 rounded-full shrink-0 shadow" style={{ background: active.color }} />
+                                      <div className="flex-1 min-w-0">
+                                        <p className={`font-bold text-xs ${isExpired ? 'text-red-700' : 'text-green-800'}`}>
+                                          {isExpired ? '❌ Expired:' : '✅ Active:'} {active.name}
+                                        </p>
+                                        <p className={`text-[10px] ${isExpired ? 'text-red-500' : 'text-green-600'}`}>
+                                          {getRemainingText() || '♾️ Permanent (jab tak hatao)'}
+                                        </p>
+                                      </div>
+                                      <button onClick={() => setLocalSettings({...localSettings, adminActiveTheme: undefined})}
+                                        className="text-[10px] font-black text-red-500 hover:text-red-700 px-2 py-1 rounded-lg border border-red-200 hover:bg-red-50">
+                                        Hatao
+                                      </button>
+                                    </div>
+                                  )}
+                                  <div className="grid grid-cols-6 gap-1.5">
+                                    {BROADCAST_THEMES.map(t => {
+                                      const isActive = active?.id === t.id && !isExpired;
+                                      return (
+                                        <button key={t.id} onClick={() => setTheme(t)}
+                                          className="p-1.5 rounded-xl border-2 transition-all text-center"
+                                          style={{ borderColor: isActive ? t.color : '#e2e8f0', background: isActive ? `${t.color}18` : 'white', transform: isActive ? 'scale(1.08)' : 'scale(1)' }}>
+                                          <div className="w-6 h-6 rounded-full mx-auto mb-0.5 shadow" style={{ background: t.color }} />
+                                          <p className="text-[8px] font-bold text-slate-700 truncate">{t.emoji} {t.name}</p>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                  <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-xl border border-slate-200">
+                                    <input type="color"
+                                      value={active?.id === 'CUSTOM' ? active.color : '#6366f1'}
+                                      onChange={e => setLocalSettings({ ...localSettings, adminActiveTheme: { id: 'CUSTOM', name: 'Custom', color: e.target.value, expiresAt: active?.expiresAt } })}
+                                      className="w-8 h-8 rounded-lg cursor-pointer border-none shrink-0" />
+                                    <input type="text"
+                                      value={active?.id === 'CUSTOM' ? active.color : ''}
+                                      onChange={e => setLocalSettings({ ...localSettings, adminActiveTheme: { id: 'CUSTOM', name: 'Custom', color: e.target.value, expiresAt: active?.expiresAt } })}
+                                      placeholder="Custom hex #6366f1"
+                                      className="flex-1 p-1.5 border rounded-lg text-[10px] font-mono uppercase bg-white" />
+                                    <button onClick={() => setLocalSettings({ ...localSettings, adminActiveTheme: { id: 'CUSTOM', name: 'Custom', color: active?.color || '#6366f1', expiresAt: active?.expiresAt } })}
+                                      className={`px-2 py-1.5 rounded-lg text-[10px] font-bold ${active?.id === 'CUSTOM' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                                      Apply
+                                    </button>
+                                  </div>
+                                  <div className="p-2 bg-amber-50 rounded-xl border border-amber-100 space-y-1.5">
+                                    <p className="text-[10px] font-black text-orange-700 uppercase">⏰ Expiry (Optional)</p>
+                                    <div className="flex gap-1.5 flex-wrap">
+                                      {[1, 6, 12, 24, 48, 168].map(h => (
+                                        <button key={h} onClick={() => setExpiry(new Date(Date.now() + h * 3600000).toISOString())}
+                                          disabled={!active}
+                                          className="text-[10px] px-2 py-1 bg-orange-100 text-orange-700 rounded-full font-bold hover:bg-orange-200 disabled:opacity-40">
+                                          {h < 24 ? `${h}h` : `${h/24}d`}
+                                        </button>
+                                      ))}
+                                      {active?.expiresAt && (
+                                        <button onClick={() => setExpiry(undefined)}
+                                          className="text-[10px] px-2 py-1 bg-red-100 text-red-600 rounded-full font-bold hover:bg-red-200">No Expiry</button>
+                                      )}
+                                    </div>
+                                    {!active && <p className="text-[10px] text-slate-400">Pehle upar se koi theme select karo.</p>}
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                          </div>
+
                           <div className="md:col-span-2">
                               <label className="text-xs font-bold text-slate-600 uppercase block mb-1">Custom Page Video URL</label>
                               <input
@@ -13029,187 +13425,6 @@ Statement 2"
                         className="w-full p-2 border rounded-lg text-sm disabled:opacity-40" />
                       {!active && <p className="text-[10px] text-slate-500">Pehle upar se koi theme select karo.</p>}
                     </div>
-                  </div>
-                );
-              })()}
-
-              {/* PER-TIER THEME COLORS */}
-              <div className="bg-gradient-to-br from-violet-50 to-pink-50 p-6 rounded-3xl border border-violet-100 space-y-4">
-                  <h4 className="font-bold text-violet-900 flex items-center gap-2 text-lg"><Palette size={20} /> Tier-wise Theme Colors</h4>
-                  <p className="text-xs text-violet-700">Har subscription tier ke liye alag accent color set karo. Yeh global theme se zyada priority lega.</p>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {/* ULTRA */}
-                      <div className="bg-white p-4 rounded-xl border border-yellow-200 shadow-sm">
-                          <div className="flex items-center gap-2 mb-3">
-                              <span className="text-lg">⚡</span>
-                              <label className="text-xs font-bold text-yellow-700 uppercase">Ultra Theme</label>
-                              {localSettings.ultraThemeColor && (
-                                  <button onClick={() => setLocalSettings({...localSettings, ultraThemeColor: undefined})} className="ml-auto text-[10px] text-red-400 hover:text-red-600">Reset</button>
-                              )}
-                          </div>
-                          {/* One-tap default preset */}
-                          <button
-                            onClick={() => setLocalSettings({...localSettings, ultraThemeColor: '#c8a020'})}
-                            className="w-full mb-2 py-1.5 px-3 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95"
-                            style={{background:'linear-gradient(135deg,#7a5c10,#c8a020)',color:'#fff'}}
-                          >
-                            ⚡ Default ULTRA Gold lagao
-                          </button>
-                          <div className="flex items-center gap-2 mb-2">
-                              <input type="color" value={localSettings.ultraThemeColor || '#c8a020'} onChange={e => setLocalSettings({...localSettings, ultraThemeColor: e.target.value})} className="w-10 h-10 rounded-lg cursor-pointer border-none" />
-                              <input type="text" value={localSettings.ultraThemeColor || ''} onChange={e => setLocalSettings({...localSettings, ultraThemeColor: e.target.value})} placeholder="#c8a020 (default)" className="flex-1 p-2 border rounded-lg text-xs uppercase" />
-                          </div>
-                          <div className="grid grid-cols-3 gap-1">
-                              {['#c8a020','#f59e0b','#e11d48','#7c3aed','#0ea5e9','#10b981'].map(c => (
-                                  <button key={c} onClick={() => setLocalSettings({...localSettings, ultraThemeColor: c})} className="h-6 rounded border-2 transition-all" style={{background: c, borderColor: localSettings.ultraThemeColor === c ? '#1e293b' : 'transparent'}} />
-                              ))}
-                          </div>
-                      </div>
-                      {/* BASIC */}
-                      <div className="bg-white p-4 rounded-xl border border-blue-200 shadow-sm">
-                          <div className="flex items-center gap-2 mb-3">
-                              <span className="text-lg">⭐</span>
-                              <label className="text-xs font-bold text-blue-700 uppercase">Basic Theme</label>
-                              {localSettings.basicThemeColor && (
-                                  <button onClick={() => setLocalSettings({...localSettings, basicThemeColor: undefined})} className="ml-auto text-[10px] text-red-400 hover:text-red-600">Reset</button>
-                              )}
-                          </div>
-                          {/* One-tap default preset */}
-                          <button
-                            onClick={() => setLocalSettings({...localSettings, basicThemeColor: '#2563eb'})}
-                            className="w-full mb-2 py-1.5 px-3 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95"
-                            style={{background:'linear-gradient(135deg,#1d4ed8,#3b82f6)',color:'#fff'}}
-                          >
-                            ⭐ Default BASIC Blue lagao
-                          </button>
-                          <div className="flex items-center gap-2 mb-2">
-                              <input type="color" value={localSettings.basicThemeColor || '#2563eb'} onChange={e => setLocalSettings({...localSettings, basicThemeColor: e.target.value})} className="w-10 h-10 rounded-lg cursor-pointer border-none" />
-                              <input type="text" value={localSettings.basicThemeColor || ''} onChange={e => setLocalSettings({...localSettings, basicThemeColor: e.target.value})} placeholder="#2563eb (default)" className="flex-1 p-2 border rounded-lg text-xs uppercase" />
-                          </div>
-                          <div className="grid grid-cols-3 gap-1">
-                              {['#2563eb','#0ea5e9','#7c3aed','#059669','#f97316','#ec4899'].map(c => (
-                                  <button key={c} onClick={() => setLocalSettings({...localSettings, basicThemeColor: c})} className="h-6 rounded border-2 transition-all" style={{background: c, borderColor: localSettings.basicThemeColor === c ? '#1e293b' : 'transparent'}} />
-                              ))}
-                          </div>
-                      </div>
-                      {/* FREE */}
-                      <div className="bg-white p-4 rounded-xl border border-green-200 shadow-sm">
-                          <div className="flex items-center gap-2 mb-3">
-                              <span className="text-lg">🎓</span>
-                              <label className="text-xs font-bold text-green-700 uppercase">Free Theme</label>
-                              {localSettings.freeThemeColor && (
-                                  <button onClick={() => setLocalSettings({...localSettings, freeThemeColor: undefined})} className="ml-auto text-[10px] text-red-400 hover:text-red-600">Reset</button>
-                              )}
-                          </div>
-                          {/* One-tap default preset */}
-                          <button
-                            onClick={() => setLocalSettings({...localSettings, freeThemeColor: '#0ea5e9'})}
-                            className="w-full mb-2 py-1.5 px-3 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95"
-                            style={{background:'linear-gradient(135deg,#0284c7,#0ea5e9)',color:'#fff'}}
-                          >
-                            🎓 Default FREE Sky lagao
-                          </button>
-                          <div className="flex items-center gap-2 mb-2">
-                              <input type="color" value={localSettings.freeThemeColor || '#0ea5e9'} onChange={e => setLocalSettings({...localSettings, freeThemeColor: e.target.value})} className="w-10 h-10 rounded-lg cursor-pointer border-none" />
-                              <input type="text" value={localSettings.freeThemeColor || ''} onChange={e => setLocalSettings({...localSettings, freeThemeColor: e.target.value})} placeholder="#0ea5e9 (default)" className="flex-1 p-2 border rounded-lg text-xs uppercase" />
-                          </div>
-                          <div className="grid grid-cols-3 gap-1">
-                              {['#0ea5e9','#10b981','#06b6d4','#3b82f6','#a855f7','#f59e0b'].map(c => (
-                                  <button key={c} onClick={() => setLocalSettings({...localSettings, freeThemeColor: c})} className="h-6 rounded border-2 transition-all" style={{background: c, borderColor: localSettings.freeThemeColor === c ? '#1e293b' : 'transparent'}} />
-                              ))}
-                          </div>
-                      </div>
-                  </div>
-                  <p className="text-[10px] text-violet-600 bg-violet-50 rounded-lg p-2">💡 Priority order: Student ka personal redeem code color &gt; Yahan set tier color &gt; Global theme color upar</p>
-              </div>
-
-              {/* RESET ALL USER THEMES */}
-              {(() => {
-                const handleResetAllThemes = async () => {
-                  setResetThemeLoading(true);
-                  setResetThemeResult(null);
-                  try {
-                    const snapshot = await getDocs(collection(db, 'users'));
-                    const toReset = snapshot.docs.filter(d => {
-                      const data = d.data();
-                      return data.personalTheme || data.personalThemeColor || data.tempThemeColor;
-                    });
-
-                    let count = 0;
-                    const BATCH_SIZE = 400;
-                    for (let i = 0; i < toReset.length; i += BATCH_SIZE) {
-                      const batch = writeBatch(db);
-                      toReset.slice(i, i + BATCH_SIZE).forEach(docSnap => {
-                        batch.update(doc(db, 'users', docSnap.id), {
-                          personalTheme: deleteField(),
-                          personalThemeColor: deleteField(),
-                          tempThemeColor: deleteField(),
-                          tempThemeColorExpiry: deleteField(),
-                        });
-                        count++;
-                      });
-                      await batch.commit();
-                    }
-
-                    setResetThemeResult({ count, status: 'success' });
-                    setResetThemeConfirm(false);
-                  } catch (err: any) {
-                    setResetThemeResult({ count: 0, status: 'error', msg: err?.message || 'Error hua' });
-                  } finally {
-                    setResetThemeLoading(false);
-                  }
-                };
-
-                return (
-                  <div className="bg-gradient-to-br from-red-50 to-rose-50 p-6 rounded-3xl border border-red-200 space-y-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-2xl bg-red-100 border border-red-200 flex items-center justify-center shrink-0">
-                        <RotateCcw size={18} className="text-red-600" />
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="font-bold text-red-900 text-base">Sabka Theme Normal Karo</h4>
-                        <p className="text-xs text-red-600 mt-0.5">Jo bhi users ne apna personal theme set kiya hai, unka theme delete ho jayega aur sab default tier theme pe aa jayenge.</p>
-                      </div>
-                    </div>
-
-                    {resetThemeResult && (
-                      <div className={`p-3 rounded-xl border text-sm font-bold flex items-center gap-2 ${resetThemeResult.status === 'success' ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-100 border-red-300 text-red-700'}`}>
-                        {resetThemeResult.status === 'success'
-                          ? <><CheckCircle size={16} /> {resetThemeResult.count} users ka theme reset ho gaya ✅</>
-                          : <><AlertTriangle size={16} /> Error: {resetThemeResult.msg}</>
-                        }
-                      </div>
-                    )}
-
-                    {!resetThemeConfirm ? (
-                      <button
-                        onClick={() => setResetThemeConfirm(true)}
-                        disabled={resetThemeLoading}
-                        className="w-full py-3 px-4 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-bold text-sm flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-50"
-                      >
-                        <RotateCcw size={16} />
-                        Sabka Theme Reset Karo
-                      </button>
-                    ) : (
-                      <div className="bg-white rounded-2xl border border-red-200 p-4 space-y-3">
-                        <p className="text-sm font-bold text-red-800 text-center">⚠️ Confirm karo — Sabka personal theme delete ho jayega!</p>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => setResetThemeConfirm(false)}
-                            className="flex-1 py-2.5 rounded-xl bg-slate-100 text-slate-700 font-bold text-sm hover:bg-slate-200 transition-all"
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            onClick={handleResetAllThemes}
-                            disabled={resetThemeLoading}
-                            className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-60"
-                          >
-                            {resetThemeLoading ? <><Loader2 size={14} className="animate-spin" /> Reset ho raha hai...</> : <><RotateCcw size={14} /> Haan, Reset Karo</>}
-                          </button>
-                        </div>
-                      </div>
-                    )}
                   </div>
                 );
               })()}

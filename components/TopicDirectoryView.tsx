@@ -16,6 +16,7 @@ interface Props {
   globalNoteStars: Record<string, NoteStarEntry>;
   onOpenCompare: (hits: NoteSearchResult[], query: string) => void;
   onClose: () => void;
+  isDarkMode?: boolean;
 }
 
 const stripHtml = (s: string) =>
@@ -26,6 +27,7 @@ export const TopicDirectoryView: React.FC<Props> = ({
   globalNoteStars,
   onOpenCompare,
   onClose,
+  isDarkMode = false,
 }) => {
   const [query, setQuery] = useState('');
   const debouncedQuery = useDebounce(query, 300);
@@ -169,9 +171,9 @@ export const TopicDirectoryView: React.FC<Props> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[200] bg-slate-50 flex flex-col">
+    <div className="fixed inset-0 z-[200] flex flex-col" style={{ background: settings?.appBackground || '#f8fafc' }}>
       {/* Header */}
-      <div className="bg-white border-b border-slate-100 shrink-0 px-4 pt-4 pb-3 shadow-sm">
+      <div className="border-b border-slate-100 shrink-0 px-4 pt-4 pb-3 shadow-sm" style={{ background: settings?.appBackground || '#ffffff' }}>
         <div className="flex items-center gap-3 mb-3">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-600 to-indigo-600 text-white flex items-center justify-center shrink-0 shadow">
             <List size={17} />

@@ -100,26 +100,23 @@ interface Props {
   topBarGrad?: string;
   profileBg?: string;
   profileCardBg?: string;
+  isDarkMode?: boolean;
+  primaryColor?: string;
 }
 
-export const FullBookCompare: React.FC<Props> = ({ settings, user, isLimited = false, freeLimit = 4, onClose, isFocusMode = false, topBarGrad, profileBg, profileCardBg }) => {
+export const FullBookCompare: React.FC<Props> = ({ settings, user, isLimited = false, freeLimit = 4, onClose, isFocusMode = false, topBarGrad, profileBg, profileCardBg, isDarkMode = false, primaryColor }) => {
   const isAdmin = !!(user?.isAdmin);
-  // Effective color: parent tierTheme > admin settings.themeColor > subscription tier
-  const _overrideColor = (settings as any)?.themeColor as string | undefined;
+  // Effective color priority: passed primaryColor (full tierTheme) > settings.themeColor > subscription tier default
   const _baseSubColor = (user?.subscriptionLevel === 'ULTRA' && user?.isPremium) ? '#1d4ed8'
     : (user?.subscriptionLevel === 'BASIC' && user?.isPremium) ? '#2563eb'
     : '#0ea5e9';
-  const subColor = _overrideColor || _baseSubColor;
-  const subColorLight = _overrideColor
-    ? (() => { const h=_overrideColor.replace('#','').padEnd(6,'0'); return `rgba(${parseInt(h.slice(0,2),16)},${parseInt(h.slice(2,4),16)},${parseInt(h.slice(4,6),16)},0.08)`; })()
-    : (user?.subscriptionLevel === 'ULTRA' && user?.isPremium) ? 'rgba(29,78,216,0.08)'
-    : (user?.subscriptionLevel === 'BASIC' && user?.isPremium) ? 'rgba(37,99,235,0.08)'
-    : 'rgba(14,165,233,0.08)';
-  const subColorBorder = _overrideColor
-    ? (() => { const h=_overrideColor.replace('#','').padEnd(6,'0'); return `rgba(${parseInt(h.slice(0,2),16)},${parseInt(h.slice(2,4),16)},${parseInt(h.slice(4,6),16)},0.30)`; })()
-    : (user?.subscriptionLevel === 'ULTRA' && user?.isPremium) ? 'rgba(29,78,216,0.30)'
-    : (user?.subscriptionLevel === 'BASIC' && user?.isPremium) ? 'rgba(37,99,235,0.30)'
-    : 'rgba(14,165,233,0.28)';
+  const subColor = primaryColor || (settings as any)?.themeColor || _baseSubColor;
+  const _hexToRgba = (hex: string, alpha: number) => {
+    const h = hex.replace('#','').padEnd(6,'0');
+    return `rgba(${parseInt(h.slice(0,2),16)},${parseInt(h.slice(2,4),16)},${parseInt(h.slice(4,6),16)},${alpha})`;
+  };
+  const subColorLight = _hexToRgba(subColor, 0.08);
+  const subColorBorder = _hexToRgba(subColor, 0.30);
 
   // ── Search state ──
   const [searchWord, setSearchWord] = useState('');
@@ -513,7 +510,7 @@ export const FullBookCompare: React.FC<Props> = ({ settings, user, isLimited = f
   };
 
   return (
-    <div className="fixed inset-0 z-[250] flex flex-col overflow-hidden animate-in fade-in" style={{ background: profileBg || '#050d1e' }}>
+    <div className="fixed inset-0 z-[250] flex flex-col overflow-hidden animate-in fade-in" style={{ background: (settings as any)?.appBackground || '#ffffff' }}>
       {/* Header — hidden in focus mode */}
       {!isFocusMode && (
         <div className="text-white px-4 py-3 flex items-center gap-3 shrink-0 shadow-xl" style={{ background: topBarGrad || getCompareTierGrad(user) }}>

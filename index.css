@@ -1172,6 +1172,9 @@ button {
 .dark-mode-blue {
     background-color: #06091a !important;
     color: #f0f6ff !important;
+    --nst-color-surface: #0e1628;
+    --nst-color-border: rgba(59,130,246,0.18);
+    --nst-color-text: #f0f6ff;
 }
 
 .dark-mode-blue .bg-white {
