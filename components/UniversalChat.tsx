@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { User } from '../types';
 import { buildSubColorsFromHex } from '../utils/tierTheme';
+import { useAppTheme } from '../utils/themeContext';
 import { Send, MessageSquare, Shield, Users, X, Trash2, Crown, Zap, Lock, Megaphone, BookOpen, CheckCircle, ThumbsUp, ThumbsDown, Award, Flag, ChevronDown, ChevronUp } from 'lucide-react';
 import { ref, onValue, query, limitToLast, remove, set, get } from 'firebase/database';
 import { rtdb } from '../firebase';
@@ -31,6 +32,7 @@ interface McqDraft {
 const EMPTY_MCQ: McqDraft = { question: '', options: ['', '', '', ''], correctAnswer: 0, explanation: '' };
 
 export const UniversalChat: React.FC<Props> = ({ user, onClose, isAdmin, targetUser, roomId, roomName, allowStudentMcq, initialMcqDraft, defaultTab, hideGlobalTab, onSpendCoins, themeColor }) => {
+    const appTheme = useAppTheme();
     // Determine effective color: prop override > subscription tier
     const _baseSubColor = (user.subscriptionLevel === 'ULTRA' && user.isPremium) ? '#1d4ed8'
         : (user.subscriptionLevel === 'BASIC' && user.isPremium) ? '#2563eb'
@@ -398,10 +400,10 @@ export const UniversalChat: React.FC<Props> = ({ user, onClose, isAdmin, targetU
                 </div>
             )}
 
-            <div className="bg-white w-full h-full flex flex-col overflow-hidden">
+            <div className="w-full h-full flex flex-col overflow-hidden" style={{ background: appTheme.profileBg || '#ffffff' }}>
 
                 {/* Header */}
-                <div className="bg-slate-900 text-white p-4 flex items-center justify-between shrink-0">
+                <div className="text-white p-4 flex items-center justify-between shrink-0" style={{ background: appTheme.topBarGrad || '#0f172a' }}>
                     <div className="flex items-center gap-3">
                         <div className={`p-2 rounded-lg ${activeTab === 'GLOBAL' ? 'bg-blue-600' : activeTab === 'MCQ' ? '' : 'bg-green-600'}`} style={activeTab === 'MCQ' || roomId ? { background: subColor } : {}}>
                             {roomId ? <MessageSquare size={18} /> : activeTab === 'GLOBAL' ? <Users size={18} /> : activeTab === 'MCQ' ? <BookOpen size={18} /> : <Shield size={18} />}
@@ -420,7 +422,7 @@ export const UniversalChat: React.FC<Props> = ({ user, onClose, isAdmin, targetU
 
                 {/* Tabs */}
                 {!roomId && (
-                    <div className="flex bg-slate-100 p-1 gap-1 shrink-0">
+                    <div className="flex p-1 gap-1 shrink-0" style={{ background: appTheme.profileCardBg || '#f1f5f9' }}>
                         {!hideGlobalTab && (
                         <button
                             onClick={() => setActiveTab('GLOBAL')}
@@ -553,7 +555,7 @@ export const UniversalChat: React.FC<Props> = ({ user, onClose, isAdmin, targetU
                         })()}
 
                 {/* Messages */}
-                        <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-slate-50">
+                        <div className="flex-1 overflow-y-auto p-3 space-y-3" style={{ background: appTheme.profileBg || '#f8fafc' }}>
                             {visibleMessages.length === 0 && (
                                 <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-2">
                                     <MessageSquare size={40} className="opacity-40" />
@@ -780,7 +782,7 @@ export const UniversalChat: React.FC<Props> = ({ user, onClose, isAdmin, targetU
 
                         {/* MCQ quick action bar — only in MCQ tab */}
                         {activeTab === 'MCQ' && (
-                        <div className="px-3 pt-2 pb-1 bg-white border-t border-slate-100 shrink-0">
+                        <div className="px-3 pt-2 pb-1 border-t border-slate-100 shrink-0" style={{ background: appTheme.profileCardBg || '#ffffff' }}>
                             {!isAdminOrSub && (
                                 <div className={`mb-1.5 flex items-center justify-between text-[10px] font-bold px-0.5 ${mcqDailyCount >= 10 ? 'text-red-500' : ''}`} style={mcqDailyCount < 10 ? { color: subColor } : {}}>
                                     <span>Aaj ke MCQ: {mcqDailyCount}/10</span>
@@ -901,7 +903,7 @@ export const UniversalChat: React.FC<Props> = ({ user, onClose, isAdmin, targetU
 
                         {/* Input area — hidden in MCQ tab (no text messages allowed) */}
                         {activeTab !== 'MCQ' && (
-                        <div className="p-3 pb-6 bg-white border-t border-slate-100 shrink-0 sticky bottom-16 sm:bottom-0">
+                        <div className="p-3 pb-6 border-t border-slate-100 shrink-0 sticky bottom-16 sm:bottom-0" style={{ background: appTheme.profileCardBg || '#ffffff' }}>
                             {replyTarget && (
                                 <div className="mb-2 rounded-xl bg-blue-50 border border-blue-200 px-3 py-2 text-xs flex items-start justify-between gap-2">
                                     <div className="min-w-0">
