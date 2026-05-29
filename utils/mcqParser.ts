@@ -261,7 +261,7 @@ export function parseMCQText(text: string): { questions: MCQItem[], notes: {titl
 
     // Extract Correct Answer
     // Look for explicit letter A) or A. or just text.
-    const answerMatch = cleanedBlock.match(/(?:✅\s*)?(?:\*\*)?Correct Answer(?:\s*\(सही उत्तर\))?:?(?:\*\*)?(?:\s*✅\s*Correct Answer:?)?\s*([\s\S]*?)(?=💡|🔎|🎯|⚠|🧠|📊|Concept|Explanation|Exam Tip|Common Mistake|Memory Trick|Difficulty Level|<h[1-6]|<p|<div|<ul|<ol|###|$)/i);
+    const answerMatch = cleanedBlock.match(/(?:✅\s*)?(?:\*\*)?Correct Answer(?:\s*\(सही उत्तर\))?:?(?:\*\*)?(?:\s*✅\s*Correct Answer:?)?\s*([\s\S]*?)(?=💡|🔎|🎯|⚠|🧠|📊|Concept|Explanation|व्याख्या|Solution|Sol\b|हल|Reason|कारण|Exam Tip|Common Mistake|Memory Trick|Difficulty Level|<h[1-6]|<p|<div|<ul|<ol|###|$)/i);
     if (answerMatch) {
         const rawAns = answerMatch[1].trim();
 
@@ -281,11 +281,15 @@ export function parseMCQText(text: string): { questions: MCQItem[], notes: {titl
     }
 
     // Extract Concept
-    const conceptMatch = block.match(/(?:💡\s*)?(?:\*\*)?Concept(?:\s*\(अवधारणा\))?:?(?:\*\*)?(?:\s*💡\s*Concept:?)?\s*([\s\S]*?)(?=🔎|🎯|⚠|🧠|📊|Explanation|Exam Tip|Common Mistake|Memory Trick|Difficulty Level|<h[1-6]|<p|<div|<ul|<ol|###|$)/i);
+    const conceptMatch = block.match(/(?:💡\s*)?(?:\*\*)?Concept(?:\s*\(अवधारणा\))?:?(?:\*\*)?(?:\s*💡\s*Concept:?)?\s*([\s\S]*?)(?=🔎|🎯|⚠|🧠|📊|Explanation|व्याख्या|Solution|Sol\b|हल|Reason|कारण|Exam Tip|Common Mistake|Memory Trick|Difficulty Level|<h[1-6]|<p|<div|<ul|<ol|###|$)/i);
     if (conceptMatch) q.concept = conceptMatch[1].trim();
 
-    // Extract Explanation
-    const explanationMatch = block.match(/(?:🔎\s*)?(?:\*\*)?Explanation(?:\s*\(व्याख्या\))?:?(?:\*\*)?(?:\s*🔎\s*Explanation:?)?\s*([\s\S]*?)(?=🎯|⚠|🧠|📊|Exam Tip|Common Mistake|Memory Trick|Difficulty Level|<h[1-6]|<p|<div|<ul|<ol|###|$)/i);
+    // Extract Explanation — supports English / Hindi / common Indian formats:
+    // "Explanation:", "🔎 Explanation:", "Explanation (व्याख्या):",
+    // "व्याख्या:", "🔎 व्याख्या:", "Solution:", "Sol:", "हल:", "Reason:", "कारण:", "Ans.:"
+    const explanationMatch = block.match(
+      /(?:🔎\s*)?(?:\*\*)?(?:Explanation(?:\s*\(व्याख्या\))?|व्याख्या(?:\s*\(Explanation\))?|Solution|Sol\b|हल|Reason|कारण|Ans\.?\s*Explanation):?\s*(?:\*\*)?(?:\s*🔎\s*(?:Explanation|व्याख्या):?)?\s*([\s\S]*?)(?=🎯|⚠|🧠|📊|Exam Tip|Common Mistake|Memory Trick|Difficulty Level|<h[1-6]|<p|<div|<ul|<ol|###|$)/i
+    );
     if (explanationMatch) q.explanation = explanationMatch[1].trim();
 
     // Extract Exam Tip

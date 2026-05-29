@@ -1748,8 +1748,12 @@ const App: React.FC = () => {
         if (state.settings.isCreditFreeEvent || state.settings.isGlobalFreeMode) cost = 0;
 
         // CHECK IF UNLOCKED VIA REDEEM CODE
-        // We check against Chapter ID or specific Content ID
+        // We check against Chapter ID or specific Content ID (permanent or time-limited)
+        const _timedUnlocks1 = (state.user as any).timedUnlocks || [];
+        const _isTimedValid1 = (id: string | undefined) => id ? _timedUnlocks1.some((u: any) => u.contentId === id && new Date(u.expiresAt) > new Date()) : false;
         if (state.user.unlockedContent && (state.user.unlockedContent.includes(tempSelectedChapter.id) || state.user.unlockedContent.includes(specificContent?.id))) {
+            cost = 0;
+        } else if (_isTimedValid1(tempSelectedChapter.id) || _isTimedValid1(specificContent?.id)) {
             cost = 0;
         }
 
@@ -2002,8 +2006,12 @@ const App: React.FC = () => {
     // OVERRIDE FOR CREDIT FREE EVENT
     if (state.settings.isCreditFreeEvent || state.settings.isGlobalFreeMode) cost = 0;
 
-    // CHECK IF UNLOCKED VIA REDEEM CODE
+    // CHECK IF UNLOCKED VIA REDEEM CODE (permanent or time-limited)
+    const _timedUnlocks2 = (state.user as any).timedUnlocks || [];
+    const _isTimedValid2 = (id: string) => _timedUnlocks2.some((u: any) => u.contentId === id && new Date(u.expiresAt) > new Date());
     if (state.user.unlockedContent && state.user.unlockedContent.includes(tempSelectedChapter.id)) {
+        cost = 0;
+    } else if (_isTimedValid2(tempSelectedChapter.id)) {
         cost = 0;
     }
 

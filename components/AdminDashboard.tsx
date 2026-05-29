@@ -11642,6 +11642,21 @@ Statement 2"
                                                       <p className="text-[8px] text-slate-400 mt-0.5">Dark + Blue mode dono mein apply hoga</p>
                                                     </div>
                                                   </div>
+                                                  <div className="bg-rose-50 border border-rose-200 rounded-lg p-2">
+                                                    <label className="text-[9px] font-black text-rose-700 uppercase block mb-1">🎬 Video Link (Google Drive / YouTube)</label>
+                                                    <input
+                                                      type="url"
+                                                      value={(pg as any).videoUrl || ''}
+                                                      onChange={e => {
+                                                        const updated = [...newLucent.pages];
+                                                        updated[pgIdx] = { ...updated[pgIdx], videoUrl: e.target.value } as any;
+                                                        setNewLucent({...newLucent, pages: updated});
+                                                      }}
+                                                      className="w-full p-2 border border-rose-200 rounded text-sm outline-none focus:border-rose-500 bg-white"
+                                                      placeholder="https://drive.google.com/file/d/FILE_ID/view  ya  YouTube link"
+                                                    />
+                                                    <p className="text-[9px] text-rose-600 mt-1">💡 Google Drive link: File ko &quot;Anyone with the link&quot; share karein — student ko Gmail login nahi maangega.</p>
+                                                  </div>
                                                   <details className="text-[9px]">
                                                     <summary className="text-slate-400 cursor-pointer hover:text-slate-600">Legacy content field (purana data ke liye)</summary>
                                                     <textarea value={pg.content} onChange={e => {
@@ -12595,6 +12610,21 @@ Statement 2"
                                                               setLocalSettings({ ...localSettings, lucentNotes: updated });
                                                           }} className="w-full p-2 border border-slate-200 rounded text-sm outline-none focus:border-indigo-500 bg-slate-50" />
                                                       </div>
+                                                  </div>
+                                                  {/* Lock toggle — requires Redeem Code to open */}
+                                                  <div className="flex items-center gap-2">
+                                                      <button
+                                                          type="button"
+                                                          onClick={() => {
+                                                              const updated = [...(localSettings.lucentNotes || [])];
+                                                              updated[i] = { ...updated[i], locked: !(entry as any).locked };
+                                                              setLocalSettings({ ...localSettings, lucentNotes: updated });
+                                                          }}
+                                                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black border transition-all ${(entry as any).locked ? 'bg-red-50 text-red-700 border-red-300 hover:bg-red-100' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'}`}
+                                                      >
+                                                          {(entry as any).locked ? '🔒 Locked — Redeem Code Required' : '🔓 Unlocked — Free Access'}
+                                                      </button>
+                                                      <span className="text-[9px] text-slate-400">Lock karne ke baad "🎫 Code" se redeem code generate karein</span>
                                                   </div>
                                                   <div className="space-y-2">
                                                       <div className="flex items-center justify-between">

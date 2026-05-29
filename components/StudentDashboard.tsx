@@ -2123,6 +2123,15 @@ export const StudentDashboard: React.FC<Props> = ({
   const [bookFilterYear, setBookFilterYear] = useState<number | null>(null);
   const [bookFilterMonth, setBookFilterMonth] = useState<number | null>(null);
   const [hwActiveHwId, setHwActiveHwId] = useState<string | null>(null);
+  // Content Code Generator
+  const [showContentCodeModal, setShowContentCodeModal] = useState(false);
+  const [contentCodeTarget, setContentCodeTarget] = useState<{ id: string; title: string } | null>(null);
+  const [contentCodeDays, setContentCodeDays] = useState(0);
+  const [contentCodeHours, setContentCodeHours] = useState(24);
+  const [contentCodeMins, setContentCodeMins] = useState(0);
+  const [contentCodeMaxUses, setContentCodeMaxUses] = useState(1);
+  const [contentCodeGenerating, setContentCodeGenerating] = useState(false);
+  const [generatedContentCode, setGeneratedContentCode] = useState<string | null>(null);
   // Notes/MCQ split view: 'choose' shows a chooser overlay, 'notes' shows notes (with optional MCQ switch button),
   // 'mcq' shows MCQ-only view. Defaults to 'notes' when only notes exist, 'mcq' when only MCQ.
   const [hwViewMode, setHwViewMode] = useState<'notes' | 'mcq' | 'choose'>('notes');
@@ -2253,7 +2262,7 @@ export const StudentDashboard: React.FC<Props> = ({
   }, [showStarredPage]);
 
   // -- Lucent Page-wise MCQ tab state --
-  const [lucentActiveTab, setLucentActiveTab] = useState<'NOTES' | 'MCQS'>('NOTES');
+  const [lucentActiveTab, setLucentActiveTab] = useState<'NOTES' | 'MCQS' | 'VIDEO'>('NOTES');
   const [lucentMcqsByPage, setLucentMcqsByPage] = useState<Record<string, MCQItem[]>>({});
   const [lucentMcqLoading, setLucentMcqLoading] = useState(false);
   const [lucentMcqRevealed, setLucentMcqRevealed] = useState<Record<string, number>>({});
@@ -2874,12 +2883,26 @@ export const StudentDashboard: React.FC<Props> = ({
   const CN_CREDIT_COST = 5;
   const _cnDailyKey = `nst_cn_daily_${user.id}_${_todayKey}`;
 
+  // Returns true if a Lucent entry is locked AND this user doesn't have valid access.
+  const _lucentIsLocked = (entry: any): boolean => {
+    if (!entry?.locked) return false;
+    const timedUnlocks = (user as any).timedUnlocks || [];
+    const hasTimedAccess = timedUnlocks.some((u: any) => u.contentId === entry.id && new Date(u.expiresAt) > new Date());
+    const hasPermanentAccess = (user.unlockedContent || []).includes(entry.id);
+    return !hasTimedAccess && !hasPermanentAccess;
+  };
+
   const tryOpenLucentNote = (entry: any, pageIdx = 0, extraOpts?: { force?: boolean }) => {
     if (!entry) return;
     const isAdmin = user.role === 'ADMIN' || user.role === 'SUB_ADMIN';
     if (isAdmin || extraOpts?.force) {
       setLucentNoteViewer(entry);
       setLucentPageIndex(pageIdx);
+      return;
+    }
+    // Check content lock — requires valid redeem code
+    if (_lucentIsLocked(entry)) {
+      showAlert('🔒 Yeh lesson locked hai! Admin se Redeem Code maangein aur Profile → Redeem tab mein enter karein.', 'INFO');
       return;
     }
     const tier: 'FREE' | 'BASIC' | 'ULTRA' = _isUltraUser ? 'ULTRA' : _isBasicUser ? 'BASIC' : 'FREE';
@@ -3595,6 +3618,49 @@ export const StudentDashboard: React.FC<Props> = ({
 
   const handleSwitchToAdmin = () => {
     if (onNavigate) onNavigate("ADMIN_DASHBOARD");
+  };
+
+  const openContentCodeModal = (id: string, title: string) => {
+    setContentCodeTarget({ id, title });
+    setContentCodeDays(settings?.contentCodeExpiry?.days ?? 0);
+    setContentCodeHours(settings?.contentCodeExpiry?.hours ?? 24);
+    setContentCodeMins(settings?.contentCodeExpiry?.minutes ?? 0);
+    setContentCodeMaxUses(1);
+    setGeneratedContentCode(null);
+    setShowContentCodeModal(true);
+  };
+
+  const handleGenerateContentCode = async () => {
+    if (!contentCodeTarget) return;
+    setContentCodeGenerating(true);
+    try {
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      let randomPart = '';
+      for (let i = 0; i < 8; i++) randomPart += chars[Math.floor(Math.random() * chars.length)];
+      const code = `C-${randomPart}`;
+      const totalMs = ((contentCodeDays * 24 + contentCodeHours) * 60 + contentCodeMins) * 60 * 1000;
+      const expiresAt = totalMs > 0 ? new Date(Date.now() + totalMs).toISOString() : null;
+      const codeObj: any = {
+        id: Date.now().toString(),
+        code,
+        type: 'CONTENT_UNLOCK',
+        contentId: contentCodeTarget.id,
+        contentType: 'LESSON',
+        createdAt: new Date().toISOString(),
+        isRedeemed: false,
+        generatedBy: user.id || 'ADMIN',
+        maxUses: contentCodeMaxUses || 1,
+        usedCount: 0,
+        redeemedBy: [],
+      };
+      if (expiresAt) codeObj.expiresAt = expiresAt;
+      await set(ref(rtdb, `redeem_codes/${code}`), codeObj);
+      setGeneratedContentCode(code);
+    } catch (e) {
+      alert('Code generate karne mein error: ' + e);
+    } finally {
+      setContentCodeGenerating(false);
+    }
   };
 
   const toggleLayoutVisibility = (sectionId: string) => {
@@ -4688,22 +4754,30 @@ export const StudentDashboard: React.FC<Props> = ({
           <div className="grid grid-cols-1 gap-2">
             {subjectLucentLessons.slice(0, lucentLessonsPage).map(entry => {
               const topicNames = [...new Set((entry.pages || []).map(p => (p.topicName || '').trim()).filter(Boolean))];
+              const _isEntryLocked = _lucentIsLocked(entry);
               return (
-                <div key={entry.id} className={`border-2 rounded-2xl overflow-hidden hover:shadow-md transition-all`} style={{ background: tierTheme.profileCardBg, borderColor: tierTheme.primary }}>
+                <div key={entry.id} className={`border-2 rounded-2xl overflow-hidden hover:shadow-md transition-all ${_isEntryLocked ? 'opacity-75' : ''}`} style={{ background: tierTheme.profileCardBg, borderColor: _isEntryLocked ? '#ef4444' : tierTheme.primary }}>
                   {/* Main read area */}
                   <button
-                    onClick={() => { setLucentPageListViewer(entry); }}
+                    onClick={() => {
+                      if (_isEntryLocked) {
+                        showAlert('🔒 Yeh lesson locked hai! Admin se Redeem Code maangein aur Profile → Redeem tab mein enter karein.', 'INFO');
+                        return;
+                      }
+                      setLucentPageListViewer(entry);
+                    }}
                     className="w-full p-3 text-left active:scale-[0.98] flex items-center gap-3"
                   >
-                    <div className={`${theme.bgSoft} ${theme.textDeep} w-12 h-12 rounded-xl flex items-center justify-center shrink-0`}>
-                      <BookOpen size={20} />
+                    <div className={`${_isEntryLocked ? 'bg-red-100' : theme.bgSoft} ${_isEntryLocked ? 'text-red-500' : theme.textDeep} w-12 h-12 rounded-xl flex items-center justify-center shrink-0`}>
+                      {_isEntryLocked ? <span className="text-xl">🔒</span> : <BookOpen size={20} />}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className={`text-sm font-black ${theme.textDeep} truncate`}>{entry.lessonTitle}</p>
                       <p className="text-[11px] text-slate-500 font-bold mt-0.5">
-                        {entry.pages.length} page{entry.pages.length === 1 ? '' : 's'}
-                        {topicNames.length > 0 ? ` • ${topicNames.length} topic${topicNames.length > 1 ? 's' : ''}` : ''}
-                        {entry.pages.some(p => p.mcqs && p.mcqs.length > 0) ? ' • MCQs' : ''}
+                        {_isEntryLocked
+                          ? <span className="text-red-500 font-black">🔒 Locked — Redeem Code se unlock karein</span>
+                          : <>{entry.pages.length} page{entry.pages.length === 1 ? '' : 's'}{topicNames.length > 0 ? ` • ${topicNames.length} topic${topicNames.length > 1 ? 's' : ''}` : ''}{entry.pages.some(p => p.mcqs && p.mcqs.length > 0) ? ' • MCQs' : ''}</>
+                        }
                       </p>
                     </div>
                     <ChevronRight size={18} className={`${theme.text} shrink-0`} />
@@ -4716,6 +4790,16 @@ export const StudentDashboard: React.FC<Props> = ({
                     >
                       <GitCompare size={13} className={theme.text} />
                       <span className={`text-[11px] font-black ${theme.text}`}>📌 {topicNames.length} Topic{topicNames.length > 1 ? 's' : ''} — Compare karein</span>
+                    </button>
+                  )}
+                  {/* Admin-only: Generate time-limited redeem code for this lesson */}
+                  {user.role === 'ADMIN' && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); openContentCodeModal(entry.id, entry.lessonTitle); }}
+                      className={`w-full border-t ${theme.border} px-3 py-2 flex items-center gap-2 bg-amber-50 active:scale-[0.99] transition-all`}
+                    >
+                      <span className="text-[11px]">🎫</span>
+                      <span className="text-[11px] font-black text-amber-700">Redeem Code Generate karein</span>
                     </button>
                   )}
                 </div>
@@ -5831,7 +5915,12 @@ export const StudentDashboard: React.FC<Props> = ({
                           {hw.pdfUrl && <span className={`text-[9px] font-bold ${theme.chip} px-1.5 py-0.5 rounded`}>PDF</span>}
                         </div>
                       </div>
-                      <ChevronRight size={18} className={`${theme.text} shrink-0`} />
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        <ChevronRight size={18} className={`${theme.text}`} />
+                        {user.role === 'ADMIN' && (
+                          <button onClick={(e) => { e.stopPropagation(); openContentCodeModal(hw.id || '', hw.title || ''); }} className="text-[9px] font-black bg-amber-50 text-amber-700 border border-amber-200 rounded px-1.5 py-0.5 active:scale-95 transition">🎫 Code</button>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
@@ -5903,7 +5992,12 @@ export const StudentDashboard: React.FC<Props> = ({
                             {hw.pdfUrl && <span className={`text-[9px] font-bold ${theme.chip} px-1.5 py-0.5 rounded`}>PDF</span>}
                           </div>
                         </div>
-                        <ChevronRight size={18} className={`${theme.text} shrink-0`} />
+                        <div className="flex flex-col items-end gap-1 shrink-0">
+                          <ChevronRight size={18} className={`${theme.text}`} />
+                          {user.role === 'ADMIN' && (
+                            <button onClick={(e) => { e.stopPropagation(); openContentCodeModal(hw.id || '', hw.title || ''); }} className="text-[9px] font-black bg-amber-50 text-amber-700 border border-amber-200 rounded px-1.5 py-0.5 active:scale-95 transition">🎫 Code</button>
+                          )}
+                        </div>
                       </button>
                     );
                   })}
@@ -6056,6 +6150,9 @@ export const StudentDashboard: React.FC<Props> = ({
                               <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-black bg-purple-600 text-white"><Crown size={9}/> ULTRA</span>
                             )}
                             <span className={`text-[9px] font-bold ${theme.text} opacity-50`}>{monthYear}</span>
+                            {user.role === 'ADMIN' && (
+                              <button onClick={(e) => { e.stopPropagation(); openContentCodeModal(hw.id || '', hw.title || `Page ${pageNum}`); }} className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-black bg-amber-50 text-amber-700 border border-amber-200 active:scale-95 transition-all">🎫 Code</button>
+                            )}
                           </div>
                         </div>
                         <ChevronRight size={15} className={`${theme.text} shrink-0`} />
@@ -6429,6 +6526,10 @@ export const StudentDashboard: React.FC<Props> = ({
               const noteId = chapter.id.replace('lucent_admin_', '');
               const entry = (settings?.lucentNotes || []).find(n => n.id === noteId);
               if (entry) {
+                if (_lucentIsLocked(entry)) {
+                  showAlert('🔒 Yeh lesson locked hai! Admin se Redeem Code maangein aur Profile → Redeem tab mein enter karein.', 'INFO');
+                  return;
+                }
                 setLucentPageListViewer(entry);
                 return;
               }
@@ -9050,17 +9151,6 @@ export const StudentDashboard: React.FC<Props> = ({
                         </div>
                       </div>
 
-                      {/* Login History */}
-                      <div className="px-4 pt-2 pb-4">
-                        <button
-                          onClick={() => { onTabChange('HISTORY'); setShowDotsMenu(false); }}
-                          className="w-full flex items-center gap-2 p-2.5 rounded-xl bg-gradient-to-r from-blue-50 to-sky-50 border border-blue-200 text-blue-700 hover:from-blue-100 hover:to-sky-100 font-bold text-xs transition-all"
-                        >
-                          <span className="text-base">🕐</span>
-                          <span className="flex-1 text-left">Login History</span>
-                          <span className="text-[10px] text-blue-400">→</span>
-                        </button>
-                      </div>
                     </div>
                   </>
                 )}
@@ -14850,12 +14940,13 @@ export const StudentDashboard: React.FC<Props> = ({
               </div>
             </div>
             {/* Smart Search bar */}
-            {/* NOTES / MCQ TAB SWITCHER */}
+            {/* NOTES / MCQ / VIDEO TAB SWITCHER */}
             {(() => {
               const _pgHasNotes = !!(currentPage?.chunkNotes?.trim() || currentPage?.htmlNotes?.trim() || currentPage?.content?.trim());
               const _mcqK = `${entry.id}_${safeIndex}`;
               const _mcqCnt = lucentMcqsByPage[_mcqK]?.length || currentPage?.mcqs?.length || 0;
-              if (!_pgHasNotes && _mcqCnt === 0) return null;
+              const _pgHasVideo = !!(currentPage as any)?.videoUrl;
+              if (!_pgHasNotes && _mcqCnt === 0 && !_pgHasVideo) return null;
               return (
                 <div className={`shrink-0 bg-white border-b border-slate-100 px-4 py-2 flex items-center gap-2 ${isLandscapeUiHidden ? 'hidden' : ''}`}>
                   {_pgHasNotes && (
@@ -14881,6 +14972,18 @@ export const StudentDashboard: React.FC<Props> = ({
                     >
                       <BrainCircuit size={13} /> MCQs
                       <span className="ml-0.5 text-[10px] bg-white/30 px-1.5 py-0.5 rounded-full">{_mcqCnt}</span>
+                    </button>
+                  )}
+                  {_pgHasVideo && (
+                    <button
+                      onClick={() => { stopSpeech(); setLucentActiveTab('VIDEO'); }}
+                      className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-black transition-all ${
+                        lucentActiveTab === 'VIDEO'
+                          ? 'bg-rose-600 text-white shadow-sm'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      <span className="text-[13px] leading-none">▶</span> Video
                     </button>
                   )}
                 </div>
@@ -15610,6 +15713,33 @@ RULES:
                 </div>
               );
             })()}
+
+            {/* VIDEO TAB CONTENT */}
+            {lucentActiveTab === 'VIDEO' && (currentPage as any)?.videoUrl && (
+              <div className="flex-1 overflow-y-auto pb-[72px] px-4 pt-4 flex flex-col gap-3">
+                <div
+                  className="rounded-2xl overflow-hidden bg-black shadow-xl border border-slate-200"
+                  style={{ aspectRatio: '16/9', width: '100%' }}
+                >
+                  <iframe
+                    src={
+                      (currentPage as any).videoUrl?.includes('drive.google.com')
+                        ? formatDriveLink((currentPage as any).videoUrl)
+                        : formatVideoEmbed((currentPage as any).videoUrl)
+                    }
+                    className="w-full h-full border-none"
+                    allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
+                    allowFullScreen
+                    sandbox="allow-scripts allow-same-origin allow-presentation allow-popups"
+                    title="Lesson Video"
+                  />
+                </div>
+                <p className="text-[11px] text-slate-400 text-center">
+                  📹 Google Drive se video play ho raha hai — kisi ka Gmail login nahi maangega
+                </p>
+              </div>
+            )}
+
             {/* Fixed bottom nav — at first/last page, Prev/Next jump to
                 previous / next Lucent lesson automatically. */}
             <div className={`fixed bottom-0 left-0 right-0 z-[210] pb-safe border-t border-slate-100 bg-white px-4 py-3 flex items-center gap-3 ${isLandscapeUiHidden ? 'hidden' : ''}`}>
@@ -19795,6 +19925,105 @@ RULES:
         </div>
         );
       })()}
+
+      {/* Content Code Generator Modal — admin only */}
+      {showContentCodeModal && contentCodeTarget && (
+        <div className="fixed inset-0 z-[500] flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => { setShowContentCodeModal(false); setGeneratedContentCode(null); }}>
+          <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-5 py-3 flex items-center gap-2">
+              <span className="text-white text-lg">🎫</span>
+              <h3 className="font-black text-white text-base">Content Redeem Code</h3>
+            </div>
+            <div className="p-5">
+              <p className="text-xs font-bold text-slate-500 mb-4 truncate">📘 {contentCodeTarget.title}</p>
+
+              {!generatedContentCode ? (
+                <>
+                  <div className="mb-4">
+                    <p className="text-xs font-black text-slate-700 mb-2">⏱ Code Expiry Time (0 = no expiry)</p>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-wide">Days</label>
+                        <input
+                          type="number" min="0" value={contentCodeDays}
+                          onChange={e => setContentCodeDays(Math.max(0, parseInt(e.target.value) || 0))}
+                          className="w-full border-2 border-slate-200 rounded-xl px-2 py-2 text-sm font-black text-center focus:border-amber-400 outline-none mt-1"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-wide">Hours</label>
+                        <input
+                          type="number" min="0" max="23" value={contentCodeHours}
+                          onChange={e => setContentCodeHours(Math.max(0, Math.min(23, parseInt(e.target.value) || 0)))}
+                          className="w-full border-2 border-slate-200 rounded-xl px-2 py-2 text-sm font-black text-center focus:border-amber-400 outline-none mt-1"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-wide">Minutes</label>
+                        <input
+                          type="number" min="0" max="59" value={contentCodeMins}
+                          onChange={e => setContentCodeMins(Math.max(0, Math.min(59, parseInt(e.target.value) || 0)))}
+                          className="w-full border-2 border-slate-200 rounded-xl px-2 py-2 text-sm font-black text-center focus:border-amber-400 outline-none mt-1"
+                        />
+                      </div>
+                    </div>
+                    {(contentCodeDays > 0 || contentCodeHours > 0 || contentCodeMins > 0) ? (
+                      <p className="text-[10px] text-amber-600 font-bold mt-1.5">⏰ {contentCodeDays}d {contentCodeHours}h {contentCodeMins}m ke baad auto-lock ho jayega</p>
+                    ) : (
+                      <p className="text-[10px] text-slate-400 mt-1.5">0/0/0 = Permanent unlock (no expiry)</p>
+                    )}
+                  </div>
+                  <div className="mb-5">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-wide">Max Uses</label>
+                    <input
+                      type="number" min="1" value={contentCodeMaxUses}
+                      onChange={e => setContentCodeMaxUses(Math.max(1, parseInt(e.target.value) || 1))}
+                      className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm font-black text-center focus:border-amber-400 outline-none mt-1"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => { setShowContentCodeModal(false); setGeneratedContentCode(null); }}
+                      className="flex-1 py-3 rounded-xl border-2 border-slate-200 text-slate-600 font-black text-sm hover:bg-slate-50 active:scale-[0.98] transition"
+                    >Cancel</button>
+                    <button
+                      onClick={handleGenerateContentCode}
+                      disabled={contentCodeGenerating}
+                      className="flex-1 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black text-sm hover:opacity-90 active:scale-[0.98] transition disabled:opacity-50"
+                    >
+                      {contentCodeGenerating ? '⏳ Generating...' : '🎫 Generate Code'}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="text-center">
+                  <p className="text-xs text-slate-500 font-bold mb-3">✅ Code Successfully Generated!</p>
+                  <div className="bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-300 rounded-2xl p-4 mb-4">
+                    <p className="text-[10px] text-amber-600 font-black uppercase tracking-widest mb-1.5">Your Redeem Code</p>
+                    <p className="text-2xl font-black text-amber-700 tracking-widest font-mono">{generatedContentCode}</p>
+                    {(contentCodeDays > 0 || contentCodeHours > 0 || contentCodeMins > 0) && (
+                      <p className="text-[10px] text-orange-500 font-bold mt-2">⏰ Valid for {contentCodeDays}d {contentCodeHours}h {contentCodeMins}m</p>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => { navigator.clipboard?.writeText(generatedContentCode); }}
+                      className="flex-1 py-3 rounded-xl bg-green-500 text-white font-black text-sm hover:bg-green-600 active:scale-[0.98] transition"
+                    >📋 Copy</button>
+                    <button
+                      onClick={() => {
+                        setShowContentCodeModal(false);
+                        setGeneratedContentCode(null);
+                      }}
+                      className="flex-1 py-3 rounded-xl border-2 border-slate-200 text-slate-600 font-black text-sm hover:bg-slate-50 active:scale-[0.98] transition"
+                    >Close</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Feature discovery hints for new users */}
       <FeatureHints

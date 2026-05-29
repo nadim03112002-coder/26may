@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Chapter, User, Subject, SystemSettings, MCQResult, PerformanceTag } from '../types';
-import { CheckCircle, Lock, ArrowLeft, Crown, PlayCircle, HelpCircle, Trophy, Clock, BrainCircuit, FileText, Layers, BookOpen, Eye, RefreshCw, ChevronDown, ChevronUp, Send } from 'lucide-react';
+import { CheckCircle, Lock, ArrowLeft, Crown, PlayCircle, HelpCircle, Trophy, Clock, BrainCircuit, FileText, Layers, BookOpen, Eye, RefreshCw, ChevronDown, ChevronUp, Plus } from 'lucide-react';
 import { checkFeatureAccess } from '../utils/permissionUtils';
 import { CustomAlert, CustomConfirm } from './CustomDialogs';
 import { getChapterData, saveUserToLive, saveUserHistory, savePublicActivity } from '../firebase';
@@ -1292,15 +1292,16 @@ export const McqView: React.FC<Props> = ({
                                           {onShareToCommunity && (
                                               <button
                                                   type="button"
+                                                  title="Community MCQ mein bhejein"
                                                   onClick={() => {
                                                       const opts = cq.options.length === 4
                                                           ? cq.options as [string,string,string,string]
                                                           : ([...cq.options, '', '', '', ''].slice(0, 4) as [string,string,string,string]);
                                                       onShareToCommunity({ question: cq.question, options: opts, correctAnswer: cq.correctAnswer, explanation: cq.explanation || '' });
                                                   }}
-                                                  className="w-8 h-8 rounded-full flex items-center justify-center bg-violet-50 text-violet-600 hover:bg-violet-100 active:scale-95"
+                                                  className="w-8 h-8 rounded-full flex items-center justify-center bg-violet-50 text-violet-600 hover:bg-violet-100 active:scale-95 border border-violet-200 font-black"
                                               >
-                                                  <Send size={13} />
+                                                  <Plus size={15} />
                                               </button>
                                           )}
                                       </div>
@@ -1366,11 +1367,11 @@ export const McqView: React.FC<Props> = ({
                                       </div>
                                   )}
 
-                                  {/* Explanation — only after submit */}
+                                  {/* Explanation — compact inline style after submit */}
                                   {listSubmitted && cqSelected !== undefined && cq.explanation && (
-                                      <div className="mt-2 p-3 rounded-xl bg-amber-50 border border-amber-200">
-                                          <p className="text-[10px] font-black text-amber-700 uppercase tracking-wider mb-1">Explanation</p>
-                                          <p className="text-xs text-slate-800 leading-relaxed">{cq.explanation}</p>
+                                      <div className="mt-1.5 flex items-start gap-1.5 bg-amber-50/80 border border-amber-200/70 rounded-lg px-2.5 py-1.5">
+                                          <span className="text-[11px] shrink-0 mt-px">🔎</span>
+                                          <p className="text-[11px] text-slate-700 leading-relaxed">{cq.explanation}</p>
                                       </div>
                                   )}
                               </div>

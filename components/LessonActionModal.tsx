@@ -1,6 +1,6 @@
 import React from 'react';
 import { Chapter, ContentType } from '../types';
-import { FileText, CheckSquare, Video, Headphones, X, Crown, Lock } from 'lucide-react';
+import { FileText, CheckSquare, Video, Headphones, X, Lock } from 'lucide-react';
 
 interface Props {
     chapter: Chapter;
@@ -72,10 +72,10 @@ export const LessonActionModal: React.FC<Props> = ({ chapter, onClose, onSelect,
                                     ? 'bg-amber-50 text-amber-600 group-hover:bg-amber-500 group-hover:text-white'
                                     : 'bg-amber-100 text-amber-500'
                             }`}>
-                                {isPremiumUser ? <Crown size={16} /> : <Lock size={16} />}
+                                {isPremiumUser ? <FileText size={16} /> : <Lock size={16} />}
                             </div>
                             <span className={`font-bold text-[11px] ${isPremiumUser ? 'text-slate-600 group-hover:text-amber-600' : 'text-amber-600'}`}>
-                                Premium Notes
+                                Premium PDF
                             </span>
                             {!isPremiumUser && (
                                 <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-amber-500 rounded-full flex items-center justify-center">
