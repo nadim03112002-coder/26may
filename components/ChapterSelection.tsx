@@ -2,6 +2,7 @@ import React from 'react';
 import { Chapter, Subject, ClassLevel, User, SystemSettings } from '../types';
 import { BookOpen, ChevronRight, Lock, CheckCircle, PlayCircle, Clock, AlertCircle } from 'lucide-react';
 import { getChapterData } from '../firebase';
+import { useAppTheme } from '../utils/themeContext';
 
 interface Props {
   chapters: Chapter[];
@@ -24,6 +25,8 @@ export const ChapterSelection: React.FC<Props> = ({
   onSelect, 
   onBack 
 }) => {
+  const appTheme = useAppTheme();
+  const chAccent = (appTheme as any).chapterAccent || appTheme.primary || '#2563eb';
   
   // Get settings from local storage directly if not passed prop, or assume App passes settings in real app structure
   // Ideally this component should receive settings as prop, but I'll read from localStorage for consistency with other deep components if prop isn't available
@@ -153,27 +156,27 @@ export const ChapterSelection: React.FC<Props> = ({
                 </div>
 
                 {/* Status Indicator Bar */}
-                <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${
-                    isLocked ? 'bg-slate-300' : isCurrent ? 'bg-blue-600' : 'bg-green-500'
-                }`}></div>
+                <div
+                  className="absolute left-0 top-0 bottom-0 w-1.5"
+                  style={{ background: isLocked ? '#cbd5e1' : isCurrent ? chAccent : '#22c55e' }}
+                />
 
                 <div className="mr-5 ml-2 min-w-[3.5rem] flex flex-col items-center justify-center">
                    {chapter.pageNo ? (
-                       /* Lucent admin lesson — page-wise organized, show "PG" badge */
                        <>
                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">PG</span>
-                           <span className={`text-2xl font-bold ${isCurrent ? 'text-blue-600' : isLocked ? 'text-slate-500' : 'text-green-600'}`}>
+                           <span className="text-2xl font-bold" style={{ color: isLocked ? '#94a3b8' : isCurrent ? chAccent : '#22c55e' }}>
                                {chapter.pageNo}
                            </span>
                        </>
                    ) : chapter.serialNumber ? (
-                       <span className={`text-xl font-bold ${isCurrent ? 'text-blue-600' : isLocked ? 'text-slate-500' : 'text-green-600'}`}>
+                       <span className="text-xl font-bold" style={{ color: isLocked ? '#94a3b8' : isCurrent ? chAccent : '#22c55e' }}>
                            {chapter.serialNumber}
                        </span>
                    ) : (
                        <>
                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">CH</span>
-                           <span className={`text-2xl font-bold ${isCurrent ? 'text-blue-600' : isLocked ? 'text-slate-500' : 'text-green-600'}`}>
+                           <span className="text-2xl font-bold" style={{ color: isLocked ? '#94a3b8' : isCurrent ? chAccent : '#22c55e' }}>
                                {(index + 1).toString().padStart(2, '0')}
                            </span>
                        </>
@@ -185,20 +188,21 @@ export const ChapterSelection: React.FC<Props> = ({
                       <h3 className={`font-bold text-lg ${isLocked ? 'text-slate-600' : 'text-slate-800'}`}>
                           {chapter.title}
                       </h3>
-                      {isCurrent && <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold animate-pulse">ROUTINE ACTIVE</span>}
+                      {isCurrent && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full font-bold animate-pulse" style={{ background: `${chAccent}18`, color: chAccent }}>
+                      ROUTINE ACTIVE
+                    </span>
+                  )}
                   </div>
-                  
 
                   {isLocked ? (
                       <div className="flex items-center gap-1 text-xs text-slate-600 font-medium">
                           <Lock size={12} />
-                          <span>
-                              This content is currently locked by Admin.
-                          </span>
+                          <span>This content is currently locked by Admin.</span>
                       </div>
                   ) : isCurrent ? (
                       <div className="flex items-center gap-3 text-xs">
-                          <span className="font-bold text-blue-600 animate-pulse">
+                          <span className="font-bold animate-pulse" style={{ color: chAccent }}>
                              Routine Active
                           </span>
                       </div>
@@ -215,7 +219,10 @@ export const ChapterSelection: React.FC<Props> = ({
                           <Lock size={18} />
                       </div>
                   ) : isCurrent ? (
-                      <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                      <div
+                        className="w-10 h-10 rounded-full text-white flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform"
+                        style={{ background: chAccent }}
+                      >
                           <PlayCircle size={20} />
                       </div>
                   ) : (

@@ -9,6 +9,7 @@ import { getUserTier } from '../utils/permissionUtils';
 import { applyDeduction } from '../utils/creditSystem';
 import { saveUserToLive } from '../firebase';
 import { fireCreditNotify } from '../utils/creditNotify';
+import { useAppTheme } from '../utils/themeContext';
 
 interface Props {
   questions: MCQItem[];
@@ -276,17 +277,15 @@ export const FlashcardMcqView: React.FC<Props> = ({
     initSession();
   };
 
-  // Tier-based background gradient
-  const tierBg = userTier === 'ULTRA'
-    ? 'from-blue-950 via-slate-900 to-blue-950'
-    : userTier === 'BASIC'
-      ? 'from-blue-700 via-blue-800 to-blue-900'
-      : 'from-sky-400 via-sky-500 to-cyan-500';
+  const appTheme = useAppTheme();
+  const fcBg1 = (appTheme as any).flashcardBg1 || appTheme.primary;
+  const fcBg2 = (appTheme as any).flashcardBg2 || appTheme.mid;
+  const tierBgStyle = { background: `linear-gradient(135deg, ${fcBg1} 0%, ${fcBg2} 50%, ${fcBg1} 100%)` };
 
   if (limitReached) {
     const canPay = !!(user?.subscriptionLevel && (user.credits ?? 0) >= CREDIT_COST);
     return (
-      <div className={`fixed inset-0 z-[200] bg-gradient-to-br ${tierBg} flex flex-col h-[100dvh]`}>
+      <div className="fixed inset-0 z-[200] flex flex-col h-[100dvh]" style={tierBgStyle}>
         <div className="px-4 py-3 flex items-center gap-3">
           <button onClick={onBack} className="bg-white/10 text-white p-2 rounded-full active:scale-95">
             <ArrowLeft size={18} />
@@ -303,7 +302,8 @@ export const FlashcardMcqView: React.FC<Props> = ({
           {canPay ? (
             <button
               onClick={payAndContinue}
-              className="bg-white text-indigo-900 font-black px-8 py-3.5 rounded-2xl text-sm shadow-xl active:scale-95 transition mb-3"
+              className="bg-white font-black px-8 py-3.5 rounded-2xl text-sm shadow-xl active:scale-95 transition mb-3"
+              style={{ color: fcBg2 }}
             >
               🪙 {CREDIT_COST} Credits se Continue Karo
             </button>
@@ -320,7 +320,7 @@ export const FlashcardMcqView: React.FC<Props> = ({
 
   if (!currentQ) {
     return (
-      <div className={`fixed inset-0 z-[200] bg-gradient-to-br ${tierBg} flex flex-col h-[100dvh]`}>
+      <div className="fixed inset-0 z-[200] flex flex-col h-[100dvh]" style={tierBgStyle}>
         <div className="px-4 py-3 flex items-center gap-3">
           <button onClick={onBack} className="bg-white/10 text-white p-2 rounded-full"><ArrowLeft size={18}/></button>
           <h2 className="text-base font-black text-white">Flashcards</h2>
@@ -336,7 +336,7 @@ export const FlashcardMcqView: React.FC<Props> = ({
   const isLast = pos >= total - 1;
 
   return (
-    <div className={`fixed inset-0 z-[200] bg-gradient-to-br ${tierBg} flex flex-col h-[100dvh]`}>
+    <div className="fixed inset-0 z-[200] flex flex-col h-[100dvh]" style={tierBgStyle}>
       {/* Top Bar */}
       <div className="sticky top-0 z-10 px-4 py-3 flex items-center gap-3">
         <button
@@ -455,7 +455,8 @@ export const FlashcardMcqView: React.FC<Props> = ({
               <button
                 type="button"
                 onClick={() => setFlipped(true)}
-                className="mt-auto w-full py-3 rounded-2xl bg-indigo-600 text-white font-black text-sm flex items-center justify-center gap-2 active:scale-95 transition shadow-md"
+                className="mt-auto w-full py-3 rounded-2xl text-white font-black text-sm flex items-center justify-center gap-2 active:scale-95 transition shadow-md"
+                style={{ background: appTheme.btnGrad }}
               >
                 Answer Dekho <ChevronRight size={16} />
               </button>

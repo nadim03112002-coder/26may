@@ -5,7 +5,7 @@ import { getTotalCredits, applyDeduction } from '../utils/creditSystem';
 import {
     ArrowLeft, Sparkles, RotateCcw, Eye, Palette,
     Layers, Navigation, Square, Type, Zap, Star,
-    ChevronRight, Check, X, AlertCircle, Globe, Clock, Users, BarChart2
+    ChevronRight, Check, X, AlertCircle, Globe, Clock, Users, BarChart2, CheckCircle, Home
 } from 'lucide-react';
 
 interface Props {
@@ -33,366 +33,437 @@ interface ThemeState {
     textSecondary: string;
     accentGlow: string;
     progressColor: string;
+    flashcardBg1?: string;
+    flashcardBg2?: string;
+    chapterAccent?: string;
+    mcqTabActive?: string;
 }
 
 const DEFAULT_THEME: ThemeState = {
-    bgColor: '#080a10',
+    bgColor: '#ffffff',
     topBarStart: '#1e3a5f',
     topBarEnd: '#0f1e3c',
-    navBg: '#0d0f18',
+    navBg: '#ffffff',
     navActive: '#3b82f6',
-    navBorder: '#1e2a3f',
-    cardBg: '#111827',
-    cardBorder: '#1e293b',
+    navBorder: '#e2e8f0',
+    cardBg: '#f8fafc',
+    cardBorder: '#e2e8f0',
     btnStart: '#3b82f6',
     btnEnd: '#6366f1',
-    textPrimary: '#f1f5f9',
-    textSecondary: '#94a3b8',
+    textPrimary: '#1e293b',
+    textSecondary: '#64748b',
     accentGlow: '#3b82f6',
     progressColor: '#3b82f6',
+    flashcardBg1: '#0c2d6b',
+    flashcardBg2: '#1e40af',
+    chapterAccent: '#3b82f6',
+    mcqTabActive: '#3b82f6',
 };
 
 const PRESETS: Array<{ name: string; emoji: string; colors: ThemeState }> = [
     {
         name: 'Ocean Blue', emoji: '🌊',
         colors: {
-            bgColor: '#050d1a', topBarStart: '#0c2d6b', topBarEnd: '#061635',
-            navBg: '#080f1f', navActive: '#38bdf8', navBorder: '#0f2040',
-            cardBg: '#0d1a33', cardBorder: '#1a3050',
+            bgColor: '#ffffff', topBarStart: '#0c2d6b', topBarEnd: '#061635',
+            navBg: '#ffffff', navActive: '#38bdf8', navBorder: '#e0f2fe',
+            cardBg: '#f0f9ff', cardBorder: '#bae6fd',
             btnStart: '#0ea5e9', btnEnd: '#6366f1',
-            textPrimary: '#e0f2fe', textSecondary: '#7dd3fc',
+            textPrimary: '#0c1a2e', textSecondary: '#0369a1',
             accentGlow: '#38bdf8', progressColor: '#0ea5e9',
+            flashcardBg1: '#0c2d6b', flashcardBg2: '#0369a1',
+            chapterAccent: '#0ea5e9', mcqTabActive: '#0ea5e9',
         }
     },
     {
         name: 'Sakura', emoji: '🌸',
         colors: {
-            bgColor: '#120008', topBarStart: '#7b1045', topBarEnd: '#3d0820',
-            navBg: '#18040e', navActive: '#f43f5e', navBorder: '#3d1020',
-            cardBg: '#200a12', cardBorder: '#3d1525',
+            bgColor: '#ffffff', topBarStart: '#7b1045', topBarEnd: '#9d174d',
+            navBg: '#ffffff', navActive: '#f43f5e', navBorder: '#fecdd3',
+            cardBg: '#fff1f2', cardBorder: '#fecdd3',
             btnStart: '#f43f5e', btnEnd: '#ec4899',
-            textPrimary: '#ffe4e6', textSecondary: '#fda4af',
+            textPrimary: '#1e0a10', textSecondary: '#9f1239',
             accentGlow: '#f43f5e', progressColor: '#e11d48',
+            flashcardBg1: '#7b1045', flashcardBg2: '#9d174d',
+            chapterAccent: '#f43f5e', mcqTabActive: '#f43f5e',
         }
     },
     {
         name: 'Forest', emoji: '🌿',
         colors: {
-            bgColor: '#030d06', topBarStart: '#064e20', topBarEnd: '#022b10',
-            navBg: '#040e07', navActive: '#22c55e', navBorder: '#083a16',
-            cardBg: '#07150b', cardBorder: '#0d2e14',
+            bgColor: '#ffffff', topBarStart: '#064e20', topBarEnd: '#065f46',
+            navBg: '#ffffff', navActive: '#22c55e', navBorder: '#dcfce7',
+            cardBg: '#f0fdf4', cardBorder: '#bbf7d0',
             btnStart: '#16a34a', btnEnd: '#059669',
-            textPrimary: '#dcfce7', textSecondary: '#86efac',
+            textPrimary: '#052e16', textSecondary: '#166534',
             accentGlow: '#22c55e', progressColor: '#16a34a',
+            flashcardBg1: '#064e20', flashcardBg2: '#065f46',
+            chapterAccent: '#22c55e', mcqTabActive: '#16a34a',
         }
     },
     {
         name: 'Gold', emoji: '⚡',
         colors: {
-            bgColor: '#0d0800', topBarStart: '#7c4a00', topBarEnd: '#3d2200',
-            navBg: '#110900', navActive: '#f59e0b', navBorder: '#3d2500',
-            cardBg: '#180f00', cardBorder: '#3d2200',
+            bgColor: '#ffffff', topBarStart: '#7c4a00', topBarEnd: '#92400e',
+            navBg: '#ffffff', navActive: '#f59e0b', navBorder: '#fef3c7',
+            cardBg: '#fffbeb', cardBorder: '#fde68a',
             btnStart: '#f59e0b', btnEnd: '#f97316',
-            textPrimary: '#fef9c3', textSecondary: '#fde68a',
+            textPrimary: '#1c0a00', textSecondary: '#92400e',
             accentGlow: '#f59e0b', progressColor: '#d97706',
+            flashcardBg1: '#7c4a00', flashcardBg2: '#92400e',
+            chapterAccent: '#f59e0b', mcqTabActive: '#f59e0b',
         }
     },
     {
         name: 'Violet', emoji: '💜',
         colors: {
-            bgColor: '#06020e', topBarStart: '#4a1d96', topBarEnd: '#2e1065',
-            navBg: '#080316', navActive: '#a855f7', navBorder: '#2e1065',
-            cardBg: '#0f0520', cardBorder: '#2d1060',
+            bgColor: '#ffffff', topBarStart: '#4a1d96', topBarEnd: '#6d28d9',
+            navBg: '#ffffff', navActive: '#a855f7', navBorder: '#f3e8ff',
+            cardBg: '#faf5ff', cardBorder: '#e9d5ff',
             btnStart: '#8b5cf6', btnEnd: '#ec4899',
-            textPrimary: '#f3e8ff', textSecondary: '#d8b4fe',
+            textPrimary: '#1e0a3c', textSecondary: '#6d28d9',
             accentGlow: '#a855f7', progressColor: '#7c3aed',
+            flashcardBg1: '#4a1d96', flashcardBg2: '#6d28d9',
+            chapterAccent: '#a855f7', mcqTabActive: '#8b5cf6',
         }
     },
     {
         name: 'Sunset', emoji: '🔥',
         colors: {
-            bgColor: '#0d0400', topBarStart: '#9a2a00', topBarEnd: '#4d1500',
-            navBg: '#100500', navActive: '#f97316', navBorder: '#4d1800',
-            cardBg: '#180600', cardBorder: '#3d1200',
+            bgColor: '#ffffff', topBarStart: '#9a2a00', topBarEnd: '#c2410c',
+            navBg: '#ffffff', navActive: '#f97316', navBorder: '#ffedd5',
+            cardBg: '#fff7ed', cardBorder: '#fed7aa',
             btnStart: '#f97316', btnEnd: '#ef4444',
-            textPrimary: '#ffedd5', textSecondary: '#fed7aa',
+            textPrimary: '#1c0a00', textSecondary: '#c2410c',
             accentGlow: '#f97316', progressColor: '#ea580c',
+            flashcardBg1: '#9a2a00', flashcardBg2: '#c2410c',
+            chapterAccent: '#f97316', mcqTabActive: '#f97316',
         }
     },
     {
         name: 'Arctic', emoji: '❄️',
         colors: {
-            bgColor: '#020d14', topBarStart: '#0e4060', topBarEnd: '#061a2b',
-            navBg: '#040e18', navActive: '#67e8f9', navBorder: '#0e3050',
-            cardBg: '#071520', cardBorder: '#0e2535',
+            bgColor: '#ffffff', topBarStart: '#0e4060', topBarEnd: '#0e7490',
+            navBg: '#ffffff', navActive: '#67e8f9', navBorder: '#cffafe',
+            cardBg: '#ecfeff', cardBorder: '#a5f3fc',
             btnStart: '#22d3ee', btnEnd: '#06b6d4',
-            textPrimary: '#ecfeff', textSecondary: '#a5f3fc',
+            textPrimary: '#082f49', textSecondary: '#0e7490',
             accentGlow: '#22d3ee', progressColor: '#0891b2',
+            flashcardBg1: '#0e4060', flashcardBg2: '#0e7490',
+            chapterAccent: '#22d3ee', mcqTabActive: '#06b6d4',
         }
     },
     {
         name: 'Ruby', emoji: '❤️',
         colors: {
-            bgColor: '#0d0000', topBarStart: '#7f1d1d', topBarEnd: '#450a0a',
-            navBg: '#100000', navActive: '#ef4444', navBorder: '#450a0a',
-            cardBg: '#1a0505', cardBorder: '#3d1010',
+            bgColor: '#ffffff', topBarStart: '#7f1d1d', topBarEnd: '#991b1b',
+            navBg: '#ffffff', navActive: '#ef4444', navBorder: '#fee2e2',
+            cardBg: '#fff5f5', cardBorder: '#fecaca',
             btnStart: '#ef4444', btnEnd: '#dc2626',
-            textPrimary: '#fee2e2', textSecondary: '#fca5a5',
+            textPrimary: '#1c0a0a', textSecondary: '#991b1b',
             accentGlow: '#ef4444', progressColor: '#dc2626',
+            flashcardBg1: '#7f1d1d', flashcardBg2: '#991b1b',
+            chapterAccent: '#ef4444', mcqTabActive: '#ef4444',
         }
     },
     {
         name: 'Midnight', emoji: '🌌',
         colors: {
-            bgColor: '#02020a', topBarStart: '#1a1a3a', topBarEnd: '#0d0d1f',
-            navBg: '#030308', navActive: '#818cf8', navBorder: '#1a1a35',
-            cardBg: '#08081a', cardBorder: '#1a1a30',
+            bgColor: '#ffffff', topBarStart: '#1a1a3a', topBarEnd: '#312e81',
+            navBg: '#ffffff', navActive: '#818cf8', navBorder: '#e0e7ff',
+            cardBg: '#eef2ff', cardBorder: '#c7d2fe',
             btnStart: '#6366f1', btnEnd: '#4f46e5',
-            textPrimary: '#e0e7ff', textSecondary: '#a5b4fc',
+            textPrimary: '#1e1b4b', textSecondary: '#4338ca',
             accentGlow: '#818cf8', progressColor: '#4f46e5',
+            flashcardBg1: '#1a1a3a', flashcardBg2: '#312e81',
+            chapterAccent: '#818cf8', mcqTabActive: '#6366f1',
         }
     },
     {
         name: 'Emerald', emoji: '💎',
         colors: {
-            bgColor: '#020d0a', topBarStart: '#065f46', topBarEnd: '#022c20',
-            navBg: '#030e0a', navActive: '#10b981', navBorder: '#064e38',
-            cardBg: '#061510', cardBorder: '#0a2e20',
+            bgColor: '#ffffff', topBarStart: '#065f46', topBarEnd: '#047857',
+            navBg: '#ffffff', navActive: '#10b981', navBorder: '#d1fae5',
+            cardBg: '#ecfdf5', cardBorder: '#a7f3d0',
             btnStart: '#10b981', btnEnd: '#059669',
-            textPrimary: '#d1fae5', textSecondary: '#6ee7b7',
+            textPrimary: '#022c22', textSecondary: '#065f46',
             accentGlow: '#10b981', progressColor: '#059669',
+            flashcardBg1: '#065f46', flashcardBg2: '#047857',
+            chapterAccent: '#10b981', mcqTabActive: '#059669',
         }
     },
     {
         name: 'Royal', emoji: '👑',
         colors: {
-            bgColor: '#020610', topBarStart: '#1e3a8a', topBarEnd: '#0f1e5c',
-            navBg: '#030818', navActive: '#60a5fa', navBorder: '#1e2d6b',
-            cardBg: '#060e25', cardBorder: '#1a2555',
+            bgColor: '#ffffff', topBarStart: '#1e3a8a', topBarEnd: '#1e40af',
+            navBg: '#ffffff', navActive: '#60a5fa', navBorder: '#dbeafe',
+            cardBg: '#eff6ff', cardBorder: '#bfdbfe',
             btnStart: '#2563eb', btnEnd: '#1d4ed8',
-            textPrimary: '#dbeafe', textSecondary: '#93c5fd',
+            textPrimary: '#1e3a8a', textSecondary: '#1d4ed8',
             accentGlow: '#3b82f6', progressColor: '#1d4ed8',
+            flashcardBg1: '#1e3a8a', flashcardBg2: '#1e40af',
+            chapterAccent: '#2563eb', mcqTabActive: '#60a5fa',
         }
     },
     {
         name: 'Rose Gold', emoji: '🌹',
         colors: {
-            bgColor: '#0d0608', topBarStart: '#881337', topBarEnd: '#4c0519',
-            navBg: '#100508', navActive: '#fb7185', navBorder: '#4c0a1e',
-            cardBg: '#1a0610', cardBorder: '#3d1020',
+            bgColor: '#ffffff', topBarStart: '#881337', topBarEnd: '#be123c',
+            navBg: '#ffffff', navActive: '#fb7185', navBorder: '#ffe4e6',
+            cardBg: '#fff1f2', cardBorder: '#fecdd3',
             btnStart: '#fb7185', btnEnd: '#f43f5e',
-            textPrimary: '#ffe4e6', textSecondary: '#fda4af',
+            textPrimary: '#1c0a0e', textSecondary: '#be123c',
             accentGlow: '#fb7185', progressColor: '#e11d48',
+            flashcardBg1: '#881337', flashcardBg2: '#be123c',
+            chapterAccent: '#fb7185', mcqTabActive: '#f43f5e',
         }
     },
     {
         name: 'Neon Cyan', emoji: '💠',
         colors: {
-            bgColor: '#010d10', topBarStart: '#003d50', topBarEnd: '#001a22',
-            navBg: '#010f14', navActive: '#00e5ff', navBorder: '#004a5c',
-            cardBg: '#011520', cardBorder: '#005570',
+            bgColor: '#ffffff', topBarStart: '#003d50', topBarEnd: '#0e7490',
+            navBg: '#ffffff', navActive: '#06b6d4', navBorder: '#cffafe',
+            cardBg: '#ecfeff', cardBorder: '#a5f3fc',
             btnStart: '#00bcd4', btnEnd: '#00acc1',
-            textPrimary: '#e0ffff', textSecondary: '#80deea',
-            accentGlow: '#00e5ff', progressColor: '#00bcd4',
+            textPrimary: '#082f49', textSecondary: '#0e7490',
+            accentGlow: '#06b6d4', progressColor: '#00bcd4',
+            flashcardBg1: '#003d50', flashcardBg2: '#0e7490',
+            chapterAccent: '#06b6d4', mcqTabActive: '#00bcd4',
         }
     },
     {
         name: 'Dracula', emoji: '🧛',
         colors: {
-            bgColor: '#0a0010', topBarStart: '#44005c', topBarEnd: '#1e002a',
-            navBg: '#0e0015', navActive: '#bd93f9', navBorder: '#330044',
-            cardBg: '#130018', cardBorder: '#3a0050',
+            bgColor: '#ffffff', topBarStart: '#44005c', topBarEnd: '#6b21a8',
+            navBg: '#ffffff', navActive: '#bd93f9', navBorder: '#f3e8ff',
+            cardBg: '#faf5ff', cardBorder: '#e9d5ff',
             btnStart: '#bd93f9', btnEnd: '#ff79c6',
-            textPrimary: '#f8f8f2', textSecondary: '#caa9fa',
+            textPrimary: '#1a0030', textSecondary: '#6b21a8',
             accentGlow: '#bd93f9', progressColor: '#6272a4',
+            flashcardBg1: '#44005c', flashcardBg2: '#6b21a8',
+            chapterAccent: '#bd93f9', mcqTabActive: '#bd93f9',
         }
     },
     {
         name: 'Harvest', emoji: '🍂',
         colors: {
-            bgColor: '#0d0500', topBarStart: '#78340f', topBarEnd: '#3b1800',
-            navBg: '#110600', navActive: '#fb923c', navBorder: '#6b2f00',
-            cardBg: '#1c0900', cardBorder: '#5c2400',
+            bgColor: '#ffffff', topBarStart: '#78340f', topBarEnd: '#92400e',
+            navBg: '#ffffff', navActive: '#fb923c', navBorder: '#ffedd5',
+            cardBg: '#fff7ed', cardBorder: '#fed7aa',
             btnStart: '#ea580c', btnEnd: '#b45309',
-            textPrimary: '#fff7ed', textSecondary: '#fdba74',
+            textPrimary: '#1c0a00', textSecondary: '#92400e',
             accentGlow: '#fb923c', progressColor: '#c2410c',
+            flashcardBg1: '#78340f', flashcardBg2: '#92400e',
+            chapterAccent: '#fb923c', mcqTabActive: '#ea580c',
         }
     },
     {
         name: 'Jade', emoji: '🍃',
         colors: {
-            bgColor: '#01100a', topBarStart: '#005f3d', topBarEnd: '#002e1d',
-            navBg: '#011510', navActive: '#34d399', navBorder: '#005240',
-            cardBg: '#021a10', cardBorder: '#004a35',
+            bgColor: '#ffffff', topBarStart: '#005f3d', topBarEnd: '#047857',
+            navBg: '#ffffff', navActive: '#34d399', navBorder: '#d1fae5',
+            cardBg: '#ecfdf5', cardBorder: '#a7f3d0',
             btnStart: '#059669', btnEnd: '#047857',
-            textPrimary: '#d1fae5', textSecondary: '#6ee7b7',
+            textPrimary: '#022c22', textSecondary: '#065f46',
             accentGlow: '#34d399', progressColor: '#059669',
+            flashcardBg1: '#005f3d', flashcardBg2: '#047857',
+            chapterAccent: '#34d399', mcqTabActive: '#059669',
         }
     },
     {
         name: 'Crimson', emoji: '🔴',
         colors: {
-            bgColor: '#0d0004', topBarStart: '#7f0010', topBarEnd: '#3b0008',
-            navBg: '#100005', navActive: '#f43f5e', navBorder: '#55000c',
-            cardBg: '#1a0008', cardBorder: '#500015',
+            bgColor: '#ffffff', topBarStart: '#7f0010', topBarEnd: '#9f1239',
+            navBg: '#ffffff', navActive: '#f43f5e', navBorder: '#fff1f2',
+            cardBg: '#fff1f2', cardBorder: '#fecdd3',
             btnStart: '#e11d48', btnEnd: '#be123c',
-            textPrimary: '#fff1f2', textSecondary: '#fda4af',
+            textPrimary: '#1c0008', textSecondary: '#9f1239',
             accentGlow: '#f43f5e', progressColor: '#dc2626',
+            flashcardBg1: '#7f0010', flashcardBg2: '#9f1239',
+            chapterAccent: '#f43f5e', mcqTabActive: '#e11d48',
         }
     },
     {
         name: 'Saffron', emoji: '🌼',
         colors: {
-            bgColor: '#0d0700', topBarStart: '#92400e', topBarEnd: '#3d1a00',
-            navBg: '#110800', navActive: '#fbbf24', navBorder: '#78350f',
-            cardBg: '#1a0d00', cardBorder: '#6b3300',
+            bgColor: '#ffffff', topBarStart: '#92400e', topBarEnd: '#b45309',
+            navBg: '#ffffff', navActive: '#fbbf24', navBorder: '#fef3c7',
+            cardBg: '#fffbeb', cardBorder: '#fde68a',
             btnStart: '#f59e0b', btnEnd: '#d97706',
-            textPrimary: '#fffbeb', textSecondary: '#fde68a',
+            textPrimary: '#1c0e00', textSecondary: '#92400e',
             accentGlow: '#fbbf24', progressColor: '#b45309',
+            flashcardBg1: '#92400e', flashcardBg2: '#b45309',
+            chapterAccent: '#fbbf24', mcqTabActive: '#f59e0b',
         }
     },
     {
         name: 'Deep Space', emoji: '🚀',
         colors: {
-            bgColor: '#010208', topBarStart: '#0f0f30', topBarEnd: '#060616',
-            navBg: '#01020c', navActive: '#7c6fcd', navBorder: '#14143a',
-            cardBg: '#040516', cardBorder: '#111130',
+            bgColor: '#ffffff', topBarStart: '#0f0f30', topBarEnd: '#1e1b4b',
+            navBg: '#ffffff', navActive: '#7c6fcd', navBorder: '#e0e7ff',
+            cardBg: '#eef2ff', cardBorder: '#c7d2fe',
             btnStart: '#4c46a8', btnEnd: '#3730a3',
-            textPrimary: '#eef0ff', textSecondary: '#9896d8',
+            textPrimary: '#1e1b4b', textSecondary: '#3730a3',
             accentGlow: '#7c6fcd', progressColor: '#5b54c2',
+            flashcardBg1: '#0f0f30', flashcardBg2: '#1e1b4b',
+            chapterAccent: '#7c6fcd', mcqTabActive: '#4c46a8',
         }
     },
     {
         name: 'Bubblegum', emoji: '🍬',
         colors: {
-            bgColor: '#100410', topBarStart: '#701a75', topBarEnd: '#3b0a3e',
-            navBg: '#140518', navActive: '#e879f9', navBorder: '#5b1060',
-            cardBg: '#1a0620', cardBorder: '#631070',
+            bgColor: '#ffffff', topBarStart: '#701a75', topBarEnd: '#a21caf',
+            navBg: '#ffffff', navActive: '#e879f9', navBorder: '#fdf4ff',
+            cardBg: '#fdf4ff', cardBorder: '#f0abfc',
             btnStart: '#d946ef', btnEnd: '#c026d3',
-            textPrimary: '#fdf4ff', textSecondary: '#f0abfc',
+            textPrimary: '#1a0620', textSecondary: '#a21caf',
             accentGlow: '#e879f9', progressColor: '#a21caf',
+            flashcardBg1: '#701a75', flashcardBg2: '#a21caf',
+            chapterAccent: '#e879f9', mcqTabActive: '#d946ef',
         }
     },
     {
         name: 'Bronze', emoji: '🥉',
         colors: {
-            bgColor: '#0d0600', topBarStart: '#7a3c00', topBarEnd: '#3a1c00',
-            navBg: '#100700', navActive: '#cd7f32', navBorder: '#5a2c00',
-            cardBg: '#180900', cardBorder: '#5c2e00',
+            bgColor: '#ffffff', topBarStart: '#7a3c00', topBarEnd: '#92400e',
+            navBg: '#ffffff', navActive: '#cd7f32', navBorder: '#fef3c7',
+            cardBg: '#fffbeb', cardBorder: '#fde68a',
             btnStart: '#b45309', btnEnd: '#92400e',
-            textPrimary: '#fef9f0', textSecondary: '#d4a76a',
+            textPrimary: '#1c0e00', textSecondary: '#92400e',
             accentGlow: '#cd7f32', progressColor: '#a16207',
+            flashcardBg1: '#7a3c00', flashcardBg2: '#92400e',
+            chapterAccent: '#cd7f32', mcqTabActive: '#b45309',
         }
     },
     {
         name: 'Electric Lime', emoji: '⚡',
         colors: {
-            bgColor: '#050d00', topBarStart: '#2d5a00', topBarEnd: '#152800',
-            navBg: '#060f00', navActive: '#a3e635', navBorder: '#254f00',
-            cardBg: '#0a1400', cardBorder: '#2f5500',
+            bgColor: '#ffffff', topBarStart: '#2d5a00', topBarEnd: '#3f6212',
+            navBg: '#ffffff', navActive: '#a3e635', navBorder: '#ecfccb',
+            cardBg: '#f7fee7', cardBorder: '#d9f99d',
             btnStart: '#84cc16', btnEnd: '#65a30d',
-            textPrimary: '#f7fee7', textSecondary: '#bef264',
+            textPrimary: '#1a2e05', textSecondary: '#3f6212',
             accentGlow: '#a3e635', progressColor: '#65a30d',
+            flashcardBg1: '#2d5a00', flashcardBg2: '#3f6212',
+            chapterAccent: '#a3e635', mcqTabActive: '#84cc16',
         }
     },
     {
         name: 'Glacier', emoji: '🧊',
         colors: {
-            bgColor: '#01080f', topBarStart: '#0c3352', topBarEnd: '#051929',
-            navBg: '#010a14', navActive: '#7dd3fc', navBorder: '#0f3555',
-            cardBg: '#021020', cardBorder: '#0e3050',
+            bgColor: '#ffffff', topBarStart: '#0c3352', topBarEnd: '#075985',
+            navBg: '#ffffff', navActive: '#7dd3fc', navBorder: '#e0f2fe',
+            cardBg: '#f0f9ff', cardBorder: '#bae6fd',
             btnStart: '#0ea5e9', btnEnd: '#0284c7',
-            textPrimary: '#f0f9ff', textSecondary: '#bae6fd',
+            textPrimary: '#0c2038', textSecondary: '#075985',
             accentGlow: '#7dd3fc', progressColor: '#38bdf8',
+            flashcardBg1: '#0c3352', flashcardBg2: '#075985',
+            chapterAccent: '#7dd3fc', mcqTabActive: '#0ea5e9',
         }
     },
     {
         name: 'Inferno', emoji: '🌋',
         colors: {
-            bgColor: '#0d0200', topBarStart: '#991b1b', topBarEnd: '#450a0a',
-            navBg: '#100300', navActive: '#f87171', navBorder: '#6b0000',
-            cardBg: '#1c0400', cardBorder: '#700a0a',
+            bgColor: '#ffffff', topBarStart: '#991b1b', topBarEnd: '#b91c1c',
+            navBg: '#ffffff', navActive: '#f87171', navBorder: '#fee2e2',
+            cardBg: '#fff5f5', cardBorder: '#fecaca',
             btnStart: '#dc2626', btnEnd: '#b91c1c',
-            textPrimary: '#fff5f5', textSecondary: '#fca5a5',
+            textPrimary: '#1c0a0a', textSecondary: '#991b1b',
             accentGlow: '#f87171', progressColor: '#ef4444',
+            flashcardBg1: '#991b1b', flashcardBg2: '#b91c1c',
+            chapterAccent: '#f87171', mcqTabActive: '#dc2626',
         }
     },
     {
         name: 'Purple Haze', emoji: '🔮',
         colors: {
-            bgColor: '#07020e', topBarStart: '#5b21b6', topBarEnd: '#2e0e5e',
-            navBg: '#0a0315', navActive: '#c084fc', navBorder: '#4c1d95',
-            cardBg: '#0f0520', cardBorder: '#451a8c',
+            bgColor: '#ffffff', topBarStart: '#5b21b6', topBarEnd: '#7e22ce',
+            navBg: '#ffffff', navActive: '#c084fc', navBorder: '#faf5ff',
+            cardBg: '#faf5ff', cardBorder: '#e9d5ff',
             btnStart: '#9333ea', btnEnd: '#7e22ce',
-            textPrimary: '#faf5ff', textSecondary: '#d8b4fe',
+            textPrimary: '#1a0a3c', textSecondary: '#7e22ce',
             accentGlow: '#c084fc', progressColor: '#7c3aed',
+            flashcardBg1: '#5b21b6', flashcardBg2: '#7e22ce',
+            chapterAccent: '#c084fc', mcqTabActive: '#9333ea',
         }
     },
     {
         name: 'Cobalt', emoji: '💙',
         colors: {
-            bgColor: '#010610', topBarStart: '#0e2870', topBarEnd: '#060e3a',
-            navBg: '#010812', navActive: '#60a5fa', navBorder: '#0f2260',
-            cardBg: '#02091e', cardBorder: '#102060',
+            bgColor: '#ffffff', topBarStart: '#0e2870', topBarEnd: '#1e3a8a',
+            navBg: '#ffffff', navActive: '#60a5fa', navBorder: '#dbeafe',
+            cardBg: '#eff6ff', cardBorder: '#bfdbfe',
             btnStart: '#2563eb', btnEnd: '#1d4ed8',
-            textPrimary: '#eff6ff', textSecondary: '#93c5fd',
+            textPrimary: '#0a1a50', textSecondary: '#1e3a8a',
             accentGlow: '#60a5fa', progressColor: '#3b82f6',
+            flashcardBg1: '#0e2870', flashcardBg2: '#1e3a8a',
+            chapterAccent: '#60a5fa', mcqTabActive: '#2563eb',
         }
     },
     {
         name: 'Coral', emoji: '🪸',
         colors: {
-            bgColor: '#0d0400', topBarStart: '#9a3412', topBarEnd: '#4a1a06',
-            navBg: '#110500', navActive: '#fb923c', navBorder: '#7c2d12',
-            cardBg: '#1c0600', cardBorder: '#6c2008',
+            bgColor: '#ffffff', topBarStart: '#9a3412', topBarEnd: '#c2410c',
+            navBg: '#ffffff', navActive: '#fb923c', navBorder: '#ffedd5',
+            cardBg: '#fff7ed', cardBorder: '#fed7aa',
             btnStart: '#f97316', btnEnd: '#ea580c',
-            textPrimary: '#fff7ed', textSecondary: '#fed7aa',
+            textPrimary: '#1c0a00', textSecondary: '#c2410c',
             accentGlow: '#fb923c', progressColor: '#c2410c',
+            flashcardBg1: '#9a3412', flashcardBg2: '#c2410c',
+            chapterAccent: '#fb923c', mcqTabActive: '#f97316',
         }
     },
     {
         name: 'Onyx', emoji: '⬛',
         colors: {
-            bgColor: '#000000', topBarStart: '#1a1a1a', topBarEnd: '#0a0a0a',
-            navBg: '#000000', navActive: '#e2e8f0', navBorder: '#1e1e1e',
-            cardBg: '#111111', cardBorder: '#222222',
+            bgColor: '#ffffff', topBarStart: '#1a1a1a', topBarEnd: '#374151',
+            navBg: '#ffffff', navActive: '#6b7280', navBorder: '#f1f5f9',
+            cardBg: '#f8fafc', cardBorder: '#e2e8f0',
             btnStart: '#475569', btnEnd: '#334155',
-            textPrimary: '#f1f5f9', textSecondary: '#94a3b8',
-            accentGlow: '#e2e8f0', progressColor: '#64748b',
+            textPrimary: '#0f172a', textSecondary: '#475569',
+            accentGlow: '#6b7280', progressColor: '#64748b',
+            flashcardBg1: '#1a1a1a', flashcardBg2: '#374151',
+            chapterAccent: '#6b7280', mcqTabActive: '#475569',
         }
     },
     {
         name: 'Cosmic', emoji: '🌠',
         colors: {
-            bgColor: '#020106', topBarStart: '#1a003d', topBarEnd: '#06001a',
-            navBg: '#030108', navActive: '#a78bfa', navBorder: '#200050',
-            cardBg: '#07010f', cardBorder: '#250060',
+            bgColor: '#ffffff', topBarStart: '#1a003d', topBarEnd: '#4c1d95',
+            navBg: '#ffffff', navActive: '#a78bfa', navBorder: '#f5f3ff',
+            cardBg: '#f5f3ff', cardBorder: '#ddd6fe',
             btnStart: '#7c3aed', btnEnd: '#c026d3',
-            textPrimary: '#f5f3ff', textSecondary: '#c4b5fd',
+            textPrimary: '#1a0040', textSecondary: '#4c1d95',
             accentGlow: '#a78bfa', progressColor: '#8b5cf6',
+            flashcardBg1: '#1a003d', flashcardBg2: '#4c1d95',
+            chapterAccent: '#a78bfa', mcqTabActive: '#7c3aed',
         }
     },
     {
         name: 'Turquoise', emoji: '🐟',
         colors: {
-            bgColor: '#01100e', topBarStart: '#0f5a52', topBarEnd: '#052c28',
-            navBg: '#011412', navActive: '#2dd4bf', navBorder: '#0d4e47',
-            cardBg: '#031a17', cardBorder: '#0d4540',
+            bgColor: '#ffffff', topBarStart: '#0f5a52', topBarEnd: '#0f766e',
+            navBg: '#ffffff', navActive: '#2dd4bf', navBorder: '#ccfbf1',
+            cardBg: '#f0fdfa', cardBorder: '#99f6e4',
             btnStart: '#0d9488', btnEnd: '#0f766e',
-            textPrimary: '#f0fdfa', textSecondary: '#99f6e4',
+            textPrimary: '#042f2e', textSecondary: '#0f766e',
             accentGlow: '#2dd4bf', progressColor: '#14b8a6',
+            flashcardBg1: '#0f5a52', flashcardBg2: '#0f766e',
+            chapterAccent: '#2dd4bf', mcqTabActive: '#0d9488',
         }
     },
 ];
 
-type ColorSection = 'BACKGROUND' | 'TOPBAR' | 'NAVIGATION' | 'CARDS' | 'BUTTONS' | 'TEXT' | 'ACCENTS';
+type ColorSection = 'BACKGROUND' | 'TOPBAR' | 'NAVIGATION' | 'CARDS' | 'BUTTONS' | 'TEXT' | 'ACCENTS' | 'FLASHCARD' | 'CHAPTERS' | 'MCQ_TABS';
 
 const SECTIONS: Array<{ id: ColorSection; label: string; icon: React.ReactNode; desc: string }> = [
     { id: 'BACKGROUND', label: 'Background', icon: <Layers size={13} />,      desc: 'App ki main background color' },
     { id: 'TOPBAR',     label: 'Top Bar',    icon: <ChevronRight size={13} />, desc: 'Header gradient — dono colors alag' },
     { id: 'NAVIGATION', label: 'Navigation', icon: <Navigation size={13} />,   desc: 'Bottom nav — 3 colors alag' },
     { id: 'CARDS',      label: 'Cards',      icon: <Square size={13} />,       desc: 'Card background aur border alag' },
+    { id: 'CHAPTERS',   label: 'Chapters',   icon: <BarChart2 size={13} />,    desc: 'Chapter list ka accent color' },
     { id: 'BUTTONS',    label: 'Buttons',    icon: <Zap size={13} />,          desc: 'Button gradient — dono alag' },
+    { id: 'MCQ_TABS',   label: 'MCQ Tabs',   icon: <Globe size={13} />,        desc: 'MCQ/Q&A/Flashcard active tab color' },
+    { id: 'FLASHCARD',  label: 'Flashcard',  icon: <Sparkles size={13} />,     desc: 'Flashcard screen background gradient' },
     { id: 'TEXT',       label: 'Text',       icon: <Type size={13} />,         desc: 'Primary aur secondary text alag' },
     { id: 'ACCENTS',    label: 'Accents',    icon: <Star size={13} />,         desc: 'Glow aur progress bar alag' },
 ];
@@ -438,79 +509,31 @@ const ColorRow: React.FC<ColorRowProps> = ({ label, sub, value, onChange, accent
 
 const stateFromTheme = (t: UserCustomTheme | undefined): ThemeState => {
     if (!t) return { ...DEFAULT_THEME };
+    const accent = t.accentColor || t.btnStart || DEFAULT_THEME.btnStart;
     return {
         bgColor:       t.bgColor       || DEFAULT_THEME.bgColor,
         topBarStart:   t.topBarStart   || DEFAULT_THEME.topBarStart,
         topBarEnd:     t.topBarEnd     || DEFAULT_THEME.topBarEnd,
         navBg:         t.navBg         || DEFAULT_THEME.navBg,
-        navActive:     t.navActive     || t.accentColor || DEFAULT_THEME.navActive,
+        navActive:     t.navActive     || accent || DEFAULT_THEME.navActive,
         navBorder:     t.navBorder     || DEFAULT_THEME.navBorder,
         cardBg:        t.cardBg        || t.cardColor   || DEFAULT_THEME.cardBg,
         cardBorder:    t.cardBorder    || DEFAULT_THEME.cardBorder,
-        btnStart:      t.btnStart      || t.accentColor || DEFAULT_THEME.btnStart,
+        btnStart:      t.btnStart      || accent || DEFAULT_THEME.btnStart,
         btnEnd:        t.btnEnd        || DEFAULT_THEME.btnEnd,
         textPrimary:   t.textColor     || DEFAULT_THEME.textPrimary,
         textSecondary: t.textSecondary || DEFAULT_THEME.textSecondary,
-        accentGlow:    t.accentGlow    || t.accentColor || DEFAULT_THEME.accentGlow,
-        progressColor: t.progressColor || t.accentColor || DEFAULT_THEME.progressColor,
+        accentGlow:    t.accentGlow    || accent || DEFAULT_THEME.accentGlow,
+        progressColor: t.progressColor || accent || DEFAULT_THEME.progressColor,
+        flashcardBg1:  t.flashcardBg1  || t.topBarStart || DEFAULT_THEME.flashcardBg1,
+        flashcardBg2:  t.flashcardBg2  || t.topBarEnd   || DEFAULT_THEME.flashcardBg2,
+        chapterAccent: t.chapterAccent || accent || DEFAULT_THEME.chapterAccent,
+        mcqTabActive:  t.mcqTabActive  || accent || DEFAULT_THEME.mcqTabActive,
     };
 };
 
 export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, settings, onUpdateSettings }) => {
     const isAdmin = user.role === 'ADMIN' || user.role === 'SUB_ADMIN';
-
-    /* ── NON-ADMIN GUARD: users cannot change themes, only view ── */
-    if (!isAdmin) {
-        const _pt = user.personalTheme;
-        const _accentColor = _pt?.btnStart || _pt?.accentColor || '#10b981';
-        return (
-            <div className="fixed inset-0 z-50 flex flex-col" style={{ background: _pt?.bgColor || '#050f0a' }}>
-                <div className="flex items-center gap-3 px-4 py-3 shrink-0" style={{ background: `${_accentColor}18`, borderBottom: `1px solid ${_accentColor}30` }}>
-                    <button onClick={onBack} className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: `${_accentColor}20` }}>
-                        <span className="text-white text-lg">←</span>
-                    </button>
-                    <p className="text-white font-bold text-sm flex-1">Aapka Theme</p>
-                </div>
-                <div className="flex-1 flex flex-col items-center justify-center gap-6 px-6">
-                    <div className="w-20 h-20 rounded-2xl flex items-center justify-center text-4xl" style={{ background: `${_accentColor}25`, border: `2px solid ${_accentColor}50` }}>🎨</div>
-                    {_pt ? (
-                        <>
-                            <div className="text-center">
-                                <p className="text-white font-bold text-lg mb-1">Custom Theme Active ✨</p>
-                                <p className="text-white/50 text-sm">Admin ne aapke liye yeh theme set ki hai</p>
-                            </div>
-                            <div className="w-full rounded-2xl p-4 flex flex-col gap-3" style={{ background: `${_accentColor}15`, border: `1px solid ${_accentColor}30` }}>
-                                <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-full border-2 border-white/20" style={{ background: _accentColor }} />
-                                    <div>
-                                        <p className="text-white text-xs font-bold">Accent Color</p>
-                                        <p className="text-white/40 text-[10px]">{_accentColor}</p>
-                                    </div>
-                                </div>
-                                {_pt.topBarStart && _pt.topBarEnd && (
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-8 h-8 rounded-full border-2 border-white/20" style={{ background: `linear-gradient(135deg,${_pt.topBarStart},${_pt.topBarEnd})` }} />
-                                        <div>
-                                            <p className="text-white text-xs font-bold">Top Bar</p>
-                                            <p className="text-white/40 text-[10px]">{_pt.topBarStart} → {_pt.topBarEnd}</p>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        </>
-                    ) : (
-                        <div className="text-center">
-                            <p className="text-white font-bold text-lg mb-1">Default Theme</p>
-                            <p className="text-white/50 text-sm">Abhi koi custom theme active nahi hai</p>
-                        </div>
-                    )}
-                    <div className="w-full rounded-2xl p-4 text-center" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
-                        <p className="text-white/60 text-xs">🔒 Theme sirf Admin badal sakta hai</p>
-                    </div>
-                </div>
-            </div>
-        );
-    }
 
     const totalCoins = getTotalCredits(user);
     const isFirstTime = !user.personalTheme;
@@ -528,9 +551,19 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
     /* Coin confirmation popup — shown before applying a 2nd/changed theme */
     const [showCoinPopup, setShowCoinPopup]   = useState(false);
 
+    /* ── ADMIN OFFICIAL TIER APPLY STATE ── */
+    const [showOfficialPopup, setShowOfficialPopup] = useState(false);
+    const [officialTier, setOfficialTier] = useState<'ultra' | 'basic' | 'free'>('free');
+    const [officialSaving, setOfficialSaving] = useState(false);
+    const [showDefaultPopup, setShowDefaultPopup] = useState(false);
+    const [defaultSaving, setDefaultSaving] = useState(false);
+
     /* ── ADMIN GLOBAL APPLY STATE ── */
     const [showGlobalPopup, setShowGlobalPopup] = useState(false);
-    const [globalDuration, setGlobalDuration]   = useState<'permanent' | '24h' | '7d' | '30d'>('permanent');
+    const [globalDuration, setGlobalDuration]   = useState<'permanent' | '1h' | '6h' | '24h' | '7d' | '30d' | 'custom'>('permanent');
+    const [globalCustomH, setGlobalCustomH]     = useState<number>(1);
+    const [globalCustomM, setGlobalCustomM]     = useState<number>(0);
+    const [globalCustomS, setGlobalCustomS]     = useState<number>(0);
     const [globalTier, setGlobalTier]           = useState<'all' | 'ultra' | 'basic' | 'free'>('all');
     const [globalMinLevel, setGlobalMinLevel]   = useState<number>(0);
     const [globalMaxLevel, setGlobalMaxLevel]   = useState<number>(0);
@@ -551,22 +584,26 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
             id: `ptheme_${user.id}_${Date.now()}`,
             userId: user.id,
             userName: user.name,
-            bgColor:       theme.bgColor,
+            bgColor:       isAdmin ? theme.bgColor : '#ffffff',
             accentColor:   theme.btnStart,
             textColor:     theme.textPrimary,
-            cardColor:     theme.cardBg,
+            cardColor:     isAdmin ? theme.cardBg : '#f8fafc',
             topBarStart:   theme.topBarStart,
             topBarEnd:     theme.topBarEnd,
-            navBg:         theme.navBg,
+            navBg:         '#ffffff',
             navActive:     theme.navActive,
             navBorder:     theme.navBorder,
-            cardBg:        theme.cardBg,
+            cardBg:        isAdmin ? theme.cardBg : '#f8fafc',
             cardBorder:    theme.cardBorder,
             btnStart:      theme.btnStart,
             btnEnd:        theme.btnEnd,
             textSecondary: theme.textSecondary,
             accentGlow:    theme.accentGlow,
             progressColor: theme.progressColor,
+            flashcardBg1:  theme.flashcardBg1,
+            flashcardBg2:  theme.flashcardBg2,
+            chapterAccent: theme.chapterAccent,
+            mcqTabActive:  theme.mcqTabActive,
             createdAt:     new Date().toISOString(),
             likes:         0,
         };
@@ -642,6 +679,10 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
         textSecondary: theme.textSecondary,
         accentGlow:    theme.accentGlow,
         progressColor: theme.progressColor,
+        flashcardBg1:  theme.flashcardBg1,
+        flashcardBg2:  theme.flashcardBg2,
+        chapterAccent: theme.chapterAccent,
+        mcqTabActive:  theme.mcqTabActive,
         createdAt:     new Date().toISOString(),
         likes:         0,
     });
@@ -651,9 +692,15 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
         setSaving(true);
         const themeObj = buildThemeObj();
         let expiresAt: string | null = null;
+        if (globalDuration === '1h')   expiresAt = new Date(Date.now() + 3600000).toISOString();
+        if (globalDuration === '6h')   expiresAt = new Date(Date.now() + 6 * 3600000).toISOString();
         if (globalDuration === '24h')  expiresAt = new Date(Date.now() + 86400000).toISOString();
         if (globalDuration === '7d')   expiresAt = new Date(Date.now() + 7  * 86400000).toISOString();
         if (globalDuration === '30d')  expiresAt = new Date(Date.now() + 30 * 86400000).toISOString();
+        if (globalDuration === 'custom') {
+            const ms = globalCustomH * 3600000 + globalCustomM * 60000 + globalCustomS * 1000;
+            if (ms > 0) expiresAt = new Date(Date.now() + ms).toISOString();
+        }
         const adminAppliedTheme = {
             theme: themeObj,
             appliedAt: new Date().toISOString(),
@@ -690,6 +737,83 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
         setSaving(false);
     };
 
+    /* ── APP DEFAULT THEME (sets all 3 tiers at once) ── */
+    const doSetAppDefault = async () => {
+        setShowDefaultPopup(false);
+        setDefaultSaving(true);
+        const themeObj = buildThemeObj();
+        const newSettings = {
+            ...(settings || {}),
+            officialFreeTheme:  themeObj,
+            officialBasicTheme: themeObj,
+            officialUltraTheme: themeObj,
+        };
+        try {
+            await saveSystemSettings(newSettings);
+            onUpdateSettings?.(newSettings as any);
+            alert('✅ App ka default theme set ho gaya! Ab sabhi users (FREE/BASIC/ULTRA) ko yeh theme milegi jab tak unka koi custom/broadcast theme active na ho.');
+        } catch {
+            alert('❌ Kuch galat hua — dobara try karo.');
+        }
+        setDefaultSaving(false);
+    };
+
+    const doRemoveAppDefault = async () => {
+        if (!confirm('App ka default theme hatana chahte ho? Sabhi users hardcoded tier theme pe wapas chale jaayenge.')) return;
+        setDefaultSaving(true);
+        const newSettings = { ...(settings || {}) };
+        delete (newSettings as any).officialFreeTheme;
+        delete (newSettings as any).officialBasicTheme;
+        delete (newSettings as any).officialUltraTheme;
+        try {
+            await saveSystemSettings(newSettings);
+            onUpdateSettings?.(newSettings as any);
+            alert('✅ App default theme hata diya — ab sab hardcoded defaults pe hain.');
+        } catch {
+            alert('❌ Error — dobara try karo.');
+        }
+        setDefaultSaving(false);
+    };
+
+    /* ── ADMIN OFFICIAL TIER APPLY ── */
+    const doOfficialTierApply = async () => {
+        setShowOfficialPopup(false);
+        setOfficialSaving(true);
+        const themeObj = buildThemeObj();
+        const key =
+            officialTier === 'ultra' ? 'officialUltraTheme' :
+            officialTier === 'basic' ? 'officialBasicTheme' :
+            'officialFreeTheme';
+        const newSettings = { ...(settings || {}), [key]: themeObj };
+        try {
+            await saveSystemSettings(newSettings);
+            onUpdateSettings?.(newSettings as any);
+            alert(`✅ ${officialTier.toUpperCase()} tier ka official theme set ho gaya!\nIs tier ke SARE users ko ab yeh theme milegi — chahe unka apna theme set ho ya na ho.\nHatane ke baad unki apni theme wapas aayegi.`);
+        } catch {
+            alert('❌ Kuch galat hua — dobara try karo.');
+        }
+        setOfficialSaving(false);
+    };
+
+    const doRemoveOfficialTier = async (tier: 'ultra' | 'basic' | 'free') => {
+        if (!confirm(`${tier.toUpperCase()} tier ka official theme hatana chahte ho?`)) return;
+        setOfficialSaving(true);
+        const key =
+            tier === 'ultra' ? 'officialUltraTheme' :
+            tier === 'basic' ? 'officialBasicTheme' :
+            'officialFreeTheme';
+        const newSettings = { ...(settings || {}) };
+        delete (newSettings as any)[key];
+        try {
+            await saveSystemSettings(newSettings);
+            onUpdateSettings?.(newSettings as any);
+            alert(`✅ ${tier.toUpperCase()} ka official theme hata diya — ab default theme show hoga.`);
+        } catch {
+            alert('❌ Error — dobara try karo.');
+        }
+        setOfficialSaving(false);
+    };
+
     const handleReset = async () => {
         if (!confirm('Apni custom theme hatana chahte ho aur default pe wapas jaana chahte ho?')) return;
         setSaving(true);
@@ -704,8 +828,14 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
     };
 
     const sectionColors: Record<ColorSection, React.ReactNode> = {
-        BACKGROUND: (
-            <ColorRow label="App Background" sub="Puri app ki main background" value={theme.bgColor} onChange={setColor('bgColor')} accent={theme.btnStart} />
+        BACKGROUND: isAdmin ? (
+            <ColorRow label="App Background" sub="Puri app ki main background (Admin only)" value={theme.bgColor} onChange={setColor('bgColor')} accent={theme.btnStart} />
+        ) : (
+            <div className="py-4 px-2 text-center">
+                <div className="text-2xl mb-2">🔒</div>
+                <p className="text-white/70 text-xs font-semibold">Background Locked</p>
+                <p className="text-white/40 text-[10px] mt-1">White mode mein background hamesha white rahta hai. Sirf admin is setting ko change kar sakta hai.</p>
+            </div>
         ),
         TOPBAR: (
             <>
@@ -715,21 +845,37 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
         ),
         NAVIGATION: (
             <>
-                <ColorRow label="Nav Background" sub="Bottom bar ka background"         value={theme.navBg}     onChange={setColor('navBg')}     accent={theme.btnStart} />
+                {isAdmin && (
+                    <ColorRow label="Nav Background" sub="Bottom bar ka background (Admin only)" value={theme.navBg} onChange={setColor('navBg')} accent={theme.btnStart} />
+                )}
                 <ColorRow label="Active Tab Color" sub="Selected tab color + underline" value={theme.navActive} onChange={setColor('navActive')} accent={theme.btnStart} />
                 <ColorRow label="Nav Border"       sub="Top border line ka color"       value={theme.navBorder} onChange={setColor('navBorder')} accent={theme.btnStart} />
             </>
         ),
         CARDS: (
             <>
-                <ColorRow label="Card Background" sub="Chapters, MCQ aur saare cards" value={theme.cardBg}     onChange={setColor('cardBg')}     accent={theme.btnStart} />
-                <ColorRow label="Card Border"     sub="Cards ke around border color"  value={theme.cardBorder} onChange={setColor('cardBorder')} accent={theme.btnStart} />
+                {isAdmin && (
+                    <ColorRow label="Card Background" sub="Cards ki background (Admin only)" value={theme.cardBg} onChange={setColor('cardBg')} accent={theme.btnStart} />
+                )}
+                <ColorRow label="Card Border/Accent" sub="Cards ke around border aur accent color" value={theme.cardBorder} onChange={setColor('cardBorder')} accent={theme.btnStart} />
             </>
+        ),
+        CHAPTERS: (
+            <ColorRow label="Chapter Accent" sub="Chapter list — left bar, number aur play button ka color" value={theme.chapterAccent || theme.btnStart} onChange={setColor('chapterAccent')} accent={theme.btnStart} />
         ),
         BUTTONS: (
             <>
                 <ColorRow label="Button Gradient — Start" sub="Pehla color" value={theme.btnStart} onChange={setColor('btnStart')} accent={theme.btnStart} />
                 <ColorRow label="Button Gradient — End"   sub="Doosra color" value={theme.btnEnd}   onChange={setColor('btnEnd')}   accent={theme.btnStart} />
+            </>
+        ),
+        MCQ_TABS: (
+            <ColorRow label="MCQ / Q&A / Flashcard Tab" sub="Active tab button ka color (MCQ screen)" value={theme.mcqTabActive || theme.btnStart} onChange={setColor('mcqTabActive')} accent={theme.btnStart} />
+        ),
+        FLASHCARD: (
+            <>
+                <ColorRow label="Flashcard Background — Top"    sub="Gradient ka pehla color"  value={theme.flashcardBg1 || theme.topBarStart} onChange={setColor('flashcardBg1')} accent={theme.btnStart} />
+                <ColorRow label="Flashcard Background — Bottom" sub="Gradient ka doosra color" value={theme.flashcardBg2 || theme.topBarEnd}   onChange={setColor('flashcardBg2')} accent={theme.btnStart} />
             </>
         ),
         TEXT: (
@@ -1399,6 +1545,73 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
                     </div>
                 )}
 
+                {/* ── ADMIN DEFAULT + OFFICIAL TIER THEME BUTTONS ── */}
+                {isAdmin && (
+                    <div className="flex flex-col gap-2 pt-1">
+                        {/* App Default Theme — sets ALL tiers at once */}
+                        <button
+                            onClick={() => setShowDefaultPopup(true)}
+                            disabled={defaultSaving}
+                            className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl font-black text-sm text-white active:scale-95 transition-all disabled:opacity-60 border"
+                            style={{
+                                background: `linear-gradient(135deg,${theme.btnStart}22,${theme.btnEnd}22)`,
+                                borderColor: `${theme.btnStart}50`,
+                            }}
+                        >
+                            <Home size={15} style={{ color: theme.btnStart }} />
+                            <span style={{ color: theme.btnStart }}>App Ka Default Theme Badlo</span>
+                        </button>
+                        {/* Default theme active indicator */}
+                        {(() => {
+                            const allSet = !!(settings as any)?.officialFreeTheme && !!(settings as any)?.officialBasicTheme && !!(settings as any)?.officialUltraTheme;
+                            const anySet = !!(settings as any)?.officialFreeTheme || !!(settings as any)?.officialBasicTheme || !!(settings as any)?.officialUltraTheme;
+                            if (!anySet) return null;
+                            return (
+                                <div className="rounded-xl px-3 py-2 flex items-center gap-2" style={{ background: `${theme.btnStart}12`, border: `1px solid ${theme.btnStart}30` }}>
+                                    <div className="w-2 h-2 rounded-full shrink-0" style={{ background: theme.btnStart }} />
+                                    <p className="text-[10px] flex-1" style={{ color: theme.btnStart }}>
+                                        {allSet ? 'Custom default theme active (sabhi tiers)' : 'Kuch tiers ka custom default active'}
+                                    </p>
+                                    <button
+                                        onClick={doRemoveAppDefault}
+                                        className="text-[9px] font-bold text-red-400 shrink-0"
+                                    >Hatao ✕</button>
+                                </div>
+                            );
+                        })()}
+                        {/* Per-tier override button */}
+                        <button
+                            onClick={() => setShowOfficialPopup(true)}
+                            disabled={officialSaving}
+                            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl font-black text-xs text-white active:scale-95 transition-all disabled:opacity-60 border"
+                            style={{
+                                background: 'rgba(16,185,129,0.10)',
+                                borderColor: 'rgba(16,185,129,0.25)',
+                            }}
+                        >
+                            <CheckCircle size={13} className="text-emerald-400" />
+                            <span className="text-emerald-400">Alag Tier Ka Theme Override Karo</span>
+                        </button>
+                        {/* Status badges for each tier */}
+                        <div className="grid grid-cols-3 gap-1.5">
+                            {(['ultra','basic','free'] as const).map(t => {
+                                const key = t === 'ultra' ? 'officialUltraTheme' : t === 'basic' ? 'officialBasicTheme' : 'officialFreeTheme';
+                                const active = !!(settings as any)?.[key];
+                                const colors = { ultra: '#1e3a8a', basic: '#2563eb', free: '#0ea5e9' };
+                                return (
+                                    <div key={t} className="rounded-xl px-2 py-1.5 flex items-center gap-1.5" style={{ background: active ? `${colors[t]}18` : 'rgba(255,255,255,0.04)', border: `1px solid ${active ? colors[t] + '40' : 'rgba(255,255,255,0.08)'}` }}>
+                                        <div className="w-2 h-2 rounded-full shrink-0" style={{ background: active ? colors[t] : 'rgba(255,255,255,0.15)' }} />
+                                        <p className="text-[9px] font-bold flex-1" style={{ color: active ? '#fff' : 'rgba(255,255,255,0.3)' }}>{t.toUpperCase()}</p>
+                                        {active && (
+                                            <button onClick={() => doRemoveOfficialTier(t)} className="text-[8px] text-red-400 font-bold hover:text-red-300" title="Remove">✕</button>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+
                 <p className="text-[8px] text-white/20 text-center pb-4">
                     {isAdmin
                         ? 'Admin ko coins nahi lagte · Global Apply se puri app ke users ka theme badlega'
@@ -1408,6 +1621,127 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
                 </p>
             </div>
         </div>
+
+        {/* ══════════════════════════════════════════════════
+            ADMIN OFFICIAL TIER APPLY POPUP
+        ══════════════════════════════════════════════════ */}
+        {showOfficialPopup && (
+            <div className="fixed inset-0 z-[300] flex items-end justify-center pb-6 px-4" style={{ background: 'rgba(0,0,0,0.80)', backdropFilter: 'blur(6px)' }}>
+                <div className="w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl" style={{ background: '#0d1209', border: '1px solid rgba(16,185,129,0.30)' }}>
+                    <div className="px-5 py-4 flex items-center gap-3" style={{ background: 'linear-gradient(135deg,#064e3b,#022c22)', borderBottom: '1px solid rgba(16,185,129,0.2)' }}>
+                        <div className="w-9 h-9 rounded-xl bg-emerald-500/20 flex items-center justify-center">
+                            <CheckCircle size={18} className="text-emerald-300" />
+                        </div>
+                        <div className="flex-1">
+                            <p className="text-white font-black text-sm">Official Tier Theme</p>
+                            <p className="text-emerald-300/70 text-[10px]">Is tier ke SARE users ka theme override ho jaayega</p>
+                        </div>
+                        <button onClick={() => setShowOfficialPopup(false)} className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center">
+                            <X size={13} className="text-white/70" />
+                        </button>
+                    </div>
+                    <div className="p-5 flex flex-col gap-4">
+                        <div>
+                            <p className="text-white/60 text-xs font-bold mb-2.5">Kis Tier Ka Official Theme Banao?</p>
+                            <div className="grid grid-cols-3 gap-2">
+                                {([
+                                    ['free',  'FREE',  '#0ea5e9', '🎓'],
+                                    ['basic', 'BASIC', '#2563eb', '⭐'],
+                                    ['ultra', 'ULTRA', '#1e3a8a', '💙'],
+                                ] as const).map(([val, label, color, emoji]) => (
+                                    <button key={val} onClick={() => setOfficialTier(val)}
+                                        className="py-3 rounded-2xl flex flex-col items-center gap-1 transition-all active:scale-95 text-xs font-black"
+                                        style={{
+                                            background: officialTier === val ? `${color}28` : 'rgba(255,255,255,0.05)',
+                                            border: `2px solid ${officialTier === val ? color + '70' : 'transparent'}`,
+                                            color: officialTier === val ? '#fff' : 'rgba(255,255,255,0.35)',
+                                        }}
+                                    >
+                                        <span className="text-lg">{emoji}</span>
+                                        {label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                        <div className="rounded-2xl p-3 text-[10px] text-emerald-300/70" style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.15)' }}>
+                            ⚡ Yeh theme us tier ke <strong className="text-emerald-200">SARE users</strong> ko milegi — chahe unka apna personal theme set ho ya na ho. Isko hatane ke baad users ki apni theme wapas aayegi.
+                        </div>
+                        <button
+                            onClick={doOfficialTierApply}
+                            disabled={officialSaving}
+                            className="w-full py-3.5 rounded-2xl font-black text-sm text-white active:scale-95 transition-all disabled:opacity-60"
+                            style={{ background: 'linear-gradient(135deg,#059669,#10b981)', boxShadow: '0 4px 20px rgba(16,185,129,0.35)' }}
+                        >
+                            {officialSaving ? 'Setting...' : `✅ ${officialTier.toUpperCase()} Ka Official Theme Set Karo`}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {/* ══════════════════════════════════════════════════
+            ADMIN APP DEFAULT THEME POPUP
+        ══════════════════════════════════════════════════ */}
+        {showDefaultPopup && (
+            <div className="fixed inset-0 z-[300] flex items-end justify-center pb-6 px-4" style={{ background: 'rgba(0,0,0,0.80)', backdropFilter: 'blur(6px)' }}>
+                <div className="w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl" style={{ background: '#0d0f1a', border: `1px solid ${theme.btnStart}40` }}>
+                    {/* Header */}
+                    <div className="px-5 py-4 flex items-center gap-3" style={{ background: `linear-gradient(135deg,${theme.btnStart},${theme.btnEnd})`, borderBottom: `1px solid ${theme.btnStart}30` }}>
+                        <div className="w-9 h-9 rounded-xl bg-white/15 flex items-center justify-center">
+                            <Home size={18} className="text-white" />
+                        </div>
+                        <div className="flex-1">
+                            <p className="text-white font-black text-sm">App Ka Default Theme</p>
+                            <p className="text-white/70 text-[10px]">SABHI tiers ka permanent base theme badlo</p>
+                        </div>
+                        <button onClick={() => setShowDefaultPopup(false)} className="w-7 h-7 rounded-full bg-white/15 flex items-center justify-center">
+                            <X size={13} className="text-white/80" />
+                        </button>
+                    </div>
+                    <div className="p-5 flex flex-col gap-4">
+                        {/* Preview strip */}
+                        <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${theme.btnStart}30` }}>
+                            <div className="px-4 py-3 flex items-center gap-2" style={{ background: `linear-gradient(135deg,${theme.topBarStart},${theme.topBarEnd})` }}>
+                                <div className="flex-1">
+                                    <div className="h-2 w-20 rounded-full mb-1" style={{ background: theme.textPrimary, opacity: 0.7 }} />
+                                    <div className="h-1.5 w-14 rounded-full" style={{ background: theme.textSecondary, opacity: 0.45 }} />
+                                </div>
+                                <div className="h-6 px-3 rounded-full text-[9px] font-black flex items-center text-white" style={{ background: `linear-gradient(135deg,${theme.btnStart},${theme.btnEnd})` }}>New Default</div>
+                            </div>
+                        </div>
+                        {/* Info */}
+                        <div className="rounded-2xl p-3 flex flex-col gap-1.5" style={{ background: `${theme.btnStart}10`, border: `1px solid ${theme.btnStart}20` }}>
+                            <p className="text-white/80 text-[11px] font-bold">Yeh kya karega?</p>
+                            <p className="text-white/50 text-[10px] leading-relaxed">
+                                • <span className="text-white/70">FREE, BASIC, aur ULTRA</span> — teeno tiers ka default theme yeh ban jaayega<br/>
+                                • Jo users apna custom theme set nahi kiya, unhe <span className="text-white/70">yahi theme milegi</span><br/>
+                                • Broadcast theme still works as override upar se<br/>
+                                • Hatane ke baad sab purane hardcoded defaults pe wapas
+                            </p>
+                        </div>
+                        {/* Tiers indicator */}
+                        <div className="grid grid-cols-3 gap-2">
+                            {([['FREE','#0ea5e9','🎓'],['BASIC','#2563eb','⭐'],['ULTRA','#6d28d9','💙']] as const).map(([label, color, emoji]) => (
+                                <div key={label} className="rounded-xl py-2 flex flex-col items-center gap-1" style={{ background: `${color}15`, border: `1px solid ${color}30` }}>
+                                    <span className="text-base">{emoji}</span>
+                                    <span className="text-[9px] font-black" style={{ color }}>{label}</span>
+                                    <span className="text-[8px] text-white/40">→ New</span>
+                                </div>
+                            ))}
+                        </div>
+                        {/* Confirm button */}
+                        <button
+                            onClick={doSetAppDefault}
+                            disabled={defaultSaving}
+                            className="w-full py-3.5 rounded-2xl font-black text-sm text-white active:scale-95 transition-all disabled:opacity-60"
+                            style={{ background: `linear-gradient(135deg,${theme.btnStart},${theme.btnEnd})`, boxShadow: `0 4px 20px ${theme.btnStart}40` }}
+                        >
+                            {defaultSaving ? 'Saving...' : '🏠 Sabhi Tiers Ka Default Set Karo'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
 
         {/* ══════════════════════════════════════════════════
             ADMIN GLOBAL APPLY POPUP
@@ -1437,10 +1771,11 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
                                 <Clock size={13} className="text-indigo-400" />
                                 <p className="text-white text-xs font-bold">Kitne Time Ke Liye?</p>
                             </div>
-                            <div className="grid grid-cols-4 gap-1.5">
-                                {([['permanent','Permanent'],['24h','24 Ghante'],['7d','7 Din'],['30d','30 Din']] as const).map(([val,label]) => (
+                            {/* Quick presets */}
+                            <div className="grid grid-cols-4 gap-1.5 mb-2">
+                                {([['permanent','Sada'],['1h','1 Ghanta'],['6h','6 Ghante'],['24h','24h'],['7d','7 Din'],['30d','30 Din'],['custom','Custom ⚙️']] as const).map(([val,label]) => (
                                     <button key={val} onClick={() => setGlobalDuration(val)}
-                                        className="py-2 rounded-xl text-[10px] font-bold transition-all active:scale-95"
+                                        className="py-2 rounded-xl text-[10px] font-bold transition-all active:scale-95 col-span-1"
                                         style={{
                                             background: globalDuration === val ? `linear-gradient(135deg,${theme.btnStart},${theme.btnEnd})` : 'rgba(255,255,255,0.06)',
                                             color: globalDuration === val ? '#fff' : 'rgba(255,255,255,0.5)',
@@ -1449,6 +1784,35 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
                                     >{label}</button>
                                 ))}
                             </div>
+                            {/* Custom H/M/S inputs */}
+                            {globalDuration === 'custom' && (
+                                <div className="flex gap-2 mt-1">
+                                    {[
+                                        { label: 'Ghante', val: globalCustomH, set: setGlobalCustomH, max: 999 },
+                                        { label: 'Minute', val: globalCustomM, set: setGlobalCustomM, max: 59 },
+                                        { label: 'Second', val: globalCustomS, set: setGlobalCustomS, max: 59 },
+                                    ].map(({ label, val, set, max }) => (
+                                        <div key={label} className="flex-1 flex flex-col items-center gap-1">
+                                            <p className="text-white/40 text-[9px]">{label}</p>
+                                            <div className="flex items-center rounded-xl overflow-hidden w-full" style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                                <button
+                                                    className="w-7 h-9 flex items-center justify-center text-white/50 text-base font-bold shrink-0 active:scale-90"
+                                                    onClick={() => set(v => Math.max(0, v - 1))}
+                                                >−</button>
+                                                <input
+                                                    type="number" min={0} max={max} value={val}
+                                                    onChange={e => set(Math.min(max, Math.max(0, parseInt(e.target.value) || 0)))}
+                                                    className="flex-1 min-w-0 text-center text-sm font-black text-white outline-none bg-transparent py-2"
+                                                />
+                                                <button
+                                                    className="w-7 h-9 flex items-center justify-center text-white/50 text-base font-bold shrink-0 active:scale-90"
+                                                    onClick={() => set(v => Math.min(max, v + 1))}
+                                                >+</button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
 
                         {/* Tier */}
@@ -1505,7 +1869,17 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
                                 <span className="text-white font-bold">{globalTier === 'all' ? 'Sabhi users' : globalTier.toUpperCase() + ' users'}</span>
                                 {globalMinLevel > 0 || globalMaxLevel > 0 ? ` · Level ${globalMinLevel || 1}${globalMaxLevel > 0 ? '–' + globalMaxLevel : '+'}` : ''}
                                 {' '}ko{' '}
-                                <span className="text-white font-bold">{globalDuration === 'permanent' ? 'permanently' : globalDuration === '24h' ? '24 ghante' : globalDuration === '7d' ? '7 din' : '30 din'}</span>
+                                <span className="text-white font-bold">{
+                                    globalDuration === 'permanent' ? 'permanently' :
+                                    globalDuration === '1h'  ? '1 ghante' :
+                                    globalDuration === '6h'  ? '6 ghante' :
+                                    globalDuration === '24h' ? '24 ghante' :
+                                    globalDuration === '7d'  ? '7 din' :
+                                    globalDuration === '30d' ? '30 din' :
+                                    globalDuration === 'custom' ?
+                                        [globalCustomH > 0 ? `${globalCustomH}h` : '', globalCustomM > 0 ? `${globalCustomM}m` : '', globalCustomS > 0 ? `${globalCustomS}s` : ''].filter(Boolean).join(' ') || '0s'
+                                    : ''
+                                }</span>
                                 {' '}ke liye theme milegi
                             </p>
                         </div>

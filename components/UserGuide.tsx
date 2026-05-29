@@ -13,6 +13,7 @@ import {
     ArrowRight, AlignLeft, Gamepad2, Medal
 } from 'lucide-react';
 import { User } from '../types';
+import { useAppTheme } from '../utils/themeContext';
 
 /* ── Tier gradient helper ── */
 function getTierGrad(user?: User): { header: string; btn: string; focus: string; ring: string; shimmerMid: string; shimmerPeak: string } {
@@ -620,7 +621,15 @@ export const UserGuide: React.FC<Props> = ({ onClose, user }) => {
     const [expanded, setExpanded] = useState<Set<string>>(new Set(['CREDITS', 'NOTES']));
     const [selectedItem, setSelectedItem] = useState<{ sectionId: string; itemIndex: number } | null>(null);
 
-    const tierGrad = getTierGrad(user);
+    const appTheme = useAppTheme();
+    const tierGrad = {
+        header: appTheme.topBarGrad,
+        btn:    appTheme.btnGrad,
+        focus:  appTheme.primary,
+        ring:   `${appTheme.primary}18`,
+        shimmerMid:  `${appTheme.primary}40`,
+        shimmerPeak: `${appTheme.primary}65`,
+    };
 
     // Detect dark mode from document classes (UserGuide mounts fresh each time)
     const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark-mode');

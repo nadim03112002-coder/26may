@@ -96,6 +96,14 @@
                               opacity var(--nst-dur-base) var(--nst-ease-out);
 }
 
+/* Theme switch flash — black overlay, fade in → hold → fade out */
+@keyframes themeFlash {
+  0%   { opacity: 0; }
+  22%  { opacity: 1; }
+  78%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
 /* Dark-mode token overrides — applied via .dark-mode on <html> */
 .dark-mode {
   --nst-color-surface: #0d0d0d;

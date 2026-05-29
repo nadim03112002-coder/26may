@@ -191,6 +191,7 @@ import { UniversalChat } from "./UniversalChat";
 import { ExpiryPopup } from "./ExpiryPopup";
 import { SubscriptionHistory } from "./SubscriptionHistory";
 import { getTierTheme, buildOverrideTierTheme, buildGranularTierTheme, getEffectiveOverrideColor, getUserTier } from '../utils/tierTheme';
+import { ThemeProvider } from '../utils/themeContext';
 import { SearchResult } from "../utils/syllabusSearch";
 import { RevisionHub } from "./RevisionHub"; // NEW
 import { AiHub } from "./AiHub"; // NEW: AI Hub
@@ -557,17 +558,31 @@ export const StudentDashboard: React.FC<Props> = ({
     return true;
   })();
 
+  // Official tier theme from admin settings — HIGHEST priority, overrides ALL user personal themes
+  const _userTier = getUserTier(user);
+  const _officialTierTheme =
+    _userTier === 'ultra' ? settings?.officialUltraTheme :
+    _userTier === 'basic' ? settings?.officialBasicTheme :
+    settings?.officialFreeTheme;
+
   const _overrideColor = getEffectiveOverrideColor(user, settings?.themeColor, settings);
   const tierTheme =
-    _personalTheme
-      ? buildGranularTierTheme(getTierTheme(user), _personalTheme)
-      : _customThemeActive && _customThemeRaw
-        ? buildGranularTierTheme(getTierTheme(user), _customThemeRaw)
-        : _adminGlobalActive && _adminGlobal
-          ? buildGranularTierTheme(getTierTheme(user), _adminGlobal.theme)
-          : _overrideColor
-            ? buildOverrideTierTheme(getTierTheme(user), _overrideColor, getUserTier(user))
-            : getTierTheme(user);
+    // 1. Admin broadcast (temporary, targeted) — always wins
+    _adminGlobalActive && _adminGlobal
+      ? buildGranularTierTheme(getTierTheme(user), _adminGlobal.theme)
+      // 2. Official tier theme — admin ne set kiya, puri tier ke liye override
+      : _officialTierTheme
+        ? buildGranularTierTheme(getTierTheme(user), _officialTierTheme)
+        // 3. User's own custom theme
+        : _personalTheme
+          ? buildGranularTierTheme(getTierTheme(user), _personalTheme)
+          : _customThemeActive && _customThemeRaw
+            ? buildGranularTierTheme(getTierTheme(user), _customThemeRaw)
+            // 4. Single-color override
+            : _overrideColor
+              ? buildOverrideTierTheme(getTierTheme(user), _overrideColor, getUserTier(user))
+              // 5. Default tier theme
+              : getTierTheme(user);
 
   // ── HTML Write-Mode Daily Quota (ALL tiers) ──────────────────────────────
   const _subValid      = SubscriptionEngine.isPremium(user); // true only if not expired
@@ -8661,7 +8676,16 @@ export const StudentDashboard: React.FC<Props> = ({
     );
   }
 
+  const _extendedTheme = {
+    ...tierTheme,
+    flashcardBg1: (tierTheme as any).flashcardBg1 || tierTheme.primary,
+    flashcardBg2: (tierTheme as any).flashcardBg2 || tierTheme.mid,
+    chapterAccent: (tierTheme as any).chapterAccent || tierTheme.primary,
+    mcqTabActive: (tierTheme as any).mcqTabActive || tierTheme.primary,
+  };
+
   return (
+  <ThemeProvider theme={_extendedTheme}>
     <div data-tier={tierTheme.tier} className="min-h-[100dvh] pb-0" style={{ background: tierTheme.profileBg }}>
       <NotificationPrompt />
       {/* ADMIN SWITCH BUTTON — only visible inside content (Notes/MCQ player or HW notes) */}
@@ -12817,7 +12841,11 @@ export const StudentDashboard: React.FC<Props> = ({
 
       {/* FIXED BOTTOM NAVIGATION */}
       <nav
-        className={`fixed bottom-0 left-0 right-0 w-full mx-auto bg-white/95 backdrop-blur-md border-t border-slate-200/70 shadow-[0_-8px_24px_-12px_rgba(15,23,42,0.18)] z-[300] pb-safe ${activeExternalApp || isDocFullscreen || (contentViewStep === "PLAYER" && selectedChapter && activeTab !== 'STORE' && activeTab !== 'PROFILE') || isLandscapeUiHidden || isInternalImmersive || !!hwActiveHwId ? "hidden" : ""}`}
+        className={`fixed bottom-0 left-0 right-0 w-full mx-auto bg-white/95 backdrop-blur-md z-[300] pb-safe ${activeExternalApp || isDocFullscreen || (contentViewStep === "PLAYER" && selectedChapter && activeTab !== 'STORE' && activeTab !== 'PROFILE') || isLandscapeUiHidden || isInternalImmersive || !!hwActiveHwId ? "hidden" : ""}`}
+        style={{
+          borderTop: `1px solid ${tierTheme.primary}22`,
+          boxShadow: `0 -4px 20px -8px ${tierTheme.shadowColor}`,
+        }}
         aria-label="Primary"
       >
         <div className="relative flex justify-around items-stretch h-[64px] max-w-3xl mx-auto px-1">
@@ -19621,5 +19649,6 @@ RULES:
         onTabChange={t => onTabChange(t as any)}
       />
     </div>
+  </ThemeProvider>
   );
 };
