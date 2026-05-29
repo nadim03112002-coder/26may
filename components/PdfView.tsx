@@ -566,6 +566,8 @@ export const PdfView: React.FC<Props> = ({
       // 1. Admin / Bypass
       if (user.role === 'ADMIN') return { hasAccess: true, cost: 0, reason: 'ADMIN' };
       if (user.unlockedContent && user.unlockedContent.includes(chapter.id)) return { hasAccess: true, cost: 0, reason: 'CHAPTER_UNLOCKED' };
+      const _timedUnlocks = (user as any).timedUnlocks || [];
+      if (_timedUnlocks.some((u: any) => u.contentId === chapter.id && new Date(u.expiresAt) > new Date())) return { hasAccess: true, cost: 0, reason: 'TIMED_CHAPTER_UNLOCKED' };
 
       // 1.5. Teacher Bypass for Teacher Strategy
       if (tabId === 'TEACHER' && (user.role === 'TEACHER' || !!user.teacherCode)) {
@@ -1678,6 +1680,15 @@ export const PdfView: React.FC<Props> = ({
                        aria-label="Reading style"
                    >
                        <Type size={15} />
+                   </button>
+                   {/* TTS Speed Control */}
+                   <button
+                       onClick={cycleSpeechRate}
+                       className="shrink-0 px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition text-[10px] font-black text-slate-700 whitespace-nowrap border border-slate-200"
+                       title="TTS speed badlein"
+                       aria-label={`TTS Speed: ${speechRate}x`}
+                   >
+                       {speechRate}x
                    </button>
                    <button
                        onClick={rotatePdf}

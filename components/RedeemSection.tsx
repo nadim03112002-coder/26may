@@ -243,12 +243,30 @@ export const RedeemSection: React.FC<Props> = ({ user, onSuccess }) => {
             // Handle Content Unlock
             const contentId = targetCode.contentId;
             if (contentId) {
-                const currentUnlocked = updatedUser.unlockedContent || [];
-                if (!currentUnlocked.includes(contentId)) {
-                    updatedUser.unlockedContent = [...currentUnlocked, contentId];
-                    successMessage = `Success! Content Unlocked: ${targetCode.contentType || 'Item'}`;
+                const expiresAt = (targetCode as any).expiresAt as string | undefined;
+                if (expiresAt) {
+                    // Time-limited unlock — store in timedUnlocks
+                    const currentTimedUnlocks: { contentId: string; expiresAt: string }[] = (updatedUser as any).timedUnlocks || [];
+                    const existingIdx = currentTimedUnlocks.findIndex((u: any) => u.contentId === contentId);
+                    const newEntry = { contentId, expiresAt };
+                    if (existingIdx >= 0) {
+                        const updated = [...currentTimedUnlocks];
+                        updated[existingIdx] = newEntry;
+                        (updatedUser as any).timedUnlocks = updated;
+                        successMessage = `Content unlock time refresh ho gaya! Expiry: ${new Date(expiresAt).toLocaleString()}`;
+                    } else {
+                        (updatedUser as any).timedUnlocks = [...currentTimedUnlocks, newEntry];
+                        successMessage = `Content unlock hua! Valid till: ${new Date(expiresAt).toLocaleString()}`;
+                    }
                 } else {
-                    successMessage = `You already have access to this content.`;
+                    // Permanent unlock (existing behavior)
+                    const currentUnlocked = updatedUser.unlockedContent || [];
+                    if (!currentUnlocked.includes(contentId)) {
+                        updatedUser.unlockedContent = [...currentUnlocked, contentId];
+                        successMessage = `Success! Content Unlocked: ${targetCode.contentType || 'Item'}`;
+                    } else {
+                        successMessage = `You already have access to this content.`;
+                    }
                 }
             } else {
                 successMessage = "Error: Invalid Content Code.";

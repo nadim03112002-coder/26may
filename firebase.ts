@@ -180,7 +180,7 @@ export const saveUserToLive = async (user: any) => {
     const {
         mcqHistory, usageHistory, progress, testResults, inbox,
         topicStrength, subscriptionHistory, activeSubscriptions,
-        pendingRewards, redeemedCodes, unlockedContent, dailyRoutine,
+        pendingRewards, redeemedCodes, unlockedContent, timedUnlocks, dailyRoutine,
         ...coreProfile
     } = sanitizedUser;
 
@@ -208,6 +208,7 @@ export const saveUserToLive = async (user: any) => {
     if (user.hasOwnProperty('pendingRewards')) bulkyData.pendingRewards = pendingRewards;
     if (user.hasOwnProperty('redeemedCodes')) bulkyData.redeemedCodes = redeemedCodes;
     if (user.hasOwnProperty('unlockedContent')) bulkyData.unlockedContent = unlockedContent;
+    if (user.hasOwnProperty('timedUnlocks')) bulkyData.timedUnlocks = timedUnlocks;
     if (user.hasOwnProperty('dailyRoutine')) bulkyData.dailyRoutine = dailyRoutine;
 
     // Use { merge: true } so we don't delete fields we didn't explicitly pass this time.

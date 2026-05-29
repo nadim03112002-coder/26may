@@ -26,7 +26,7 @@ export const LEVEL_INFO: LevelInfo[] = [
   { level: 12, minScore: 5000000,   label: 'Legend',      emoji: '🔮', color: '#8b5cf6', gradient: 'from-violet-400 via-purple-500 to-pink-500',   glowColor: 'rgba(139,92,246,0.9)',  discount: 22, animationIntensity: 4, nameColor: '#8b5cf6' },
   { level: 13, minScore: 10000000,  label: 'Immortal',    emoji: '⚜️', color: '#ec4899', gradient: 'from-pink-400 via-rose-500 to-red-500',        glowColor: 'rgba(236,72,153,0.9)',  discount: 25, animationIntensity: 4, nameColor: '#ec4899' },
   { level: 14, minScore: 20000000,  label: 'Divine',      emoji: '🌠', color: '#f43f5e', gradient: 'from-rose-400 via-red-500 to-orange-500',      glowColor: 'rgba(244,63,94,0.95)',  discount: 28, animationIntensity: 4, nameColor: '#f43f5e' },
-  { level: 15, minScore: 50000000,  label: 'Absolute',    emoji: '💠', color: '#ffffff', gradient: 'from-white via-cyan-200 to-violet-400',         glowColor: 'rgba(255,255,255,1.0)', discount: 30, animationIntensity: 4, nameColor: '#ffffff' },
+  { level: 15, minScore: 50000000,  label: 'Absolute',    emoji: '💠', color: '#a5f3fc', gradient: 'from-white via-cyan-200 to-violet-400',         glowColor: 'rgba(165,243,252,0.95)', discount: 30, animationIntensity: 4, nameColor: '#7c3aed' },
 ];
 
 export const MAX_LEVEL = 15;

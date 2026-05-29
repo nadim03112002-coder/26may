@@ -244,6 +244,7 @@ export interface User {
   activeSubscriptions?: ActiveSubscription[]; // NEW: For concurrent subscriptions
   testResults?: MCQResult[];
   unlockedContent?: string[];
+  timedUnlocks?: { contentId: string; expiresAt: string }[];
   dailyRoutine?: DailyRoutine;
 }
 
@@ -533,6 +534,10 @@ export interface LucentPageNote {
   lightCSS?: string;
   /** Custom CSS applied in both Dark (black) and Blue mode for this page's HTML content. Auto-scoped. */
   darkCSS?: string;
+  /** Optional Google Drive (or YouTube) video link for this page.
+   *  Shown as an embedded player in the reader — no Gmail login required
+   *  when the Drive file is shared as "Anyone with the link". */
+  videoUrl?: string;
 }
 
 export interface LucentNoteEntry {
@@ -553,6 +558,10 @@ export interface LucentNoteEntry {
   lessonTitle: string;
   pages: LucentPageNote[];
   createdAt?: string;
+  /** When true, this lesson is locked behind a Redeem Code.
+   *  Students need a valid code (or an admin-generated timedUnlock / permanent unlock)
+   *  to open it. Admins always bypass the gate. */
+  locked?: boolean;
 }
 
 export interface AppNotification {
@@ -638,7 +647,8 @@ export interface SystemSettings {
    *   - a target-subject option in the Homework form (admin)
    *   - a subject card on the student dashboard, opening a flat page-wise list of notes/MCQs
    *  Items are stored as homework entries with `targetSubject = book.id`. */
-  customBooks?: { id: string; name: string }[]; 
+  customBooks?: { id: string; name: string }[];
+  contentCodeExpiry?: { days: number; hours: number; minutes: number };
   splashFontId?: string; // Admin-chosen font family for the loading screen short name. See utils/splashFonts.ts
   // === Loading-screen LOGO (replaces the short-name text when enabled) ===
   splashLogoEnabled?: boolean;   // Default true — show image instead of text on splash
@@ -1137,6 +1147,7 @@ export interface GiftCode {
       seconds: number;
   };
   createdAt: string;
+  expiresAt?: string;
   isRedeemed: boolean;
   redeemedBy?: string | string[]; // User ID or List of User IDs
   redeemedDate?: string;
