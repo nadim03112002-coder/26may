@@ -688,6 +688,9 @@ export interface SystemSettings {
     minLevel?: number | null;
     maxLevel?: number | null;
   };
+  officialUltraTheme?: UserCustomTheme;
+  officialBasicTheme?: UserCustomTheme;
+  officialFreeTheme?: UserCustomTheme;
   levelScoreOverride?: Record<string, number>;
   isGlobalFreeMode?: boolean; // NEW: Global Free Mode
   watermarkOpacity?: number; // 0.0 to 1.0
@@ -1501,6 +1504,10 @@ export interface UserCustomTheme {
   textSecondary?: string;
   accentGlow?: string;
   progressColor?: string;
+  flashcardBg1?: string;
+  flashcardBg2?: string;
+  chapterAccent?: string;
+  mcqTabActive?: string;
   createdAt: string;
   appliedUntil?: string;
   publishedAt?: string;
