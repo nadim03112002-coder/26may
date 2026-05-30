@@ -597,6 +597,11 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
     const [saving, setSaving]             = useState(false);
     const [activeSection, setActiveSection] = useState<ColorSection>('TOPBAR');
 
+    /* ── CUSTOM THEME BUILDER ── */
+    const [builderMode, setBuilderMode]         = useState<'SIMPLE' | 'ADVANCED'>('SIMPLE');
+    const [simpleColor, setSimpleColor]         = useState<string>(() => user.personalTheme?.btnStart || DEFAULT_THEME.btnStart);
+    const [simpleBorderColor, setSimpleBorderColor] = useState<string>(() => user.personalTheme?.cardBorder || DEFAULT_THEME.cardBorder);
+
     /* Entry popup — shown once when user opens Theme Studio */
     const [showEntryPopup, setShowEntryPopup] = useState(true);
     /* Selected preset index in the entry popup (-1 = none) */
@@ -634,6 +639,27 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
 
     const setColor = (key: keyof ThemeState) => (v: string) =>
         setTheme(prev => ({ ...prev, [key]: v }));
+
+    /* ── SIMPLE THEME: derive all fields from 1 color + 1 border ── */
+    const applySimpleTheme = (color: string, borderColor: string) => {
+        setTheme(prev => ({
+            ...prev,
+            topBarStart:   color,
+            topBarEnd:     color,
+            navActive:     color,
+            btnStart:      color,
+            btnEnd:        color,
+            accentGlow:    color,
+            progressColor: color,
+            chapterAccent: color,
+            mcqTabActive:  color,
+            flashcardBg1:  color,
+            flashcardBg2:  color,
+            textPrimary:   color,
+            cardBorder:    borderColor,
+            navBorder:     borderColor,
+        }));
+    };
 
     /* ─────────────────────────────────────────
        APPLY THEME
@@ -1751,11 +1777,114 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
                     <RotateCcw size={11} /> Preview Default Pe Reset Karo
                 </button>
 
-                {/* ── SECTION TABS ── */}
+                {/* ── CUSTOM THEME BUILDER ── */}
                 <div>
+                    {/* Header + mode toggle */}
                     <p className="text-[9px] font-black text-white/30 uppercase tracking-widest mb-2.5 flex items-center gap-1.5">
-                        <Palette size={10} /> Granular Controls — Har Element Alag
+                        <Palette size={10} /> Custom Theme Builder
                     </p>
+                    <div className="flex rounded-2xl overflow-hidden border mb-3" style={{ borderColor: 'rgba(255,255,255,0.08)', background: '#0d0f1a' }}>
+                        <button
+                            onClick={() => setBuilderMode('SIMPLE')}
+                            className="flex-1 py-2.5 flex flex-col items-center gap-0.5 transition-all active:scale-95"
+                            style={{
+                                background: builderMode === 'SIMPLE' ? `${theme.btnStart}22` : 'transparent',
+                                borderBottom: builderMode === 'SIMPLE' ? `2px solid ${theme.btnStart}` : '2px solid transparent',
+                            }}
+                        >
+                            <span className="text-base">✨</span>
+                            <span className="text-[10px] font-black" style={{ color: builderMode === 'SIMPLE' ? theme.btnStart : 'rgba(255,255,255,0.40)' }}>Simple</span>
+                            <span className="text-[8px]" style={{ color: 'rgba(255,255,255,0.22)' }}>Ek color — sab jagah</span>
+                        </button>
+                        <div style={{ width: '1px', background: 'rgba(255,255,255,0.07)', alignSelf: 'stretch' }} />
+                        <button
+                            onClick={() => isAdmin ? setBuilderMode('ADVANCED') : undefined}
+                            className="flex-1 py-2.5 flex flex-col items-center gap-0.5 transition-all active:scale-95"
+                            style={{
+                                background: builderMode === 'ADVANCED' ? `${theme.btnStart}22` : 'transparent',
+                                borderBottom: builderMode === 'ADVANCED' ? `2px solid ${theme.btnStart}` : '2px solid transparent',
+                                opacity: !isAdmin ? 0.45 : 1,
+                                cursor: !isAdmin ? 'not-allowed' : 'pointer',
+                            }}
+                        >
+                            <span className="text-base">🔧</span>
+                            <span className="text-[10px] font-black" style={{ color: builderMode === 'ADVANCED' ? theme.btnStart : 'rgba(255,255,255,0.40)' }}>Advanced</span>
+                            <span className="text-[8px]" style={{ color: 'rgba(255,255,255,0.22)' }}>{isAdmin ? 'Har element alag' : '🔒 Admin Only'}</span>
+                        </button>
+                    </div>
+
+                    {/* ═══════════════════════════════════
+                        SIMPLE MODE
+                    ═══════════════════════════════════ */}
+                    {builderMode === 'SIMPLE' && (
+                        <div className="space-y-3">
+                            {/* Color pickers */}
+                            <div className="rounded-2xl p-3.5 border" style={{ background: 'rgba(255,255,255,0.025)', borderColor: 'rgba(255,255,255,0.07)' }}>
+                                <p className="text-[9px] text-white/40 mb-3 leading-relaxed">
+                                    Ek <strong className="text-white/65">main color</strong> chunno — top bar, buttons, nav, accents sab usi color mein ho jaayenge. Alag <strong className="text-white/65">border color</strong> bhi set kar sakte ho.
+                                </p>
+                                <ColorRow
+                                    label="App Main Color"
+                                    sub="Top bar · Buttons · Nav · Accents — puri app"
+                                    value={simpleColor}
+                                    onChange={v => { setSimpleColor(v); applySimpleTheme(v, simpleBorderColor); }}
+                                    accent={theme.btnStart}
+                                />
+                                <ColorRow
+                                    label="Border Color"
+                                    sub="Har card aur nav border — sirf yahi alag"
+                                    value={simpleBorderColor}
+                                    onChange={v => { setSimpleBorderColor(v); applySimpleTheme(simpleColor, v); }}
+                                    accent={theme.btnStart}
+                                />
+                            </div>
+                            {/* Simple mode live mini-preview */}
+                            <div>
+                                <p className="text-[9px] font-black text-white/25 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+                                    <Eye size={9} /> Preview
+                                </p>
+                                <div className="rounded-2xl overflow-hidden border" style={{ borderColor: `${simpleColor}40` }}>
+                                    <div className="h-11 flex items-center px-3 gap-2" style={{ background: simpleColor }}>
+                                        <div className="flex-1">
+                                            <div className="h-2 w-16 rounded-full bg-white/35 mb-1" />
+                                            <div className="h-1.5 w-10 rounded-full bg-white/20" />
+                                        </div>
+                                        <div className="h-6 px-2 rounded-full text-[8px] font-black flex items-center text-white bg-white/20">🪙 100</div>
+                                        <div className="h-6 px-2 rounded-full text-[8px] font-black flex items-center text-white bg-white/15">💠 L10</div>
+                                    </div>
+                                    <div className="p-2.5" style={{ background: theme.bgColor }}>
+                                        <div className="grid grid-cols-2 gap-1.5 mb-1.5">
+                                            {[['📚', 'Notes', '24 chapters'], ['🎯', 'MCQ', '500+ Qs']].map(([e, l, s]) => (
+                                                <div key={l} className="rounded-xl p-2.5" style={{ background: theme.cardBg, border: `1.5px solid ${simpleBorderColor}` }}>
+                                                    <span className="text-sm">{e}</span>
+                                                    <p className="text-[9px] font-black mt-0.5" style={{ color: simpleColor }}>{l}</p>
+                                                    <p className="text-[8px] text-black/35">{s}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <button className="w-full py-2.5 rounded-xl text-[10px] font-black text-white" style={{ background: simpleColor, boxShadow: `0 4px 14px ${simpleColor}55` }}>
+                                            ⚡ Start Learning
+                                        </button>
+                                    </div>
+                                    <div className="grid grid-cols-4 border-t" style={{ background: theme.navBg, borderColor: simpleBorderColor }}>
+                                        {[['🏠', 'Home', true], ['📖', 'Study', false], ['🎯', 'MCQ', false], ['👤', 'Profile', false]].map(([ic, lb, ac]) => (
+                                            <div key={lb as string} className="flex flex-col items-center py-2.5 gap-0.5" style={{ opacity: ac ? 1 : 0.35 }}>
+                                                <span className="text-base">{ic as string}</span>
+                                                <p className="text-[8px] font-bold" style={{ color: ac ? simpleColor : theme.textSecondary }}>{lb as string}</p>
+                                                <div className="h-0.5 w-4 rounded-full" style={{ background: ac ? simpleColor : 'transparent' }} />
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ═══════════════════════════════════
+                        ADVANCED MODE — Admin Only
+                    ═══════════════════════════════════ */}
+                    {builderMode === 'ADVANCED' && isAdmin && (
+                    <div>
                     <div className="grid grid-cols-4 gap-1.5 mb-3">
                         {SECTIONS.map(sec => {
                             const active = activeSection === sec.id;
@@ -1954,6 +2083,9 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
                         </div>
                         {sectionColors[activeSection]}
                     </div>
+                    </div>
+                    )}
+
                 </div>
 
                 {/* ── APPLY BUTTONS ── */}

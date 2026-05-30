@@ -2036,6 +2036,14 @@ export const StudentDashboard: React.FC<Props> = ({
   const [lucentNoteViewer, setLucentNoteViewer] = useState<LucentNoteEntry | null>(null);
   const [lucentPageIndex, setLucentPageIndex] = useState(0);
   const [lucentPageListViewer, setLucentPageListViewer] = useState<LucentNoteEntry | null>(null);
+  // Content-picker popup: shows when student taps a page in Lucent or Competition mode
+  const [contentPickerPopup, setContentPickerPopup] = useState<
+    | { type: 'LUCENT'; entry: LucentNoteEntry; pageIdx: number }
+    | { type: 'COMPETITION'; hw: any }
+    | null
+  >(null);
+  // Ref to pass initial tab/viewMode through the useEffect reset when opening Lucent viewer
+  const lucentInitialTabRef = useRef<{ tab?: 'NOTES' | 'MCQS' | 'VIDEO'; viewMode?: 'html' | 'chunk' } | null>(null);
   // Live scroll % for the Lucent reader — drives the gradient progress bar at
   // the very top, mirroring Sar Sangrah / Speedy. Reset on page change.
   const [lucentScrollProgress, setLucentScrollProgress] = useState(0);
@@ -2345,11 +2353,14 @@ export const StudentDashboard: React.FC<Props> = ({
   const [hwOptionsOpen, setHwOptionsOpen] = useState(false);
   const [lucentFabOpen, setLucentFabOpen] = useState(false);
   // Reset both tabs + view mode when page or note changes
+  // Honours lucentInitialTabRef if set by the content-picker popup
   useEffect(() => {
     const page = lucentNoteViewer?.pages?.[lucentPageIndex];
     const hasNotes = !!(page?.chunkNotes?.trim() || page?.htmlNotes?.trim() || page?.content?.trim());
-    setLucentActiveTab(hasNotes ? 'NOTES' : 'MCQS');
-    setLucentNotesViewMode('chunk');
+    const initOpts = lucentInitialTabRef.current;
+    lucentInitialTabRef.current = null;
+    setLucentActiveTab(initOpts?.tab || (hasNotes ? 'NOTES' : 'MCQS'));
+    setLucentNotesViewMode(initOpts?.viewMode || 'chunk');
     setLucentChunkHtmlMode('chunk');
     setLucentSaved(false);
   }, [lucentPageIndex, lucentNoteViewer?.id]);
@@ -5008,70 +5019,72 @@ export const StudentDashboard: React.FC<Props> = ({
                 </p>
                 <p className="font-black text-sm leading-tight truncate">{activeHw.title}</p>
               </div>
-              {/* Read / Write toggle — right next to note title */}
-              {effectiveMode === 'notes' && (
+              {/* 3-dot options — write mode only; read mode uses content-area 3-dot */}
+              {effectiveMode === 'notes' && hwNotesViewMode === 'html' && (
                 <div className="flex items-center gap-0.5 shrink-0 relative">
                   <button
-                    onClick={() => { stopSpeech(); setHwNotesViewMode('chunk'); setHwOptionsOpen(false); }}
-                    className={`flex items-center gap-0.5 px-2 py-1 rounded-lg text-[10px] font-black transition-all border ${hwNotesViewMode === 'chunk' ? 'bg-amber-400 text-white border-amber-400 shadow-sm' : 'bg-white/20 text-white border-white/30 hover:bg-white/30'}`}
-                    title="Read Mode"
-                  >
-                    <Volume2 size={11} /> Read
-                  </button>
-                  <button
-                    onClick={() => { stopSpeech(); handleWriteModeGate(() => setHwNotesViewMode('html')); setHwOptionsOpen(false); }}
-                    className={`flex items-center gap-0.5 px-2 py-1 rounded-lg text-[10px] font-black transition-all border ${hwNotesViewMode === 'html' ? 'bg-teal-400 text-white border-teal-400 shadow-sm' : 'bg-white/20 text-white border-white/30 hover:bg-white/30'}`}
-                    title="Write Mode"
-                  >
-                    <FileText size={11} /> Write
-                  </button>
-                  {/* 3-dot menu button */}
-                  <button
                     onClick={() => setHwOptionsOpen(p => !p)}
-                    className="flex items-center justify-center w-7 h-7 rounded-lg bg-white/20 border border-white/30 text-white hover:bg-white/30 transition-colors shrink-0"
+                    className="flex items-center justify-center w-8 h-8 rounded-xl bg-white/20 border border-white/30 text-white hover:bg-white/30 transition-colors shrink-0"
                     title="More options"
                   >
-                    <MoreVertical size={13} />
+                    <MoreVertical size={15} />
                   </button>
-                  {/* 3-dot dropdown */}
+                  {/* 3-dot dropdown — professional design */}
                   {hwOptionsOpen && (
-                    <div className="absolute top-full right-0 mt-1 z-50 rounded-xl shadow-2xl border border-white/20 overflow-hidden min-w-[160px]" style={{ background: 'rgba(15,15,25,0.97)', backdropFilter: 'blur(12px)' }}>
-                      {/* Font size row */}
-                      <div className="px-3 py-2 border-b border-white/10">
-                        <p className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-1.5">Font Size</p>
-                        <div className="flex items-center gap-0 bg-white/10 rounded-lg overflow-hidden border border-white/15">
-                          <button onClick={zoomOut} className="px-3 py-1.5 text-white text-[11px] font-black hover:bg-white/15 transition-colors">A-</button>
-                          <span className="flex-1 text-white/70 text-[10px] font-bold text-center">{Math.round(noteZoom * 100)}%</span>
-                          <button onClick={zoomIn} className="px-3 py-1.5 text-white text-[11px] font-black hover:bg-white/15 transition-colors">A+</button>
+                    <div className="absolute top-full right-0 mt-2 z-50 w-52 rounded-2xl shadow-2xl overflow-hidden" style={{ background: 'rgba(10,12,22,0.98)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.09)' }}>
+                      {/* Text size section */}
+                      <div className="px-3.5 pt-3.5 pb-3 border-b border-white/8">
+                        <p className="text-[9px] font-black text-white/30 uppercase tracking-[0.14em] mb-2">Text Size</p>
+                        <div className="flex items-center gap-1.5 bg-white/7 rounded-xl p-1">
+                          <button onClick={zoomOut} className="w-10 h-8 flex items-center justify-center rounded-lg bg-white/10 text-white text-[11px] font-black hover:bg-white/18 active:scale-95 transition-all">A−</button>
+                          <span className="flex-1 text-white/80 text-[11px] font-bold text-center tabular-nums">{Math.round(noteZoom * 100)}%</span>
+                          <button onClick={zoomIn} className="w-10 h-8 flex items-center justify-center rounded-lg bg-white/10 text-white text-[11px] font-black hover:bg-white/18 active:scale-95 transition-all">A+</button>
                         </div>
                       </div>
-                      {/* Rotate */}
-                      <button
-                        onClick={() => { handleRotate(); setHwOptionsOpen(false); }}
-                        className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-[11px] font-bold transition-colors ${isLandscape ? 'text-green-400' : 'text-white/80 hover:bg-white/8'}`}
-                      >
-                        <RotateCcw size={13} /> Screen Rotate {isLandscape ? '(On)' : ''}
-                      </button>
-                      {/* Download — only in Write mode 3-dot */}
-                      {hwNotesViewMode === 'html' && (activeHw as any).htmlNotes && (
+                      {/* Action rows */}
+                      <div className="p-1.5 flex flex-col gap-0.5">
                         <button
-                          onClick={async () => {
-                            setHwOptionsOpen(false);
-                            try {
-                              const safeTitle = (activeHw.title || 'Homework').replace(/[^a-z0-9_\- ]/gi, '_').slice(0, 60);
-                              const _dlOk = await checkAndDoDownload(async () => {
-                                await downloadAsMHTML('hw-html-download', safeTitle, { appName: settings?.appShortName || settings?.appName || 'IIC', pageTitle: activeHw.title || 'Homework', subtitle: 'Homework Notes — Write Mode' });
-                              });
-                              if (_dlOk) showAlert('📥 Saved!', 'SUCCESS');
-                            } catch (e) {
-                              showAlert('Download failed. Please try again.', 'ERROR');
-                            }
-                          }}
-                          className="w-full flex items-center gap-2.5 px-3 py-2.5 text-[11px] font-bold text-sky-300 border-t border-white/10 hover:bg-white/8 transition-colors"
+                          onClick={() => { handleRotate(); setHwOptionsOpen(false); }}
+                          className={`w-full flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-[12px] font-semibold transition-all active:scale-[0.97] ${isLandscape ? 'bg-emerald-500/12 text-emerald-300' : 'text-white/80 hover:bg-white/7'}`}
                         >
-                          <Download size={13} /> Save Offline
+                          <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${isLandscape ? 'bg-emerald-500/25' : 'bg-white/10'}`}>
+                            <RotateCcw size={13} />
+                          </div>
+                          <span>Rotate Screen</span>
+                          {isLandscape && <span className="ml-auto text-[9px] font-black text-emerald-400 bg-emerald-500/20 px-1.5 py-0.5 rounded-md">ON</span>}
                         </button>
-                      )}
+                        {hwNotesViewMode === 'html' && (activeHw as any).htmlNotes && (
+                          <button
+                            onClick={async () => {
+                              setHwOptionsOpen(false);
+                              try {
+                                const safeTitle = (activeHw.title || 'Homework').replace(/[^a-z0-9_\- ]/gi, '_').slice(0, 60);
+                                const _dlOk = await checkAndDoDownload(async () => {
+                                  await downloadAsMHTML('hw-html-download', safeTitle, { appName: settings?.appShortName || settings?.appName || 'IIC', pageTitle: activeHw.title || 'Homework', subtitle: 'Homework Notes — Write Mode' });
+                                });
+                                if (_dlOk) showAlert('📥 Saved!', 'SUCCESS');
+                              } catch (e) {
+                                showAlert('Download failed. Please try again.', 'ERROR');
+                              }
+                            }}
+                            className="w-full flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-[12px] font-semibold text-sky-300 hover:bg-sky-500/10 transition-all active:scale-[0.97]"
+                          >
+                            <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-sky-500/20">
+                              <Download size={13} />
+                            </div>
+                            <span>Save Offline</span>
+                          </button>
+                        )}
+                        <button
+                          onClick={() => { setHwOptionsOpen(false); setContentPickerPopup({ type: 'COMPETITION', hw: activeHw }); }}
+                          className="w-full flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-[12px] font-semibold text-violet-300 hover:bg-violet-500/10 transition-all active:scale-[0.97]"
+                        >
+                          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-violet-500/20">
+                            <LayoutGrid size={13} />
+                          </div>
+                          <span>More Options</span>
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -5838,53 +5851,14 @@ export const StudentDashboard: React.FC<Props> = ({
             </div>
             )}
 
-            {/* Floating expandable FAB — tap to open options: Save Offline + Focus Mode */}
-            {hwFabOpen && (
-              <div className="fixed inset-0 z-[9998]" onClick={() => setHwFabOpen(false)} />
-            )}
-            {hwFabOpen && (
-              <div
-                className="fixed flex flex-col gap-2 items-end z-[9999]"
-                style={{ bottom: (!hwImmersive && effectiveMode !== 'choose') ? '164px' : '80px', right: '16px' }}
-              >
-                <button
-                  onClick={async () => {
-                    const notes = (activeHw as any)?.htmlNotes || (activeHw as any)?.content;
-                    if (notes) {
-                      await saveOfflineItem({
-                        id: `hw_${activeHw.id}`,
-                        type: 'NOTE',
-                        title: activeHw.title || 'Homework',
-                        subtitle: 'Homework Notes',
-                        data: { html: notes, title: activeHw.title }
-                      });
-                      showAlert('✅ Notes offline save ho gaye!', 'SUCCESS');
-                    } else {
-                      showAlert('Save karne ke liye notes available nahi hain.', 'INFO');
-                    }
-                    setHwFabOpen(false);
-                  }}
-                  className="flex items-center gap-2 bg-emerald-600 text-white px-3 py-2 rounded-full text-xs font-black shadow-xl active:scale-95 transition-all whitespace-nowrap"
-                >
-                  <CloudOff size={14} /> Save Offline
-                </button>
-                <button
-                  onClick={() => { setHwImmersive(v => !v); setHwFabOpen(false); }}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-full text-xs font-black shadow-xl active:scale-95 transition-all whitespace-nowrap ${hwImmersive ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-white'}`}
-                >
-                  {hwImmersive ? '↩ Exit Focus' : '🎯 Focus Mode'}
-                </button>
-              </div>
-            )}
+            {/* Floating FAB — tap directly to toggle Focus Mode */}
             <button
-              onClick={() => setHwFabOpen(v => !v)}
-              className={`fixed ${!hwImmersive && effectiveMode !== 'choose' ? 'bottom-[88px]' : 'bottom-5'} right-4 z-[9999] w-12 h-12 rounded-full shadow-xl flex items-center justify-center text-white text-xl transition-all overflow-hidden border-2 ${hwFabOpen ? 'bg-indigo-600 border-indigo-400' : hwImmersive ? 'bg-slate-900 border-indigo-400' : 'bg-[rgba(15,23,42,0.88)] border-white/40'}`}
+              onClick={() => setHwImmersive(v => !v)}
+              className={`fixed ${!hwImmersive && effectiveMode !== 'choose' ? 'bottom-[88px]' : 'bottom-5'} right-4 z-[9999] w-12 h-12 rounded-full shadow-xl flex items-center justify-center text-white text-xl transition-all overflow-hidden border-2 ${hwImmersive ? 'bg-indigo-600 border-indigo-400' : 'bg-[rgba(15,23,42,0.88)] border-white/40'}`}
               style={{ backdropFilter: 'blur(10px)' }}
-              title={hwFabOpen ? 'Close menu' : 'Options'}
+              title={hwImmersive ? 'Exit Focus Mode' : 'Focus Mode'}
             >
-              {hwFabOpen ? (
-                <X size={20} style={{ pointerEvents: 'none' }} />
-              ) : hwImmersive ? (
+              {hwImmersive ? (
                 <span style={{ fontSize: '18px', lineHeight: 1 }}>↩</span>
               ) : settings?.appLogo ? (
                 <img
@@ -5973,12 +5947,6 @@ export const StudentDashboard: React.FC<Props> = ({
                         <p className={`text-[10px] font-bold ${theme.text} uppercase tracking-widest`}>{dayName}</p>
                         <div className="flex items-center gap-1.5">
                           <p className="font-black text-slate-800 text-sm leading-snug truncate flex-1">{hw.title}</p>
-                          {(hw.notes || (hw as any).chunkNotes || (hw as any).htmlNotes) && (
-                            <div className="flex gap-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
-                              <button onClick={(e) => { e.stopPropagation(); setHwNotesViewMode('chunk'); openHw(); }} className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-black transition-all ${hwNotesViewMode === 'chunk' ? 'bg-amber-500 text-white' : `${theme.chip} opacity-70`}`} title="Read Mode"><Volume2 size={9}/> Read</button>
-                              <button onClick={(e) => { e.stopPropagation(); handleWriteModeGate(() => { setHwNotesViewMode('html'); openHw(); }); }} className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-black transition-all ${hwNotesViewMode === 'html' ? 'bg-teal-600 text-white' : `${theme.chip} opacity-70`}`} title="Write Mode"><FileText size={9}/> Write</button>
-                            </div>
-                          )}
                         </div>
                         <div className="flex gap-1 mt-1">
                           {(hw.notes || (hw as any).chunkNotes || (hw as any).htmlNotes) && <span className={`text-[9px] font-bold ${theme.chip} px-1.5 py-0.5 rounded`}>NOTES</span>}
@@ -6194,8 +6162,8 @@ export const StudentDashboard: React.FC<Props> = ({
                         key={hw.id}
                         role="button"
                         tabIndex={0}
-                        onClick={() => setHwActiveHwId(hw.id || null)}
-                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setHwActiveHwId(hw.id || null); }}
+                        onClick={() => setContentPickerPopup({ type: 'COMPETITION', hw })}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setContentPickerPopup({ type: 'COMPETITION', hw }); }}
                         className={`w-full border rounded-xl p-2 text-left hover:shadow-md transition-all active:scale-[0.99] flex items-center gap-2.5 cursor-pointer`}
                         style={{ background: tierTheme.profileCardBg, borderColor: tierTheme.primary }}
                       >
@@ -6205,25 +6173,13 @@ export const StudentDashboard: React.FC<Props> = ({
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className={`text-sm font-black ${theme.textDeep} truncate`}>{hw.title || `Page ${pageNum}`}</p>
-                          <div className="flex items-center gap-1 mt-1 flex-wrap" onClick={(e) => e.stopPropagation()}>
-                            {((hw as any).chunkNotes || (hw as any).htmlNotes || hw.notes) && (<>
-                              <button onClick={(e) => { e.stopPropagation(); setHwNotesViewMode('chunk'); setHwActiveHwId(hw.id || null); }} className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-black bg-amber-100 text-amber-700 active:scale-95 transition-all" title="Read Mode"><Volume2 size={9}/> Read</button>
-                              <button onClick={(e) => { e.stopPropagation(); handleWriteModeGate(() => { setHwNotesViewMode('html'); setHwActiveHwId(hw.id || null); }); }} className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-black bg-teal-100 text-teal-700 active:scale-95 transition-all" title="Write Mode"><FileText size={9}/> Write</button>
-                            </>)}
-                            {mcqCount > 0 ? (
-                              <button onClick={(e) => { e.stopPropagation(); setHwActiveHwId(hw.id || null); }} className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-black bg-violet-100 text-violet-700 active:scale-95 transition-all" title="MCQ Practice"><HelpCircle size={9}/> {mcqCount} MCQ</button>
-                            ) : (
-                              <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-100 text-slate-400"><HelpCircle size={9}/> 0 MCQ</span>
-                            )}
-                            {hw.videoUrl && (
-                              <button onClick={(e) => { e.stopPropagation(); hwAutoOpenRef.current = 'video'; setHwActiveHwId(hw.id || null); }} className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-black bg-rose-100 text-rose-700 active:scale-95 transition-all" title="Watch Video"><Video size={9}/> Video</button>
-                            )}
-                            {hw.audioUrl && (
-                              <button onClick={(e) => { e.stopPropagation(); hwAutoOpenRef.current = 'audio'; setHwActiveHwId(hw.id || null); }} className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-black bg-purple-100 text-purple-700 active:scale-95 transition-all" title="Listen Audio"><Headphones size={9}/> Audio</button>
-                            )}
-                            {((hw as any).isUltra || (hw as any).tier === 'ULTRA') && (
-                              <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-black bg-purple-600 text-white"><Crown size={9}/> ULTRA</span>
-                            )}
+                          <div className="flex items-center gap-1 mt-1 flex-wrap">
+                            {((hw as any).chunkNotes || (hw as any).htmlNotes || hw.notes) && <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-700">NOTES</span>}
+                            {mcqCount > 0 && <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-violet-100 text-violet-700">{mcqCount} MCQ</span>}
+                            {hw.videoUrl && <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-rose-100 text-rose-700">VIDEO</span>}
+                            {hw.audioUrl && <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-purple-100 text-purple-700">AUDIO</span>}
+                            {(hw as any).pdfUrl && <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-100 text-blue-700">PDF</span>}
+                            {((hw as any).isUltra || (hw as any).tier === 'ULTRA') && <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-black bg-purple-600 text-white"><Crown size={9}/> ULTRA</span>}
                             <span className={`text-[9px] font-bold ${theme.text} opacity-50`}>{monthYear}</span>
                             {user.role === 'ADMIN' && (
                               <button onClick={(e) => { e.stopPropagation(); openContentCodeModal(hw.id || '', hw.title || `Page ${pageNum}`); }} className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-black bg-amber-50 text-amber-700 border border-amber-200 active:scale-95 transition-all">🎫 Code</button>
@@ -14747,7 +14703,7 @@ export const StudentDashboard: React.FC<Props> = ({
                 return (
                   <button
                     key={idx}
-                    onClick={() => { setLucentNoteViewer(plEntry); setLucentPageIndex(idx); }}
+                    onClick={() => setContentPickerPopup({ type: 'LUCENT', entry: plEntry, pageIdx: idx })}
                     className="w-full text-left bg-white border border-slate-200 rounded-2xl px-4 py-3 flex items-center gap-3 active:scale-[0.98] hover:shadow-md transition-all"
                   >
                     <div className="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center shrink-0">
@@ -14775,6 +14731,149 @@ export const StudentDashboard: React.FC<Props> = ({
                   </button>
                 );
               })}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── CONTENT PICKER POPUP ─────────────────────────────────────────── */}
+      {contentPickerPopup && (() => {
+        const cpp = contentPickerPopup;
+        const isLucent = cpp.type === 'LUCENT';
+        const hw    = isLucent ? null : (cpp as any).hw;
+        const entry = isLucent ? (cpp as any).entry as LucentNoteEntry : null;
+        const pageIdx = isLucent ? (cpp as any).pageIdx as number : 0;
+        const page  = isLucent ? entry?.pages?.[pageIdx] : null;
+
+        // Availability checks
+        const hasNotes = isLucent
+          ? !!(page?.content || page?.chunkNotes || page?.htmlNotes)
+          : !!(hw?.chunkNotes || hw?.htmlNotes || hw?.notes);
+        const hasMcq = isLucent
+          ? (page?.mcqs && page.mcqs.length > 0)
+          : (Array.isArray((hw as any)?.mcqs) ? (hw as any).mcqs.length > 0 : !!(hw as any)?.mcqText);
+        const hasPdf  = isLucent ? !!(page as any)?.pdfUrl  : !!hw?.pdfUrl;
+        const hasVideo = isLucent ? !!(page as any)?.videoUrl : !!hw?.videoUrl;
+        const hasAudio = isLucent ? !!(page as any)?.audioUrl : !!hw?.audioUrl;
+
+        const dismiss = () => setContentPickerPopup(null);
+
+        const openReadingNotes = () => {
+          dismiss();
+          if (isLucent) {
+            lucentInitialTabRef.current = { tab: 'NOTES', viewMode: 'chunk' };
+            tryOpenLucentNote(entry, pageIdx);
+          } else {
+            setHwNotesViewMode('chunk');
+            setHwActiveHwId(hw.id || null);
+          }
+        };
+        const openMakingNotes = () => {
+          dismiss();
+          if (isLucent) {
+            lucentInitialTabRef.current = { tab: 'NOTES', viewMode: 'html' };
+            tryOpenLucentNote(entry, pageIdx);
+          } else {
+            handleWriteModeGate(() => { setHwNotesViewMode('html'); setHwActiveHwId(hw.id || null); });
+          }
+        };
+        const openMcq = () => {
+          dismiss();
+          if (isLucent) {
+            lucentInitialTabRef.current = { tab: 'MCQS' };
+            tryOpenLucentNote(entry, pageIdx);
+          } else {
+            setHwActiveHwId(hw.id || null);
+          }
+        };
+        const openPdf = () => {
+          dismiss();
+          const url = isLucent ? (page as any)?.pdfUrl : hw?.pdfUrl;
+          if (url) window.open(url, '_blank', 'noopener,noreferrer');
+        };
+        const openVideo = () => {
+          dismiss();
+          if (isLucent) {
+            lucentInitialTabRef.current = { tab: 'VIDEO' };
+            tryOpenLucentNote(entry, pageIdx);
+          } else {
+            hwAutoOpenRef.current = 'video';
+            setHwActiveHwId(hw.id || null);
+          }
+        };
+        const openAudio = () => {
+          dismiss();
+          if (isLucent) {
+            // Lucent audio: open directly if audioUrl exists
+            const url = (page as any)?.audioUrl;
+            if (url) window.open(url, '_blank', 'noopener,noreferrer');
+          } else {
+            hwAutoOpenRef.current = 'audio';
+            setHwActiveHwId(hw.id || null);
+          }
+        };
+
+        const title = isLucent
+          ? (page?.pageNo ? `Page ${page.pageNo}` : `Page ${pageIdx + 1}`) + (page?.topicName ? ` — ${page.topicName}` : '')
+          : hw?.title || `Page ${(hw as any)?.pageNo || ''}`;
+
+        type Option = { id: string; icon: string; label: string; sub: string; color: string; bg: string; enabled: boolean; onClick: () => void };
+        const options: Option[] = [
+          { id: 'read',  icon: '📖', label: 'Reading Notes', sub: hasNotes  ? 'Read Mode — TTS'       : 'Notes nahi hain', color: '#f59e0b', bg: 'rgba(245,158,11,0.13)',  enabled: hasNotes,  onClick: openReadingNotes },
+          { id: 'write', icon: '✏️', label: 'Making Notes',  sub: hasNotes  ? 'Write Mode — HTML'    : 'Notes nahi hain', color: '#14b8a6', bg: 'rgba(20,184,166,0.13)',  enabled: hasNotes,  onClick: openMakingNotes  },
+          { id: 'mcq',   icon: '🎯', label: 'MCQ Practice',  sub: hasMcq    ? 'Practice questions'   : 'MCQ nahi hain',   color: '#8b5cf6', bg: 'rgba(139,92,246,0.13)', enabled: !!hasMcq,  onClick: openMcq          },
+          { id: 'pdf',   icon: '📄', label: 'PDF',           sub: hasPdf    ? 'PDF available'        : 'PDF nahi hai',    color: '#3b82f6', bg: 'rgba(59,130,246,0.13)',  enabled: hasPdf,    onClick: openPdf          },
+          { id: 'video', icon: '🎬', label: 'Video',         sub: hasVideo  ? 'Video lecture'        : 'Video nahi hai',  color: '#ef4444', bg: 'rgba(239,68,68,0.13)',   enabled: hasVideo,  onClick: openVideo        },
+          { id: 'audio', icon: '🎧', label: 'Audio',         sub: hasAudio  ? 'Audio lecture'        : 'Audio nahi hai',  color: '#a855f7', bg: 'rgba(168,85,247,0.13)',  enabled: hasAudio,  onClick: openAudio        },
+        ];
+
+        return (
+          <div
+            className="fixed inset-0 z-[195] flex items-center justify-center p-5"
+            style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(8px)' }}
+            onClick={dismiss}
+          >
+            <div
+              className="w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl"
+              style={{ background: '#0d0f1a' }}
+              onClick={e => e.stopPropagation()}
+            >
+              {/* top spacing */}
+              <div className="pt-4" />
+              {/* Header */}
+              <div className="px-5 pt-2 pb-3 border-b border-white/10">
+                <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                  {isLucent ? '📘 Lucent Book — ' + (entry?.lessonTitle || '') : '📚 Competition Mode'}
+                </p>
+                <p className="text-[15px] font-black text-white leading-tight mt-0.5 truncate">{title}</p>
+              </div>
+              {/* Options grid 3×2 */}
+              <div className="px-4 pt-3 pb-8">
+                <div className="grid grid-cols-3 gap-2.5">
+                  {options.map(opt => (
+                    <button
+                      key={opt.id}
+                      onClick={opt.enabled ? opt.onClick : undefined}
+                      disabled={!opt.enabled}
+                      className="flex flex-col items-center gap-2 py-4 px-2 rounded-2xl active:scale-95 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                      style={{
+                        background: opt.enabled ? opt.bg : 'rgba(255,255,255,0.04)',
+                        border: `1.5px solid ${opt.enabled ? opt.color + '50' : 'rgba(255,255,255,0.07)'}`,
+                      }}
+                    >
+                      <span className="text-2xl leading-none">{opt.icon}</span>
+                      <div className="text-center">
+                        <p className="text-[11px] font-black leading-tight" style={{ color: opt.enabled ? '#fff' : 'rgba(255,255,255,0.35)' }}>
+                          {opt.label}
+                        </p>
+                        <p className="text-[9px] mt-0.5 leading-tight" style={{ color: opt.enabled ? opt.color : 'rgba(255,255,255,0.2)' }}>
+                          {opt.sub}
+                        </p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         );
@@ -14943,130 +15042,99 @@ export const StudentDashboard: React.FC<Props> = ({
                 </p>
                 <p className="font-black text-sm truncate">{entry.lessonTitle}</p>
               </div>
-              {/* Read / Write toggle — right next to lesson title */}
+              {/* Top-bar controls — NOTES tab only */}
               {lucentActiveTab === 'NOTES' && (() => {
-                const _hasContent = !!(currentPage?.chunkNotes || currentPage?.htmlNotes || currentPage?.content);
-                const _isReadMode = lucentNotesViewMode === 'chunk';
                 const _isWriteMode = lucentNotesViewMode === 'html';
-                const _handleSave = async () => {
+                const _handleSaveOffline = async () => {
+                  setLucentOptionsOpen(false);
                   try {
                     const pageLabel = `Page ${currentPage?.pageNo || safeIndex + 1}`;
                     const title = `${entry.lessonTitle || 'Lucent'} · ${pageLabel}`;
                     const id = `lucent_${entry.id}_pg${currentPage?.pageNo || safeIndex}`;
                     if (_isWriteMode) {
-                      await saveOfflineItem({
-                        id,
-                        type: 'NOTE',
-                        title,
-                        subtitle: `Lucent · ${entry.subject || ''} · Write Mode`,
-                        data: {
-                          kind: 'LUCENT_HTML',
-                          html: currentPage?.htmlNotes || currentPage?.content || '',
-                          lessonTitle: entry.lessonTitle,
-                          subject: entry.subject,
-                          pageNo: currentPage?.pageNo,
-                          lightCSS: (currentPage as any)?.lightCSS,
-                          darkCSS: (currentPage as any)?.darkCSS,
-                        },
-                      });
+                      await saveOfflineItem({ id, type: 'NOTE', title, subtitle: `Lucent · ${entry.subject || ''} · Write Mode`, data: { kind: 'LUCENT_HTML', html: currentPage?.htmlNotes || currentPage?.content || '', lessonTitle: entry.lessonTitle, subject: entry.subject, pageNo: currentPage?.pageNo, lightCSS: (currentPage as any)?.lightCSS, darkCSS: (currentPage as any)?.darkCSS } });
                     } else {
-                      await saveOfflineItem({
-                        id,
-                        type: 'NOTE',
-                        title,
-                        subtitle: `Lucent · ${entry.subject || ''} · Read Mode`,
-                        data: {
-                          kind: 'LUCENT_CHUNK',
-                          chunkNotes: currentPage?.chunkNotes || currentPage?.content || '',
-                          lessonTitle: entry.lessonTitle,
-                          subject: entry.subject,
-                          pageNo: currentPage?.pageNo,
-                        },
-                      });
+                      await saveOfflineItem({ id, type: 'NOTE', title, subtitle: `Lucent · ${entry.subject || ''} · Read Mode`, data: { kind: 'LUCENT_CHUNK', chunkNotes: currentPage?.chunkNotes || currentPage?.content || '', lessonTitle: entry.lessonTitle, subject: entry.subject, pageNo: currentPage?.pageNo } });
                     }
                     setLucentSaved(true);
                     showAlert('✅ Offline save ho gaya! Offline tab mein dekho.', 'SUCCESS');
                     setTimeout(() => setLucentSaved(false), 3000);
-                  } catch (e) {
-                    showAlert('Save failed. Please try again.', 'ERROR');
-                  }
+                  } catch { showAlert('Save failed. Please try again.', 'ERROR'); }
                 };
-                const _saveBtn = (
-                  <button
-                    onClick={_handleSave}
-                    className={`flex items-center gap-0.5 px-2 py-1 rounded-lg text-[10px] font-black transition-all border ${lucentSaved ? 'bg-emerald-400 text-white border-emerald-400 shadow-sm' : 'bg-white/20 text-white border-white/30 hover:bg-white/30'}`}
-                    title="Save offline"
-                  >
-                    <WifiOff size={11} /> {lucentSaved ? '✓' : 'Save'}
-                  </button>
-                );
                 return (
-                  <div className="flex items-center gap-0.5 shrink-0 relative">
-                    {/* Read button — when active, Save appears in its place */}
-                    {_isReadMode ? _saveBtn : (
-                      <button
-                        onClick={() => { stopSpeech(); setLucentNotesViewMode('chunk'); setLucentOptionsOpen(false); }}
-                        className="flex items-center gap-0.5 px-2 py-1 rounded-lg text-[10px] font-black transition-all border bg-white/20 text-white border-white/30 hover:bg-white/30"
-                        title="Read Mode"
-                      >
-                        <Volume2 size={11} /> Read
-                      </button>
-                    )}
-                    {/* Write button — when active, Save appears in its place */}
-                    {_isWriteMode ? _saveBtn : (
-                      <button
-                        onClick={() => { stopSpeech(); handleWriteModeGate(() => setLucentNotesViewMode('html')); setLucentOptionsOpen(false); }}
-                        className="flex items-center gap-0.5 px-2 py-1 rounded-lg text-[10px] font-black transition-all border bg-white/20 text-white border-white/30 hover:bg-white/30"
-                        title="Write Mode"
-                      >
-                        <FileText size={11} /> Write
-                      </button>
-                    )}
-                    {/* 3-dot menu button */}
-                    <button
+                  <div className="flex items-center gap-1.5 shrink-0 relative">
+                    {/* 3-dot menu — only in Making Notes (write mode) */}
+                    {_isWriteMode && <button
                       onClick={() => setLucentOptionsOpen(p => !p)}
-                      className="flex items-center justify-center w-7 h-7 rounded-lg bg-white/20 border border-white/30 text-white hover:bg-white/30 transition-colors shrink-0"
+                      className="flex items-center justify-center w-8 h-8 rounded-xl bg-white/20 border border-white/30 text-white hover:bg-white/30 transition-colors shrink-0"
                       title="More options"
                     >
-                      <MoreVertical size={13} />
-                    </button>
-                    {/* 3-dot dropdown */}
-                    {lucentOptionsOpen && (
-                      <div className="absolute top-full right-0 mt-1 z-50 rounded-xl shadow-2xl border border-white/20 overflow-hidden min-w-[160px]" style={{ background: 'rgba(15,15,25,0.97)', backdropFilter: 'blur(12px)' }}>
-                        {/* Font size row */}
-                        <div className="px-3 py-2 border-b border-white/10">
-                          <p className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-1.5">Font Size</p>
-                          <div className="flex items-center gap-0 bg-white/10 rounded-lg overflow-hidden border border-white/15">
-                            <button onClick={zoomOut} className="px-3 py-1.5 text-white text-[11px] font-black hover:bg-white/15 transition-colors">A-</button>
-                            <span className="flex-1 text-white/70 text-[10px] font-bold text-center">{Math.round(noteZoom * 100)}%</span>
-                            <button onClick={zoomIn} className="px-3 py-1.5 text-white text-[11px] font-black hover:bg-white/15 transition-colors">A+</button>
+                      <MoreVertical size={15} />
+                    </button>}
+                    {_isWriteMode && lucentOptionsOpen && (
+                      <div className="absolute top-full right-0 mt-2 z-50 w-52 rounded-2xl shadow-2xl overflow-hidden" style={{ background: 'rgba(10,12,22,0.98)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.09)' }}>
+                        {/* Text size section */}
+                        <div className="px-3.5 pt-3.5 pb-3 border-b border-white/8">
+                          <p className="text-[9px] font-black text-white/30 uppercase tracking-[0.14em] mb-2">Text Size</p>
+                          <div className="flex items-center gap-1.5 bg-white/7 rounded-xl p-1">
+                            <button onClick={zoomOut} className="w-10 h-8 flex items-center justify-center rounded-lg bg-white/10 text-white text-[11px] font-black hover:bg-white/18 active:scale-95 transition-all">A−</button>
+                            <span className="flex-1 text-white/80 text-[11px] font-bold text-center tabular-nums">{Math.round(noteZoom * 100)}%</span>
+                            <button onClick={zoomIn} className="w-10 h-8 flex items-center justify-center rounded-lg bg-white/10 text-white text-[11px] font-black hover:bg-white/18 active:scale-95 transition-all">A+</button>
                           </div>
                         </div>
-                        {/* Rotate */}
-                        <button
-                          onClick={() => { handleRotate(); setLucentOptionsOpen(false); }}
-                          className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-[11px] font-bold transition-colors ${isLandscape ? 'text-green-400' : 'text-white/80 hover:bg-white/8'}`}
-                        >
-                          <RotateCcw size={13} /> Screen Rotate {isLandscape ? '(On)' : ''}
-                        </button>
+                        {/* Action rows */}
+                        <div className="p-1.5 flex flex-col gap-0.5">
+                          <button
+                            onClick={() => { handleRotate(); setLucentOptionsOpen(false); }}
+                            className={`w-full flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-[12px] font-semibold transition-all active:scale-[0.97] ${isLandscape ? 'bg-emerald-500/12 text-emerald-300' : 'text-white/80 hover:bg-white/7'}`}
+                          >
+                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${isLandscape ? 'bg-emerald-500/25' : 'bg-white/10'}`}>
+                              <RotateCcw size={13} />
+                            </div>
+                            <span>Rotate Screen</span>
+                            {isLandscape && <span className="ml-auto text-[9px] font-black text-emerald-400 bg-emerald-500/20 px-1.5 py-0.5 rounded-md">ON</span>}
+                          </button>
+                          <button
+                            onClick={_handleSaveOffline}
+                            className={`w-full flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-[12px] font-semibold transition-all active:scale-[0.97] ${lucentSaved ? 'bg-emerald-500/12 text-emerald-300' : 'text-sky-300 hover:bg-sky-500/10'}`}
+                          >
+                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${lucentSaved ? 'bg-emerald-500/25' : 'bg-sky-500/20'}`}>
+                              <WifiOff size={13} />
+                            </div>
+                            <span>{lucentSaved ? 'Saved!' : 'Save Offline'}</span>
+                            {lucentSaved && <span className="ml-auto text-[9px] font-black text-emerald-400">✓</span>}
+                          </button>
+                          <button
+                            onClick={() => { setLucentOptionsOpen(false); setContentPickerPopup({ type: 'LUCENT', entry, pageIdx: safeIndex }); }}
+                            className="w-full flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-[12px] font-semibold text-violet-300 hover:bg-violet-500/10 transition-all active:scale-[0.97]"
+                          >
+                            <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-violet-500/20">
+                              <LayoutGrid size={13} />
+                            </div>
+                            <span>More Options</span>
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
                 );
               })()}
-              <div className="flex items-center gap-2 shrink-0">
-                <span className="bg-white/20 px-2.5 py-1 rounded-full text-[11px] font-black whitespace-nowrap">
-                  {safeIndex + 1}/{totalPages}
-                </span>
-                <button
-                  onClick={() => { const next = !autoSyncOn; setLucentAutoSync(next); if (!next) stopSpeech(); }}
-                  className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold transition-all ${autoSyncOn ? 'bg-white text-indigo-700' : 'bg-white/20 text-white'}`}
-                  title="Auto-Read & Sync: automatically read each page and move to the next"
-                >
-                  <Zap size={11} className={autoSyncOn ? 'fill-indigo-600' : ''} />
-                  {autoSyncOn ? 'Auto ON' : 'Auto'}
-                </button>
-              </div>
+              {/* Page counter + Auto: shown only outside NOTES tab */}
+              {lucentActiveTab !== 'NOTES' && (
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="bg-white/20 px-2.5 py-1 rounded-full text-[11px] font-black whitespace-nowrap">
+                    {safeIndex + 1}/{totalPages}
+                  </span>
+                  <button
+                    onClick={() => { const next = !autoSyncOn; setLucentAutoSync(next); if (!next) stopSpeech(); }}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold transition-all ${autoSyncOn ? 'bg-white text-indigo-700' : 'bg-white/20 text-white'}`}
+                    title="Auto-Read & Sync"
+                  >
+                    <Zap size={11} className={autoSyncOn ? 'fill-indigo-600' : ''} />
+                    {autoSyncOn ? 'Auto ON' : 'Auto'}
+                  </button>
+                </div>
+              )}
             </div>
             {/* Smart Search bar */}
             {/* NOTES / MCQ / VIDEO TAB SWITCHER */}
@@ -15892,46 +15960,18 @@ RULES:
               </button>
             </div>
 
-            {/* Lucent FAB — expandable: Save Offline + Back to Top */}
+            {/* Lucent FAB — Back to Top only (Save moved to top bar / 3-dot) */}
             {lucentFabOpen && (
               <div className="fixed inset-0 z-[9998]" onClick={() => setLucentFabOpen(false)} />
             )}
-            {lucentFabOpen && (
+            {lucentFabOpen && lucentScrollProgress > 30 && (
               <div className="fixed flex flex-col gap-2 items-end z-[9999]" style={{ bottom: '88px', right: '16px' }}>
                 <button
-                  onClick={async () => {
-                    try {
-                      const pageLabel = `Page ${currentPage?.pageNo || safeIndex + 1}`;
-                      const saveTitle = `${entry.lessonTitle || 'Lucent'} · ${pageLabel}`;
-                      const saveId = `lucent_${entry.id}_pg${currentPage?.pageNo || safeIndex}`;
-                      const isWrite = lucentNotesViewMode === 'html';
-                      await saveOfflineItem({
-                        id: saveId,
-                        type: 'NOTE',
-                        title: saveTitle,
-                        subtitle: `Lucent · ${entry.subject || ''} · ${isWrite ? 'Write' : 'Read'} Mode`,
-                        data: isWrite
-                          ? { kind: 'LUCENT_HTML', html: currentPage?.htmlNotes || currentPage?.content || '', lessonTitle: entry.lessonTitle, subject: entry.subject, pageNo: currentPage?.pageNo }
-                          : { kind: 'LUCENT_CHUNK', chunkNotes: currentPage?.chunkNotes || currentPage?.content || '', lessonTitle: entry.lessonTitle, subject: entry.subject, pageNo: currentPage?.pageNo },
-                      });
-                      setLucentSaved(true);
-                      showAlert('✅ Offline save ho gaya! Offline tab mein dekho.', 'SUCCESS');
-                      setTimeout(() => setLucentSaved(false), 3000);
-                    } catch { showAlert('Save failed. Please try again.', 'ERROR'); }
-                    setLucentFabOpen(false);
-                  }}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-full text-xs font-black shadow-xl active:scale-95 transition-all whitespace-nowrap ${lucentSaved ? 'bg-emerald-400 text-white' : 'bg-emerald-600 text-white'}`}
+                  onClick={() => { const n = lucentScrollContainerRef.current; if (n) n.scrollTo({ top: 0, behavior: 'smooth' }); setLucentFabOpen(false); }}
+                  className="flex items-center gap-2 bg-slate-800 text-white px-3 py-2 rounded-full text-xs font-black shadow-xl active:scale-95 transition-all whitespace-nowrap"
                 >
-                  <CloudOff size={14} /> {lucentSaved ? '✓ Saved!' : 'Save Offline'}
+                  ↑ Top pe jao
                 </button>
-                {lucentScrollProgress > 30 && (
-                  <button
-                    onClick={() => { const n = lucentScrollContainerRef.current; if (n) n.scrollTo({ top: 0, behavior: 'smooth' }); setLucentFabOpen(false); }}
-                    className="flex items-center gap-2 bg-slate-800 text-white px-3 py-2 rounded-full text-xs font-black shadow-xl active:scale-95 transition-all whitespace-nowrap"
-                  >
-                    ↑ Top pe jao
-                  </button>
-                )}
               </div>
             )}
             <button
