@@ -11657,6 +11657,34 @@ Statement 2"
                                                     />
                                                     <p className="text-[9px] text-rose-600 mt-1">💡 Google Drive link: File ko &quot;Anyone with the link&quot; share karein — student ko Gmail login nahi maangega.</p>
                                                   </div>
+                                                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-2">
+                                                    <label className="text-[9px] font-black text-blue-700 uppercase block mb-1">📄 PDF Link (Google Drive)</label>
+                                                    <input
+                                                      type="url"
+                                                      value={(pg as any).pdfUrl || ''}
+                                                      onChange={e => {
+                                                        const updated = [...newLucent.pages];
+                                                        updated[pgIdx] = { ...updated[pgIdx], pdfUrl: e.target.value || undefined } as any;
+                                                        setNewLucent({...newLucent, pages: updated});
+                                                      }}
+                                                      className="w-full p-2 border border-blue-200 rounded text-sm outline-none focus:border-blue-500 bg-white"
+                                                      placeholder="https://drive.google.com/file/d/FILE_ID/view"
+                                                    />
+                                                  </div>
+                                                  <div className="bg-purple-50 border border-purple-200 rounded-lg p-2">
+                                                    <label className="text-[9px] font-black text-purple-700 uppercase block mb-1">🎧 Audio Link</label>
+                                                    <input
+                                                      type="url"
+                                                      value={(pg as any).audioUrl || ''}
+                                                      onChange={e => {
+                                                        const updated = [...newLucent.pages];
+                                                        updated[pgIdx] = { ...updated[pgIdx], audioUrl: e.target.value || undefined } as any;
+                                                        setNewLucent({...newLucent, pages: updated});
+                                                      }}
+                                                      className="w-full p-2 border border-purple-200 rounded text-sm outline-none focus:border-purple-500 bg-white"
+                                                      placeholder="https://... audio file ya link"
+                                                    />
+                                                  </div>
                                                   <details className="text-[9px]">
                                                     <summary className="text-slate-400 cursor-pointer hover:text-slate-600">Legacy content field (purana data ke liye)</summary>
                                                     <textarea value={pg.content} onChange={e => {

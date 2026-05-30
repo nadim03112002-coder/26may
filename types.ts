@@ -538,6 +538,11 @@ export interface LucentPageNote {
    *  Shown as an embedded player in the reader — no Gmail login required
    *  when the Drive file is shared as "Anyone with the link". */
   videoUrl?: string;
+  /** Optional PDF link (Google Drive or direct URL) for this page.
+   *  Opens in a PDF viewer when the student taps "PDF" in the content picker. */
+  pdfUrl?: string;
+  /** Optional audio URL for this page. */
+  audioUrl?: string;
 }
 
 export interface LucentNoteEntry {
