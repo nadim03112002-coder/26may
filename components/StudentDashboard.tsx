@@ -596,7 +596,7 @@ export const StudentDashboard: React.FC<Props> = ({
 
   const tierTheme =
     // 1. Admin broadcast (forced, temporary, targeted) — always wins
-    _adminGlobalActive && _adminGlobal
+    _adminGlobalActive && _adminGlobal && _adminGlobal.theme
       ? buildGranularTierTheme(getTierTheme(user), _adminGlobal.theme)
       // 1.5. Scheduled library theme (admin-scheduled, time-based broadcast)
       : _scheduledThemeActive
@@ -9126,19 +9126,19 @@ export const StudentDashboard: React.FC<Props> = ({
                 {((settings?.specialDiscountEvent?.enabled && isDiscountCooldown) ? topBarCreditFlip : false) ? (
                   <button
                     onClick={() => { if (getLevelInfo(user.totalScore || 0).level <= 4) { const todayStr = new Date().toISOString().split('T')[0]; const k = `nst_store_visits_${user.id}_${todayStr}`; try { localStorage.setItem(k, String(parseInt(localStorage.getItem(k) || '0', 10) + 1)); } catch {} } onTabChange("STORE"); }}
-                    className="inline-flex items-center gap-0.5 px-2 py-[3px] rounded-full text-[8px] font-black bg-white/20 text-white border border-white/35 whitespace-nowrap shrink-0 active:scale-95 transition-all shadow-sm"
+                    className="inline-flex items-center gap-px px-1.5 py-[2px] rounded-full text-[6px] font-black bg-white/20 text-white border border-white/35 whitespace-nowrap shrink-0 active:scale-95 transition-all shadow-sm"
                     title="Cooldown Timer"
                   >
-                    <Timer size={9} />
+                    <Timer size={7} />
                     <span>{cooldownTimeLeft ? `${String(cooldownTimeLeft.hours).padStart(2, '0')}:${String(cooldownTimeLeft.minutes).padStart(2, '0')}:${String(cooldownTimeLeft.seconds).padStart(2, '0')}` : '00:00:00'}</span>
                   </button>
                 ) : ((settings?.specialDiscountEvent?.enabled && isDiscountLive) ? topBarCreditFlip : false) ? (
                   <button
                     onClick={() => { if (getLevelInfo(user.totalScore || 0).level <= 4) { const todayStr = new Date().toISOString().split('T')[0]; const k = `nst_store_visits_${user.id}_${todayStr}`; try { localStorage.setItem(k, String(parseInt(localStorage.getItem(k) || '0', 10) + 1)); } catch {} } onTabChange("STORE"); }}
-                    className="inline-flex items-center gap-0.5 px-2 py-[3px] rounded-full text-[8px] font-black bg-white/20 text-white border border-white/35 whitespace-nowrap shrink-0 active:scale-95 transition-all shadow-sm"
+                    className="inline-flex items-center gap-px px-1.5 py-[2px] rounded-full text-[6px] font-black bg-white/20 text-white border border-white/35 whitespace-nowrap shrink-0 active:scale-95 transition-all shadow-sm"
                     title="Discount"
                   >
-                    <Ticket size={9} />
+                    <Ticket size={7} />
                     <span>{Number(settings?.specialDiscountEvent?.discountPercent ?? 20)}% OFF</span>
                   </button>
                 ) : (
@@ -9151,10 +9151,10 @@ export const StudentDashboard: React.FC<Props> = ({
                       }
                       onTabChange("STORE");
                     }}
-                    className="inline-flex items-center gap-0.5 px-2 py-[3px] rounded-full text-[8px] font-black bg-white/20 text-white border border-white/35 whitespace-nowrap shrink-0 active:scale-95 transition-all shadow-sm"
+                    className="inline-flex items-center gap-px px-1.5 py-[2px] rounded-full text-[6px] font-black bg-white/20 text-white border border-white/35 whitespace-nowrap shrink-0 active:scale-95 transition-all shadow-sm"
                     title="Credits"
                   >
-                    <Crown size={9} />
+                    <Crown size={7} />
                     <span>{user.credits} CR</span>
                   </button>
                 )}
