@@ -14,19 +14,30 @@ interface Props {
   onUserUpdate: (user: User) => void;
   renderEarnContent?: React.ReactNode;
   onBack?: () => void;
+  themeColor?: string;
+}
+
+function hexToRgb(hex: string): string {
+  const clean = hex.replace('#', '');
+  const r = parseInt(clean.substring(0, 2), 16);
+  const g = parseInt(clean.substring(2, 4), 16);
+  const b = parseInt(clean.substring(4, 6), 16);
+  if (isNaN(r) || isNaN(g) || isNaN(b)) return '99,102,241';
+  return `${r},${g},${b}`;
 }
 
 /* ─── Subscription History ─── */
-const SubHistory: React.FC<{ user: User; onBack: () => void }> = ({ user, onBack }) => {
+const SubHistory: React.FC<{ user: User; onBack: () => void; themeColor?: string }> = ({ user, onBack, themeColor }) => {
   const history = user.subscriptionHistory || [];
   const totalPaid = history.reduce((s, i) => s + i.price, 0);
   const totalFree = history.reduce((s, i) => i.isFree ? s + i.originalPrice : s, 0);
   const sorted = [...history].sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
+  const rgb = hexToRgb(themeColor || '#6366f1');
 
   return (
-    <div className="bg-[#0a0a0a] min-h-screen pb-28 animate-in fade-in slide-in-from-right duration-300">
-      <div className="relative overflow-hidden px-4 pt-5 pb-6" style={{ background: 'linear-gradient(135deg,#0f172a,#1e1b4b)' }}>
-        <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse at top right, rgba(99,102,241,0.18) 0%, transparent 60%)' }} />
+    <div className="min-h-screen pb-28 animate-in fade-in slide-in-from-right duration-300" style={{ background: `linear-gradient(180deg, rgba(${rgb},0.06) 0%, #0a0a0a 35%)` }}>
+      <div className="relative overflow-hidden px-4 pt-5 pb-6" style={{ background: `linear-gradient(135deg, rgba(${rgb},0.18) 0%, rgba(${rgb},0.06) 60%, transparent 100%), #0d0d14` }}>
+        <div className="absolute inset-0 pointer-events-none" style={{ background: `radial-gradient(ellipse at top right, rgba(${rgb},0.22) 0%, transparent 60%)` }} />
         <div className="relative z-10 flex items-center gap-3">
           <button onClick={onBack} className="w-10 h-10 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center active:scale-90 transition-transform">
             <ArrowLeft size={18} className="text-white" />
@@ -118,7 +129,8 @@ const SubHistory: React.FC<{ user: User; onBack: () => void }> = ({ user, onBack
 };
 
 /* ─── Main Store ─── */
-export const Store: React.FC<Props> = ({ user, settings, renderEarnContent, onBack }) => {
+export const Store: React.FC<Props> = ({ user, settings, renderEarnContent, onBack, themeColor }) => {
+  const rgb = hexToRgb(themeColor || '#6366f1');
   const [tierType, setTierType] = useState<'BASIC' | 'ULTRA' | 'EARN' | 'CREDITS'>('BASIC');
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
@@ -221,14 +233,14 @@ export const Store: React.FC<Props> = ({ user, settings, renderEarnContent, onBa
   };
   const initiatePurchase = (item: any) => { setPurchaseItem(item); setShowSupportModal(true); };
 
-  if (showHistory) return <SubHistory user={user} onBack={() => setShowHistory(false)} />;
+  if (showHistory) return <SubHistory user={user} onBack={() => setShowHistory(false)} themeColor={themeColor} />;
 
   if (settings?.isPaymentEnabled === false) {
     return (
-      <div className="bg-[#0a0a0a] min-h-screen flex items-center justify-center px-4">
-        <div className="rounded-3xl border border-white/10 p-10 text-center max-w-sm w-full" style={{ background: 'rgba(255,255,255,0.04)' }}>
-          <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-5" style={{ background: 'rgba(255,255,255,0.06)' }}>
-            <Lock size={32} className="text-slate-500" />
+      <div className="min-h-screen flex items-center justify-center px-4" style={{ background: `linear-gradient(180deg, rgba(${rgb},0.07) 0%, #0a0a0a 40%)` }}>
+        <div className="rounded-3xl p-10 text-center max-w-sm w-full" style={{ background: `rgba(${rgb},0.06)`, border: `1px solid rgba(${rgb},0.2)` }}>
+          <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-5" style={{ background: `rgba(${rgb},0.15)` }}>
+            <Lock size={32} style={{ color: `rgba(${rgb},1)` }} />
           </div>
           <h3 className="text-xl font-black text-white mb-2">Store Locked</h3>
           <p className="text-slate-500 font-medium text-sm leading-relaxed">
@@ -296,7 +308,7 @@ export const Store: React.FC<Props> = ({ user, settings, renderEarnContent, onBa
   })();
 
   return (
-    <div className="bg-[#0a0a0a] min-h-screen pb-28 font-sans animate-in fade-in duration-300">
+    <div className="min-h-screen pb-28 font-sans animate-in fade-in duration-300" style={{ background: `linear-gradient(180deg, rgba(${rgb},0.07) 0%, #0a0a0a 30%)` }}>
 
       {/* ── SUPPORT MODAL ── */}
       {showSupportModal && (
@@ -352,13 +364,9 @@ export const Store: React.FC<Props> = ({ user, settings, renderEarnContent, onBa
 
       {/* ══════════ HEADER ══════════ */}
       <div className="relative overflow-hidden px-4 pt-5 pb-5"
-        style={{ background: 'linear-gradient(160deg,#0f0f1a 0%,#0d0d1a 60%,#0a0a12 100%)' }}>
+        style={{ background: `linear-gradient(160deg, rgba(${rgb},0.18) 0%, rgba(${rgb},0.06) 55%, transparent 100%), #0d0d14` }}>
         <div className="absolute inset-0 pointer-events-none" style={{
-          background: tierType === 'BASIC'
-            ? 'radial-gradient(ellipse at top right, rgba(6,182,212,0.12) 0%, transparent 55%)'
-            : tierType === 'ULTRA'
-            ? 'radial-gradient(ellipse at top right, rgba(139,92,246,0.12) 0%, transparent 55%)'
-            : 'radial-gradient(ellipse at top right, rgba(245,158,11,0.10) 0%, transparent 55%)'
+          background: `radial-gradient(ellipse at top right, rgba(${rgb},0.20) 0%, transparent 55%)`
         }} />
 
         {onBack && (

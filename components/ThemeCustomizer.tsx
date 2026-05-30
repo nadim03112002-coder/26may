@@ -519,37 +519,87 @@ interface ColorRowProps {
     onChange: (v: string) => void;
     accent: string;
 }
-const ColorRow: React.FC<ColorRowProps> = ({ label, sub, value, onChange, accent }) => (
-    <div className="flex items-center gap-3 py-2.5 border-b border-white/5 last:border-0">
-        <div
-            className="w-10 h-10 rounded-xl border-2 shrink-0 cursor-pointer relative overflow-hidden shadow-lg"
-            style={{ background: value, borderColor: `${accent}40` }}
-        >
-            <input
-                type="color" value={value}
-                onChange={e => onChange(e.target.value)}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-            />
-        </div>
-        <div className="flex-1 min-w-0">
-            <p className="text-xs font-bold text-white/90">{label}</p>
-            {sub && <p className="text-[9px] text-white/35 mt-0.5">{sub}</p>}
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-            <span className="text-[9px] font-mono text-white/20">{value.toUpperCase()}</span>
-            <div
-                className="w-6 h-6 rounded-lg border border-white/10 cursor-pointer relative overflow-hidden"
-                style={{ background: value }}
-            >
-                <input
-                    type="color" value={value}
-                    onChange={e => onChange(e.target.value)}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                />
+const ColorRow: React.FC<ColorRowProps> = ({ label, sub, value, onChange, accent }) => {
+    const [hexInput, setHexInput] = React.useState(value.toUpperCase());
+    const [hexError, setHexError] = React.useState(false);
+
+    React.useEffect(() => {
+        setHexInput(value.toUpperCase());
+        setHexError(false);
+    }, [value]);
+
+    const handleHexChange = (raw: string) => {
+        let v = raw.trim();
+        if (!v.startsWith('#')) v = '#' + v;
+        v = v.replace(/[^#0-9a-fA-F]/g, '');
+        if (v.length > 7) v = v.slice(0, 7);
+        setHexInput(v.toUpperCase());
+        const isValid = /^#[0-9a-fA-F]{6}$/.test(v);
+        setHexError(!isValid && v.length > 1);
+        if (isValid) { onChange(v); setHexError(false); }
+    };
+
+    const handleHexBlur = () => {
+        if (!/^#[0-9a-fA-F]{6}$/.test(hexInput)) {
+            setHexInput(value.toUpperCase());
+            setHexError(false);
+        }
+    };
+
+    return (
+        <div className="py-2.5 border-b border-white/5 last:border-0">
+            <div className="flex items-center gap-3">
+                <div
+                    className="w-10 h-10 rounded-xl border-2 shrink-0 cursor-pointer relative overflow-hidden shadow-lg"
+                    style={{ background: value, borderColor: `${accent}40` }}
+                >
+                    <input
+                        type="color" value={value}
+                        onChange={e => onChange(e.target.value)}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    />
+                </div>
+                <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-white/90">{label}</p>
+                    {sub && <p className="text-[9px] text-white/35 mt-0.5">{sub}</p>}
+                </div>
+                <div
+                    className="w-6 h-6 rounded-lg border border-white/10 cursor-pointer relative overflow-hidden shrink-0"
+                    style={{ background: value }}
+                >
+                    <input
+                        type="color" value={value}
+                        onChange={e => onChange(e.target.value)}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    />
+                </div>
+            </div>
+            {/* Hex code input */}
+            <div className="mt-2 flex items-center gap-2">
+                <div className="flex-1 flex items-center rounded-xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)', border: hexError ? '1px solid rgba(239,68,68,0.6)' : '1px solid rgba(255,255,255,0.1)' }}>
+                    <span className="px-2.5 text-[10px] font-black text-white/30 border-r border-white/10 select-none py-2">#</span>
+                    <input
+                        type="text"
+                        value={hexInput.replace('#', '')}
+                        onChange={e => handleHexChange(e.target.value)}
+                        onBlur={handleHexBlur}
+                        placeholder="Code daalo (e.g. FF5733)"
+                        maxLength={6}
+                        className="flex-1 px-2 py-2 text-[10px] font-mono font-bold bg-transparent outline-none placeholder-white/15"
+                        style={{ color: hexError ? '#f87171' : 'rgba(255,255,255,0.75)' }}
+                    />
+                    {!hexError && hexInput.length === 7 && (
+                        <div className="w-4 h-4 rounded-full mx-2 shrink-0 border border-white/20" style={{ background: value }} />
+                    )}
+                    {hexError && (
+                        <span className="text-[9px] text-red-400 px-2 shrink-0">❌</span>
+                    )}
+                </div>
+                <span className="text-[8px] text-white/20 font-bold shrink-0">Hex</span>
             </div>
         </div>
-    </div>
-);
+    );
+};
 
 const stateFromTheme = (t: UserCustomTheme | undefined): ThemeState => {
     if (!t) return { ...DEFAULT_THEME };
@@ -2055,7 +2105,7 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
                             <X size={13} className="text-white/70" />
                         </button>
                     </div>
-                    <div className="p-5 flex flex-col gap-4">
+                    <div className="p-5 pb-8 flex flex-col gap-4 overflow-y-auto max-h-[72vh]">
                         {/* Tier selection */}
                         <div>
                             <p className="text-white/60 text-xs font-bold mb-2">👥 Kis Ko Apply Karo?</p>
@@ -2271,7 +2321,7 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
                             <X size={13} className="text-white/70" />
                         </button>
                     </div>
-                    <div className="p-5 flex flex-col gap-4 overflow-y-auto max-h-[70vh]">
+                    <div className="p-5 pb-8 flex flex-col gap-4 overflow-y-auto max-h-[72vh]">
                         {/* Theme preview strip */}
                         <div className="rounded-2xl overflow-hidden border border-white/08">
                             <div className="h-8 w-full flex items-center px-3 gap-2" style={{ background: `linear-gradient(135deg,${theme.topBarStart},${theme.topBarEnd})` }}>
