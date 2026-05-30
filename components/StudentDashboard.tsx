@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { FeatureHints } from "./FeatureHints";
-import { ScheduledThemeBadge } from "./ScheduledThemeBadge";
 import { TopBarEffectsLayer } from "../utils/topBarEffects";
 import { getLevelInfo, getNextLevelInfo, getLevelProgress, LEVEL_INFO, ACTIVITY_SCORES, getLevelTopBarEffects, getLevelLimitBonus, getLevelDailyLimits, getLevelDailyLimitsWithOverride, getEffectiveDailyLimit, UNLIMITED } from "../utils/levelSystem";
 import { tryEarnScore, awardMilestone, getDailyScoreEarned, DAILY_SCORE_LIMIT, getDailyScoreLimit, getActiveBoost } from "../utils/scoreSystem";
@@ -2049,6 +2048,10 @@ export const StudentDashboard: React.FC<Props> = ({
   const [lucentScrollProgress, setLucentScrollProgress] = useState(0);
   const lucentScrollContainerRef = useRef<HTMLDivElement>(null);
   const lucentMilestoneSessionRef = useRef<string | null>(null);
+  const lucentControlsRef = useRef<(() => void) | null>(null);
+  // Back-navigation refs for the homework viewer — populated during render
+  const hwFilteredRef = useRef<any[]>([]);
+  const hwGoToRef = useRef<((hw: any) => void) | null>(null);
   const lucentMilestonePrevPctRef = useRef(0);
 
   // Subscribe to real-time content_index stats from Firebase for each class
@@ -4234,6 +4237,8 @@ export const StudentDashboard: React.FC<Props> = ({
     // overlays — ordered from topmost to bottommost z-layer
     lucentNoteViewer:    !!lucentNoteViewer,
     lucentPageListViewer: !!lucentPageListViewer,
+    lucentPageIndex,
+    hwActiveHwId,
     showHomeworkHistory,
     showChat,
     showNotifPage,
@@ -4263,6 +4268,8 @@ export const StudentDashboard: React.FC<Props> = ({
       contentViewStep,
       lucentNoteViewer:    !!lucentNoteViewer,
       lucentPageListViewer: !!lucentPageListViewer,
+      lucentPageIndex,
+      hwActiveHwId,
       showHomeworkHistory,
       showChat,
       showNotifPage,
@@ -4308,8 +4315,27 @@ export const StudentDashboard: React.FC<Props> = ({
       // 1. Close full-screen overlays one at a time (topmost first).
       //    Each back press closes exactly one overlay, then re-traps so the
       //    next press closes the next layer. This gives the 9→8→7…→1 feel.
-      if (s.lucentNoteViewer)    { setLucentNoteViewer(null);         reTrap(); return; }
+      // Lucent viewer: step back page-by-page; only close when on first page
+      if (s.lucentNoteViewer) {
+        if (s.lucentPageIndex > 0) {
+          setLucentPageIndex(s.lucentPageIndex - 1);
+        } else {
+          setLucentNoteViewer(null);
+        }
+        reTrap(); return;
+      }
       if (s.lucentPageListViewer){ setLucentPageListViewer(null);     reTrap(); return; }
+      // Homework/competition viewer: step back item-by-item; close when on first item
+      if (s.hwActiveHwId) {
+        const filtered = hwFilteredRef.current;
+        const idx = filtered.findIndex((h: any) => (h.id || '') === s.hwActiveHwId);
+        if (idx > 0 && hwGoToRef.current) {
+          hwGoToRef.current(filtered[idx - 1]);
+        } else {
+          setHwActiveHwId(null);
+        }
+        reTrap(); return;
+      }
       if (s.showHomeworkHistory) { setShowHomeworkHistory(false);     reTrap(); return; }
       if (s.showChat)            { setShowChat(false);                reTrap(); return; }
       if (s.showNotifPage)       { setShowNotifPage(false);           reTrap(); return; }
@@ -4552,7 +4578,7 @@ export const StudentDashboard: React.FC<Props> = ({
     }
     if (subject.id === 'lucent') {
       setLucentCategoryView(true);
-      setSelectedLucentBook(null);
+      setSelectedLucentBook('Lucent');
       return;
     }
     setContentViewStep("CHAPTERS");
@@ -4973,10 +4999,13 @@ export const StudentDashboard: React.FC<Props> = ({
           // Reset view mode for the new item.
           const tNotes = !!(target.notes?.trim() || (target as any).chunkNotes?.trim() || (target as any).htmlNotes?.trim());
           const tMcq = !!(target.parsedMcqs && target.parsedMcqs.length > 0);
-          if (tNotes && tMcq) setHwViewMode('choose');
+          if (tNotes) setHwViewMode('notes');
           else if (tMcq) setHwViewMode('mcq');
           else setHwViewMode('notes');
         };
+        // Expose filtered list + goToHw to the back-navigation popstate handler
+        hwFilteredRef.current = filteredHw as any[];
+        hwGoToRef.current = goToHw as any;
 
         return (
           <div className="fixed inset-0 z-[150] bg-white flex flex-col animate-in fade-in">
@@ -5003,8 +5032,8 @@ export const StudentDashboard: React.FC<Props> = ({
                 <ChevronRight size={22} className="-rotate-90" />
               </button>
             )}
-            {/* Sticky header */}
-            <div className={`text-white px-4 py-3 flex items-center gap-2 shrink-0 ${hwImmersive ? 'hidden' : ''}`} style={{ background: tierTheme.topBarGrad }}>
+            {/* Sticky header — hidden in read mode so ChunkedNotesReader slim bar acts as the header */}
+            <div className={`text-white px-4 py-3 flex items-center gap-2 shrink-0 ${hwImmersive || (effectiveMode === 'notes' && hwNotesViewMode === 'chunk') ? 'hidden' : ''}`} style={{ background: tierTheme.topBarGrad }}>
               <button onClick={goBack} className="bg-white/20 hover:bg-white/30 p-2 rounded-full shrink-0 transition-colors">
                 <ChevronRight size={18} className="rotate-180" />
               </button>
@@ -5017,7 +5046,12 @@ export const StudentDashboard: React.FC<Props> = ({
                     </span>
                   )}
                 </p>
-                <p className="font-black text-sm leading-tight truncate">{activeHw.title}</p>
+                <div className="flex items-center gap-2 min-w-0">
+                  <p className="font-black text-sm leading-tight truncate">{activeHw.title}</p>
+                  {effectiveMode === 'notes' && hwNotesViewMode === 'html' && (
+                    <span className="shrink-0 text-[8px] font-black uppercase tracking-[0.18em] text-white/30 select-none">WRITE MODE</span>
+                  )}
+                </div>
               </div>
               {/* 3-dot options — write mode only; read mode uses content-area 3-dot */}
               {effectiveMode === 'notes' && hwNotesViewMode === 'html' && (
@@ -5193,20 +5227,14 @@ export const StudentDashboard: React.FC<Props> = ({
               {/* NOTES MODE */}
               {effectiveMode === 'notes' && (
                 <>
-                  {/* Top header row with switch-to-MCQ button (mirrors MCQ mode's top row) */}
+                  {/* Top header row — hidden in read mode; ChunkedNotesReader slim bar takes over */}
+                  {hwNotesViewMode !== 'chunk' && (
                   <div className="px-4 pt-3 pb-2 flex items-center gap-2">
                     <p className={`text-[10px] font-black ${theme.text} uppercase tracking-widest flex items-center gap-1 flex-1`}>
                       <BookOpen size={11} /> Notes
                     </p>
-                    {hasMcq && (
-                      <button
-                        onClick={() => setHwViewMode('mcq')}
-                        className="text-[11px] font-black text-emerald-700 bg-emerald-100 px-3 py-1.5 rounded-full flex items-center gap-1 hover:opacity-80 active:scale-95 transition-all"
-                      >
-                        MCQ ({activeHw.parsedMcqs!.length}) <ChevronRight size={12} />
-                      </button>
-                    )}
                   </div>
+                  )}
 
                   {/* Topic continuation banner */}
                   {continuationPages.length > 0 && (
@@ -5251,6 +5279,7 @@ export const StudentDashboard: React.FC<Props> = ({
                       /* ── Read Mode: ChunkedNotesReader TTS ── */
                       <ChunkedNotesReader
                         key={`hw-reader-${activeHw.id}-chunk`}
+                        onMoreOptions={() => setContentPickerPopup({ type: 'COMPETITION', hw: activeHw })}
                         isUltraUser={_isUltraUser}
                         ultraHtmlRemaining={_isUltraUser ? ultraHtmlRemaining : undefined}
                         isBasicUser={_isBasicUser}
@@ -6483,13 +6512,6 @@ export const StudentDashboard: React.FC<Props> = ({
           <div className="grid grid-cols-1 gap-3">
             {LUCENT_CATEGORIES.map((cat) => (
               <button key={cat.id} onClick={() => {
-                setLucentCategoryView(false);
-                setSelectedLucentBook(null);
-                setSelectedSubject(cat);
-                setContentViewStep("CHAPTERS");
-                setSelectedChapter(null);
-                setLoadingChapters(true);
-                const lang = (activeSessionBoard || user.board) === "BSEB" ? "Hindi" : "English";
                 const _minPg = (n: LucentNoteEntry): number => {
                   let m = Infinity;
                   (n.pages || []).forEach(p => {
@@ -6498,19 +6520,43 @@ export const StudentDashboard: React.FC<Props> = ({
                   });
                   return m === Infinity ? 99999 : m;
                 };
-                // Only include entries belonging to 'Lucent' book
-                const adminLucentLessons: Chapter[] = ((settings?.lucentNotes || []) as LucentNoteEntry[])
+                // Admin lessons for this subject under 'Lucent' book
+                const allLucentNotes = (settings?.lucentNotes || []) as LucentNoteEntry[];
+                const subjectEntries = allLucentNotes
                   .filter(n => n.subject === cat.id && (n.bookName?.trim() || 'Lucent') === 'Lucent')
-                  .sort((a, b) => _minPg(a) - _minPg(b))
-                  .map(n => {
-                    const mp = _minPg(n);
-                    return {
-                      id: `lucent_admin_${n.id}`,
-                      title: n.lessonTitle,
-                      description: `📘 Admin Notes • ${n.pages.length} page${n.pages.length === 1 ? '' : 's'}`,
-                      pageNo: mp < 99999 ? String(mp) : undefined,
-                    };
-                  });
+                  .sort((a, b) => _minPg(a) - _minPg(b));
+
+                // If exactly 1 lesson → skip chapters, go straight to page list
+                if (subjectEntries.length === 1) {
+                  const entry = subjectEntries[0];
+                  if (_lucentIsLocked(entry)) {
+                    showAlert('🔒 Yeh lesson locked hai! Admin se Redeem Code maangein aur Profile → Redeem tab mein enter karein.', 'INFO');
+                    return;
+                  }
+                  setLucentCategoryView(false);
+                  setSelectedLucentBook(null);
+                  setSelectedSubject(cat);
+                  setLucentPageListViewer(entry);
+                  return;
+                }
+
+                // Multiple/zero lessons → show chapters list as before
+                const lang = (activeSessionBoard || user.board) === "BSEB" ? "Hindi" : "English";
+                const adminLucentLessons: Chapter[] = subjectEntries.map(n => {
+                  const mp = _minPg(n);
+                  return {
+                    id: `lucent_admin_${n.id}`,
+                    title: n.lessonTitle,
+                    description: `📘 Admin Notes • ${n.pages.length} page${n.pages.length === 1 ? '' : 's'}`,
+                    pageNo: mp < 99999 ? String(mp) : undefined,
+                  };
+                });
+                setLucentCategoryView(false);
+                setSelectedLucentBook(null);
+                setSelectedSubject(cat);
+                setContentViewStep("CHAPTERS");
+                setSelectedChapter(null);
+                setLoadingChapters(true);
                 const hideSyllabus = settings?.hideLucentSyllabus !== false;
                 if (hideSyllabus) {
                   setChapters(adminLucentLessons);
@@ -7679,7 +7725,7 @@ export const StudentDashboard: React.FC<Props> = ({
                 }
                 if (subject.id === 'lucent') {
                   setLucentCategoryView(true);
-                  setSelectedLucentBook(null);
+                  setSelectedLucentBook('Lucent');
                   return;
                 }
                 setContentViewStep("CHAPTERS");
@@ -8354,10 +8400,12 @@ export const StudentDashboard: React.FC<Props> = ({
               );
             }
 
-            /* ── REGULAR USERS: Theme history picker ── */
-            const _userTierStr = user.isPremium && (user as any).subscriptionLevel === 'ULTRA' ? 'ultra'
-              : user.isPremium && (user as any).subscriptionLevel === 'BASIC' ? 'basic' : 'free';
-            const _applicable = (_themeHistory || []).filter(e => e.targetTier === 'all' || e.targetTier === _userTierStr);
+            /* ── REGULAR USERS: no theme picker shown ── */
+            return null;
+
+            // eslint-disable-next-line no-unreachable
+            const _userTierStr = 'free';
+            const _applicable: import('../types').ThemeHistoryEntry[] = [];
             if (!_applicable.length) return null;
 
             const _activeId = (user as any).activeAppliedThemeId as string | undefined;
@@ -9059,13 +9107,6 @@ export const StudentDashboard: React.FC<Props> = ({
 
           {/* RIGHT: streak + search + mail + dots */}
           <div className="flex items-center gap-1 shrink-0">
-
-            {/* Scheduled Theme Badge */}
-            <ScheduledThemeBadge
-              settings={settings}
-              userTier={getUserTier(user)}
-              accentColor={(tierTheme as any).btnStart || tierTheme.primary}
-            />
 
             {/* Streak pill */}
             <button
@@ -10562,8 +10603,8 @@ export const StudentDashboard: React.FC<Props> = ({
         const openHomeworkDirect = (hw: typeof allHw[number], subId: string) => {
           const hasNotes = !!(hw.notes?.trim() || (hw as any).chunkNotes?.trim() || (hw as any).htmlNotes?.trim());
           const hasMcq = !!(hw.parsedMcqs && hw.parsedMcqs.length > 0);
-          // Pre-set the view mode so the chooser overlay (or single-mode view) shows correctly.
-          if (hasNotes && hasMcq) setHwViewMode('choose');
+          // Pre-set the view mode — always open notes if available; MCQ via content picker only.
+          if (hasNotes) setHwViewMode('notes');
           else if (hasMcq) setHwViewMode('mcq');
           else setHwViewMode('notes');
 
@@ -14750,8 +14791,8 @@ export const StudentDashboard: React.FC<Props> = ({
           ? !!(page?.content || page?.chunkNotes || page?.htmlNotes)
           : !!(hw?.chunkNotes || hw?.htmlNotes || hw?.notes);
         const hasMcq = isLucent
-          ? (page?.mcqs && page.mcqs.length > 0)
-          : (Array.isArray((hw as any)?.mcqs) ? (hw as any).mcqs.length > 0 : !!(hw as any)?.mcqText);
+          ? (!!(page?.mcqs && page.mcqs.length > 0) || !!(lucentMcqsByPage[`${entry?.id}_${pageIdx}`]?.length))
+          : !!(hw?.parsedMcqs && hw.parsedMcqs.length > 0);
         const hasPdf  = isLucent ? !!(page as any)?.pdfUrl  : !!hw?.pdfUrl;
         const hasVideo = isLucent ? !!(page as any)?.videoUrl : !!hw?.videoUrl;
         const hasAudio = isLucent ? !!(page as any)?.audioUrl : !!hw?.audioUrl;
@@ -14783,6 +14824,7 @@ export const StudentDashboard: React.FC<Props> = ({
             lucentInitialTabRef.current = { tab: 'MCQS' };
             tryOpenLucentNote(entry, pageIdx);
           } else {
+            setHwViewMode('mcq');
             setHwActiveHwId(hw.id || null);
           }
         };
@@ -15027,20 +15069,27 @@ export const StudentDashboard: React.FC<Props> = ({
               </button>
             )}
             {/* Header */}
-            <div className={`text-white px-4 py-3 flex items-center gap-3 shrink-0 ${isLandscapeUiHidden ? 'hidden' : ''}`} style={{ background: tierTheme.topBarGrad }}>
+            <div className={`text-white px-4 py-3 flex items-center gap-2 shrink-0 ${isLandscapeUiHidden || (lucentActiveTab === 'NOTES' && lucentNotesViewMode === 'chunk') ? 'hidden' : ''}`} style={{ background: tierTheme.topBarGrad }}>
               <button onClick={closeLucentViewer} className="bg-white/20 hover:bg-white/30 p-2 rounded-full shrink-0 transition-colors">
                 <ChevronRight size={18} className="rotate-180" />
               </button>
-              <div className="flex-1 min-w-0">
-                <p className="text-[10px] font-bold uppercase tracking-wider opacity-75 flex items-center gap-1.5">
-                  📘 Lucent Book
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-bold opacity-75 uppercase tracking-widest truncate flex items-center gap-1.5">
+                  <span className="truncate">
+                    {(() => { const _cat = LUCENT_CATEGORIES.find(c => c.id === entry.subject); return _cat ? `📘 ${_cat.name}` : '📘 Lucent Book'; })()}
+                  </span>
                   {currentPage?.date && (
-                    <span className="bg-white/20 px-1.5 py-0.5 rounded text-[9px] font-black tracking-wide">
+                    <span className="bg-white/25 px-1.5 py-0.5 rounded text-[9px] font-black tracking-wide whitespace-nowrap shrink-0">
                       📅 {new Date(currentPage.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                     </span>
                   )}
                 </p>
-                <p className="font-black text-sm truncate">{entry.lessonTitle}</p>
+                <div className="flex items-center gap-2 min-w-0">
+                  <p className="font-black text-sm leading-tight truncate">{entry.lessonTitle}</p>
+                  {lucentNotesViewMode === 'html' && lucentActiveTab === 'NOTES' && (
+                    <span className="shrink-0 text-[8px] font-black uppercase tracking-[0.18em] text-white/30 select-none">WRITE MODE</span>
+                  )}
+                </div>
               </div>
               {/* Top-bar controls — NOTES tab only */}
               {lucentActiveTab === 'NOTES' && (() => {
@@ -15063,7 +15112,17 @@ export const StudentDashboard: React.FC<Props> = ({
                 };
                 return (
                   <div className="flex items-center gap-1.5 shrink-0 relative">
-                    {/* 3-dot menu — only in Making Notes (write mode) */}
+                    {/* 3-dot menu — read mode (chunk): opens ChunkedNotesReader bottom-sheet */}
+                    {!_isWriteMode && (
+                      <button
+                        onClick={() => lucentControlsRef.current?.()}
+                        className="flex items-center justify-center w-8 h-8 rounded-xl bg-white/20 border border-white/30 text-white hover:bg-white/30 transition-colors shrink-0"
+                        title="Reading controls"
+                      >
+                        <MoreVertical size={15} />
+                      </button>
+                    )}
+                    {/* 3-dot menu — write mode: opens dropdown */}
                     {_isWriteMode && <button
                       onClick={() => setLucentOptionsOpen(p => !p)}
                       className="flex items-center justify-center w-8 h-8 rounded-xl bg-white/20 border border-white/30 text-white hover:bg-white/30 transition-colors shrink-0"
@@ -15140,12 +15199,10 @@ export const StudentDashboard: React.FC<Props> = ({
             {/* NOTES / MCQ / VIDEO TAB SWITCHER */}
             {(() => {
               const _pgHasNotes = !!(currentPage?.chunkNotes?.trim() || currentPage?.htmlNotes?.trim() || currentPage?.content?.trim());
-              const _mcqK = `${entry.id}_${safeIndex}`;
-              const _mcqCnt = lucentMcqsByPage[_mcqK]?.length || currentPage?.mcqs?.length || 0;
               const _pgHasVideo = !!(currentPage as any)?.videoUrl;
-              if (!_pgHasNotes && _mcqCnt === 0 && !_pgHasVideo) return null;
+              if (!_pgHasNotes && !_pgHasVideo) return null;
               return (
-                <div className={`shrink-0 bg-white border-b border-slate-100 px-4 py-2 flex items-center gap-2 ${isLandscapeUiHidden ? 'hidden' : ''}`}>
+                <div className={`shrink-0 bg-white border-b border-slate-100 px-4 py-2 flex items-center gap-2 ${isLandscapeUiHidden || (lucentActiveTab === 'NOTES' && lucentNotesViewMode === 'chunk') ? 'hidden' : ''}`}>
                   {_pgHasNotes && (
                     <button
                       onClick={() => { setLucentActiveTab('NOTES'); }}
@@ -15156,19 +15213,6 @@ export const StudentDashboard: React.FC<Props> = ({
                       }`}
                     >
                       <FileText size={13} /> Notes
-                    </button>
-                  )}
-                  {_mcqCnt > 0 && (
-                    <button
-                      onClick={() => { stopSpeech(); setLucentActiveTab('MCQS'); }}
-                      className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-black transition-all ${
-                        lucentActiveTab === 'MCQS'
-                          ? 'bg-purple-600 text-white shadow-sm'
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                      }`}
-                    >
-                      <BrainCircuit size={13} /> MCQs
-                      <span className="ml-0.5 text-[10px] bg-white/30 px-1.5 py-0.5 rounded-full">{_mcqCnt}</span>
                     </button>
                   )}
                   {_pgHasVideo && (
@@ -15236,6 +15280,8 @@ export const StudentDashboard: React.FC<Props> = ({
                     /* ── Read Mode: ChunkedNotesReader TTS ── */
                   <ChunkedNotesReader
                     key={`lucent-reader-${entry.id}-${safeIndex}-${autoSyncOn ? 'auto' : 'manual'}-chunk`}
+                    triggerControlsRef={lucentControlsRef}
+                    onMoreOptions={() => setContentPickerPopup({ type: 'LUCENT', entry, pageIdx: safeIndex })}
                     isUltraUser={_isUltraUser}
                     ultraHtmlRemaining={_isUltraUser ? ultraHtmlRemaining : undefined}
                     isBasicUser={_isBasicUser}
