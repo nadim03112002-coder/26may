@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Volume2, Square, BookOpen, Star, Palette, Check, Type, RotateCcw, Search, Monitor, MoreVertical, X, Layers } from 'lucide-react';
+import { Volume2, Square, BookOpen, Star, Palette, Check, Type, RotateCcw, Search, Monitor, X, Layers } from 'lucide-react';
 import { rotateScreen, isDesktopModeOn, setDesktopMode } from '../utils/displayPrefs';
 import { speakText, stopSpeech } from '../utils/textToSpeech';
 import { splitIntoTopics, NotesTopic as Topic } from '../utils/notesSplitter';
@@ -556,12 +556,51 @@ export const ChunkedNotesReader: React.FC<Props> = ({ content, className, langua
   const [isDesktopMode, setIsDesktopModeLocal] = useState<boolean>(isDesktopModeOn);
   const [rotateToast, setRotateToast] = useState<string | null>(null);
   const [showControls, setShowControls] = useState(false);
+  const lastScrollY = useRef(0);
+  const [toolbarHidden, setToolbarHidden] = useState(false);
+  const toolbarRef = useRef<HTMLDivElement>(null);
 
   // Expose setShowControls to parent via ref so top-bar 3-dot can trigger the sheet
   useEffect(() => {
     if (triggerControlsRef) triggerControlsRef.current = () => setShowControls(true);
     return () => { if (triggerControlsRef) triggerControlsRef.current = null; };
   }, [triggerControlsRef]);
+
+  // Hide compact button row when user scrolls down; show again on scroll up
+  useEffect(() => {
+    const el = toolbarRef.current;
+    if (!el) return;
+    let parent = el.parentElement;
+    while (parent) {
+      const ov = window.getComputedStyle(parent).overflowY;
+      if ((ov === 'auto' || ov === 'scroll') && parent.scrollHeight > parent.clientHeight + 10) break;
+      parent = parent.parentElement;
+    }
+    const scrollEl = parent;
+    if (!scrollEl) return;
+    let lastTop = scrollEl.scrollTop;
+    const onScroll = () => {
+      const top = scrollEl.scrollTop;
+      if (top > lastTop + 20 && top > 60) setToolbarHidden(true);
+      else if (top < lastTop - 10) setToolbarHidden(false);
+      lastTop = top;
+    };
+    scrollEl.addEventListener('scroll', onScroll, { passive: true });
+    return () => scrollEl.removeEventListener('scroll', onScroll);
+  }, []);
+
+  // Auto-collapse MORE panel when user scrolls down
+  useEffect(() => {
+    if (!showControls) return;
+    const handleScroll = () => {
+      const currentY = window.scrollY || document.documentElement.scrollTop;
+      if (currentY > lastScrollY.current + 30) setShowControls(false);
+      lastScrollY.current = currentY;
+    };
+    lastScrollY.current = window.scrollY || document.documentElement.scrollTop;
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [showControls]);
 
   // Re-apply desktop mode on orientation/resize changes so it survives rotation
   useEffect(() => {
@@ -982,30 +1021,154 @@ export const ChunkedNotesReader: React.FC<Props> = ({ content, className, langua
         </div>
       )}
       {!hideTopBar && (
-        <div className="sticky top-0 z-20 bg-white border-b border-slate-200 shadow-sm mb-3">
-          {/* ── Slim bar — title + READ MODE watermark + 3-dot ── */}
-          <div className="flex items-center gap-2 px-2 py-2">
+        <div ref={toolbarRef} className="sticky top-0 z-20 bg-white border-b border-slate-200 shadow-sm mb-3">
+          {/* ── Slim bar — title + READ MODE watermark ── */}
+          <div className="flex items-center gap-2 px-2 py-1.5">
             <div className="flex-1 min-w-0 flex items-center gap-2 overflow-hidden">
               <span className="text-xs font-bold text-slate-700 truncate">
                 {topBarLabel || 'Notes'}
               </span>
-              {/* READ MODE watermark */}
               <span className="shrink-0 text-[8px] font-black uppercase tracking-[0.18em] text-slate-300 select-none">
                 {isReading && activeIdx !== null ? `${activeIdx + 1}/${activeTopicList.length}` : 'READ MODE'}
               </span>
             </div>
-            {/* 3-dot menu toggle — hidden when parent top-bar owns the trigger */}
-            {!hideInline3dot && (
+          </div>
+
+          {/* ── 5-button compact row — hides on scroll down ── */}
+          <div className={`overflow-hidden transition-all duration-200 ${toolbarHidden ? 'max-h-0 opacity-0 pointer-events-none' : 'max-h-12 opacity-100'}`}>
+            <div className="flex items-center gap-1 px-2 pb-2">
+              {/* READ ALL */}
               <button
                 type="button"
-                onClick={() => setShowControls(s => !s)}
-                className="shrink-0 p-1.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 active:scale-95 transition"
-                aria-label="Reading controls"
+                onClick={() => {
+                  if (isReading) { try { if (navigator.vibrate) navigator.vibrate(30); } catch {} stopAll(); }
+                  else { try { if (navigator.vibrate) navigator.vibrate(50); } catch {} startFromIndex(initialIndex ?? 0); }
+                }}
+                className={`flex-1 flex items-center justify-center gap-1 h-8 rounded-xl text-[11px] font-black active:scale-95 transition ${isReading ? 'bg-red-500 text-white' : 'bg-indigo-600 text-white'}`}
               >
-                <MoreVertical size={15} />
+                {isReading ? <><Square size={11}/> Stop</> : <><Volume2 size={11}/> {initialIndex ? 'Resume' : 'Read All'}</>}
               </button>
-            )}
+              {/* A− */}
+              <button type="button" onClick={() => changeFontSize(-1)} disabled={fontIdx === 0}
+                className="flex-1 h-8 flex items-center justify-center rounded-xl bg-slate-50 border border-slate-200 text-slate-700 text-[13px] font-black active:scale-95 transition disabled:opacity-35">
+                A−
+              </button>
+              {/* A+ */}
+              <button type="button" onClick={() => changeFontSize(1)} disabled={fontIdx === 3}
+                className="flex-1 h-8 flex items-center justify-center rounded-xl bg-slate-50 border border-slate-200 text-slate-700 text-[13px] font-black active:scale-95 transition disabled:opacity-35">
+                A+
+              </button>
+              {/* Rotate */}
+              <button type="button" onClick={handleRotate}
+                className="flex-1 h-8 flex items-center justify-center rounded-xl bg-slate-50 border border-slate-200 active:scale-95 transition">
+                <RotateCcw size={14} className="text-slate-600" />
+              </button>
+              {/* More */}
+              <button type="button" onClick={() => setShowControls(s => !s)}
+                className={`flex-1 h-8 flex items-center justify-center rounded-xl border active:scale-95 transition ${showControls ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-600'}`}>
+                <Layers size={14} />
+              </button>
+            </div>
           </div>
+
+          {/* ── MORE panel — Style, Color, Search, Speed, Ultra ── */}
+          {showControls && (
+            <div className="px-2 pb-2 pt-1 border-t border-slate-100 animate-in slide-in-from-top-1 duration-150">
+              <div className="grid grid-cols-5 gap-1">
+
+                {/* Font Style */}
+                <button type="button"
+                  onClick={() => { setShowFontFamilyMenu(true); setShowControls(false); TOP_10_READING_FONTS.forEach(f => ensureReadingFontLoaded(f.gfontParam)); }}
+                  className={`flex flex-col items-center gap-0.5 py-1.5 px-1 rounded-xl border active:scale-95 transition ${activeFont ? 'bg-indigo-50 border-indigo-200' : 'bg-slate-50 border-slate-200'}`}>
+                  <Type size={13} className={activeFont ? 'text-indigo-600' : 'text-slate-600'} />
+                  <span className={`text-[8px] font-bold uppercase tracking-wide leading-none ${activeFont ? 'text-indigo-500' : 'text-slate-400'}`}>Style</span>
+                </button>
+
+                {/* Text Color */}
+                {!textColorOverride ? (
+                  <div className="relative">
+                    <button type="button" onClick={() => setShowColorMenu(s => !s)}
+                      className="w-full flex flex-col items-center gap-0.5 py-1.5 px-1 rounded-xl bg-slate-50 border border-slate-200 active:scale-95 transition">
+                      <div className="flex items-center gap-0.5">
+                        <Palette size={11} className="text-slate-600" />
+                        <span className="w-3 h-3 rounded-full border-2 border-slate-300" style={{ backgroundColor: textColor }} />
+                      </div>
+                      <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wide leading-none">Color</span>
+                    </button>
+                    {showColorMenu && (
+                      <>
+                        <div className="fixed inset-0 z-[310]" onClick={() => setShowColorMenu(false)} />
+                        <div className="absolute right-0 bottom-full mb-2 z-[320] bg-white border border-slate-200 rounded-xl shadow-lg p-3 w-52 animate-in fade-in slide-in-from-bottom-2 duration-150">
+                          <p className="text-[10px] font-black uppercase tracking-wider text-slate-500 mb-2">
+                            Text Color · {themeMode === 'blue' ? 'Blue' : themeMode === 'dark' ? 'Dark' : 'Light'} mode
+                          </p>
+                          <div className="grid grid-cols-6 gap-2">
+                            {READING_PALETTE[themeMode].map((sw, i) => {
+                              const isSelected = sw.hex.toLowerCase() === textColor.toLowerCase();
+                              const isRecommended = i === 0;
+                              return (
+                                <button key={sw.hex} type="button"
+                                  onClick={() => { pickColor(sw.hex); setShowColorMenu(false); }}
+                                  title={`${sw.name}${isRecommended ? ' · Recommended' : ''}`}
+                                  className={`relative aspect-square rounded-lg border-2 transition-all active:scale-90 ${isSelected ? 'border-indigo-500 ring-2 ring-indigo-200' : 'border-slate-200 hover:border-slate-400'}`}
+                                  style={{ backgroundColor: sw.hex }}>
+                                  {isSelected && <span className="absolute inset-0 flex items-center justify-center"><Check size={12} className="text-white drop-shadow" strokeWidth={4} /></span>}
+                                  {isRecommended && !isSelected && <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-amber-400 text-[8px] font-black text-white flex items-center justify-center shadow">★</span>}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          <p className="text-[10px] text-slate-500 mt-2">★ = recommended for this mode</p>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ) : <div />}
+
+                {/* Search */}
+                <button type="button"
+                  onClick={() => { setInlineSearch(s => !s); setInlineQuery(''); setShowControls(false); }}
+                  className={`flex flex-col items-center gap-0.5 py-1.5 px-1 rounded-xl border active:scale-95 transition ${inlineSearch ? 'bg-blue-600 border-blue-600' : 'bg-slate-50 border-slate-200'}`}>
+                  <Search size={13} className={inlineSearch ? 'text-white' : 'text-slate-600'} />
+                  <span className={`text-[8px] font-bold uppercase tracking-wide leading-none ${inlineSearch ? 'text-white' : 'text-slate-400'}`}>Search</span>
+                </button>
+
+                {/* Voice Speed */}
+                <button type="button" onClick={cycleSpeed}
+                  className="flex flex-col items-center gap-0.5 py-1.5 px-1 rounded-xl bg-slate-50 border border-slate-200 active:scale-95 transition">
+                  <span className="text-[11px] font-black text-slate-700 leading-none">{SPEED_LABELS[speedIdx]}</span>
+                  <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wide leading-none">Speed</span>
+                </button>
+
+                {/* Ultra View */}
+                {hasHtmlToShow ? (
+                  isUltraUser ? (
+                    <button type="button"
+                      onClick={() => { stopAll(); setHtmlViewMode('html'); onHtmlOpen?.(); setShowControls(false); }}
+                      className="flex flex-col items-center gap-0.5 py-1.5 px-1 rounded-xl bg-violet-50 border border-violet-200 active:scale-95 transition">
+                      <span className="text-sm leading-none">⚡</span>
+                      <span className="text-[8px] font-bold text-violet-500 uppercase tracking-wide leading-none">Ultra</span>
+                    </button>
+                  ) : (
+                    <button type="button"
+                      onClick={() => { setShowHtmlUnlockPrompt(true); setShowControls(false); }}
+                      className="flex flex-col items-center gap-0.5 py-1.5 px-1 rounded-xl bg-slate-50 border border-slate-200 active:scale-95 transition">
+                      <span className="text-sm leading-none">🔒</span>
+                      <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wide leading-none">Ultra</span>
+                    </button>
+                  )
+                ) : onMoreOptions ? (
+                  <button type="button"
+                    onClick={() => { setShowControls(false); onMoreOptions(); }}
+                    className="flex flex-col items-center gap-0.5 py-1.5 px-1 rounded-xl bg-indigo-50 border border-indigo-200 active:scale-95 transition">
+                    <Layers size={13} className="text-indigo-600" />
+                    <span className="text-[8px] font-bold text-indigo-500 uppercase tracking-wide leading-none">Opt</span>
+                  </button>
+                ) : <div />}
+
+              </div>
+            </div>
+          )}
 
           {/* Ultra unlock prompt (portal-style) */}
           {showHtmlUnlockPrompt && (
@@ -1056,195 +1219,6 @@ export const ChunkedNotesReader: React.FC<Props> = ({ content, className, langua
         </div>
       )}
 
-      {/* ── 3-dot bottom-sheet popup ── */}
-      {showControls && (
-        <div
-          className="fixed inset-0 z-[300] flex flex-col justify-end"
-          style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(4px)' }}
-          onClick={() => setShowControls(false)}
-        >
-          <div
-            className="bg-white rounded-t-3xl shadow-2xl px-4 pt-3 pb-28 animate-in slide-in-from-bottom-4 duration-200"
-            onClick={e => e.stopPropagation()}
-          >
-            {/* Handle */}
-            <div className="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-4" />
-
-            {/* Read All / Stop / Continue — big full-width button */}
-            <button
-              type="button"
-              onClick={() => {
-                setShowControls(false);
-                if (isReading) {
-                  try { if (navigator.vibrate) navigator.vibrate(30); } catch {}
-                  stopAll();
-                } else {
-                  try { if (navigator.vibrate) navigator.vibrate(50); } catch {}
-                  startFromIndex(initialIndex ?? 0);
-                }
-              }}
-              className={`w-full inline-flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-black uppercase tracking-wider shadow-sm active:scale-95 transition mb-4 ${isReading ? 'bg-red-600 text-white' : 'bg-indigo-600 text-white'}`}
-            >
-              {isReading ? <><Square size={15}/> Stop Reading</> : initialIndex ? <><Volume2 size={15}/> Continue Reading</> : <><Volume2 size={15}/> Read All</>}
-            </button>
-
-            {/* Controls grid */}
-            <div className="grid grid-cols-4 gap-2">
-
-              {/* Font Size Down */}
-              <button
-                type="button"
-                onClick={() => changeFontSize(-1)}
-                disabled={fontIdx === 0}
-                className="flex flex-col items-center gap-1 py-2.5 px-1 rounded-xl bg-slate-50 border border-slate-200 active:scale-95 transition disabled:opacity-35"
-              >
-                <span className="text-slate-700 text-sm font-black leading-none">A-</span>
-                <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wide leading-none">Font छोटा</span>
-              </button>
-
-              {/* Font Size Up */}
-              <button
-                type="button"
-                onClick={() => changeFontSize(1)}
-                disabled={fontIdx === 3}
-                className="flex flex-col items-center gap-1 py-2.5 px-1 rounded-xl bg-slate-50 border border-slate-200 active:scale-95 transition disabled:opacity-35"
-              >
-                <span className="text-slate-700 text-base font-black leading-none">A+</span>
-                <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wide leading-none">Font बड़ा</span>
-              </button>
-
-              {/* Font Style */}
-              <button
-                type="button"
-                onClick={() => { setShowFontFamilyMenu(true); setShowControls(false); TOP_10_READING_FONTS.forEach(f => ensureReadingFontLoaded(f.gfontParam)); }}
-                className={`flex flex-col items-center gap-1 py-2.5 px-1 rounded-xl border active:scale-95 transition ${activeFont ? 'bg-indigo-50 border-indigo-200' : 'bg-slate-50 border-slate-200'}`}
-              >
-                <Type size={14} className={activeFont ? 'text-indigo-600' : 'text-slate-600'} />
-                <span className={`text-[8px] font-bold uppercase tracking-wide leading-none ${activeFont ? 'text-indigo-500' : 'text-slate-400'}`}>Font Style</span>
-              </button>
-
-              {/* Text Color */}
-              {!textColorOverride ? (
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setShowColorMenu(s => !s)}
-                    className="w-full flex flex-col items-center gap-1 py-2.5 px-1 rounded-xl bg-slate-50 border border-slate-200 active:scale-95 transition"
-                  >
-                    <div className="flex items-center gap-0.5">
-                      <Palette size={12} className="text-slate-600" />
-                      <span className="w-3.5 h-3.5 rounded-full border-2 border-slate-300" style={{ backgroundColor: textColor }} />
-                    </div>
-                    <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wide leading-none">Text Color</span>
-                  </button>
-                  {showColorMenu && (
-                    <>
-                      <div className="fixed inset-0 z-[310]" onClick={() => setShowColorMenu(false)} />
-                      <div className="absolute left-0 bottom-full mb-2 z-[320] bg-white border border-slate-200 rounded-xl shadow-lg p-3 w-56 animate-in fade-in slide-in-from-bottom-2 duration-150">
-                        <p className="text-[10px] font-black uppercase tracking-wider text-slate-500 mb-2">
-                          Text Color · {themeMode === 'blue' ? 'Blue' : themeMode === 'dark' ? 'Dark' : 'Light'} mode
-                        </p>
-                        <div className="grid grid-cols-6 gap-2">
-                          {READING_PALETTE[themeMode].map((sw, i) => {
-                            const isSelected = sw.hex.toLowerCase() === textColor.toLowerCase();
-                            const isRecommended = i === 0;
-                            return (
-                              <button
-                                key={sw.hex}
-                                type="button"
-                                onClick={() => { pickColor(sw.hex); setShowColorMenu(false); }}
-                                title={`${sw.name}${isRecommended ? ' · Recommended' : ''}`}
-                                className={`relative aspect-square rounded-lg border-2 transition-all active:scale-90 ${isSelected ? 'border-indigo-500 ring-2 ring-indigo-200' : 'border-slate-200 hover:border-slate-400'}`}
-                                style={{ backgroundColor: sw.hex }}
-                              >
-                                {isSelected && (
-                                  <span className="absolute inset-0 flex items-center justify-center">
-                                    <Check size={12} className="text-white drop-shadow" strokeWidth={4} />
-                                  </span>
-                                )}
-                                {isRecommended && !isSelected && (
-                                  <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-amber-400 text-[8px] font-black text-white flex items-center justify-center shadow">★</span>
-                                )}
-                              </button>
-                            );
-                          })}
-                        </div>
-                        <p className="text-[10px] text-slate-500 mt-2">★ = recommended for this mode</p>
-                      </div>
-                    </>
-                  )}
-                </div>
-              ) : <div />}
-
-              {/* Search */}
-              <button
-                type="button"
-                onClick={() => { setInlineSearch(s => !s); setInlineQuery(''); setShowControls(false); }}
-                className={`flex flex-col items-center gap-1 py-2.5 px-1 rounded-xl border active:scale-95 transition ${inlineSearch ? 'bg-blue-600 border-blue-600' : 'bg-slate-50 border-slate-200'}`}
-              >
-                <Search size={14} className={inlineSearch ? 'text-white' : 'text-slate-600'} />
-                <span className={`text-[8px] font-bold uppercase tracking-wide leading-none ${inlineSearch ? 'text-white' : 'text-slate-400'}`}>Search</span>
-              </button>
-
-              {/* Rotate Screen */}
-              <button
-                type="button"
-                onClick={() => { handleRotate(); setShowControls(false); }}
-                className="flex flex-col items-center gap-1 py-2.5 px-1 rounded-xl bg-slate-50 border border-slate-200 active:scale-95 transition"
-              >
-                <RotateCcw size={14} className="text-slate-600" />
-                <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wide leading-none">Rotate</span>
-              </button>
-
-              {/* Voice Speed */}
-              <button
-                type="button"
-                onClick={cycleSpeed}
-                className="flex flex-col items-center gap-1 py-2.5 px-1 rounded-xl bg-slate-50 border border-slate-200 active:scale-95 transition"
-              >
-                <span className="text-[13px] font-black text-slate-700 leading-none">{SPEED_LABELS[speedIdx]}</span>
-                <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wide leading-none">Speed</span>
-              </button>
-
-              {/* Ultra View */}
-              {hasHtmlToShow && (
-                isUltraUser ? (
-                  <button
-                    type="button"
-                    onClick={() => { stopAll(); setHtmlViewMode('html'); onHtmlOpen?.(); setShowControls(false); }}
-                    className="flex flex-col items-center gap-1 py-2.5 px-1 rounded-xl bg-violet-50 border border-violet-200 active:scale-95 transition"
-                  >
-                    <span className="text-base leading-none">⚡</span>
-                    <span className="text-[8px] font-bold text-violet-500 uppercase tracking-wide leading-none">Ultra</span>
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => { setShowHtmlUnlockPrompt(true); setShowControls(false); }}
-                    className="flex flex-col items-center gap-1 py-2.5 px-1 rounded-xl bg-slate-50 border border-slate-200 active:scale-95 transition"
-                  >
-                    <span className="text-base leading-none">🔒</span>
-                    <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wide leading-none">Ultra</span>
-                  </button>
-                )
-              )}
-
-              {/* More / Mode Switcher */}
-              {onMoreOptions && (
-                <button
-                  type="button"
-                  onClick={() => { setShowControls(false); onMoreOptions(); }}
-                  className="flex flex-col items-center gap-1 py-2.5 px-1 rounded-xl bg-indigo-50 border border-indigo-200 active:scale-95 transition"
-                >
-                  <Layers size={14} className="text-indigo-600" />
-                  <span className="text-[8px] font-bold text-indigo-500 uppercase tracking-wide leading-none">More</span>
-                </button>
-              )}
-
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Inline search panel */}
       {inlineSearch && (
