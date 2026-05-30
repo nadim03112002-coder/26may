@@ -442,6 +442,23 @@ export const speakText = async (
              if (voices.length > 0) {
                  const uri = localStorage.getItem('nst_preferred_voice_uri');
                  if (uri) selectedVoice = voices.find(v => v.voiceURI === uri) || null;
+
+                 // Auto-select best Hindi voice when no preference is stored and lang is Hindi.
+                 // Priority: Google hi-IN > Google hi-* > Samsung/Microsoft hi-IN > any hi-IN > any Hindi
+                 if (!selectedVoice && (lang || '').toLowerCase().startsWith('hi')) {
+                     const hindiVoices = voices.filter(v =>
+                         v.lang.startsWith('hi') || v.name.toLowerCase().includes('hindi')
+                     );
+                     if (hindiVoices.length > 0) {
+                         selectedVoice =
+                             hindiVoices.find(v => /google/i.test(v.name) && v.lang === 'hi-IN') ||
+                             hindiVoices.find(v => /google/i.test(v.name) && v.lang.startsWith('hi')) ||
+                             hindiVoices.find(v => v.lang === 'hi-IN') ||
+                             hindiVoices.find(v => v.lang.startsWith('hi')) ||
+                             hindiVoices[0] ||
+                             null;
+                     }
+                 }
              }
         } catch (e) {
             console.warn("Failed to retrieve voices synchronously:", e);

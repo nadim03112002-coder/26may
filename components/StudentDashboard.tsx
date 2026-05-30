@@ -2167,12 +2167,6 @@ export const StudentDashboard: React.FC<Props> = ({
   const [hwMonth, setHwMonth] = useState<number | null>(null);
   const [hwWeek, setHwWeek] = useState<number | null>(null);
   // For page-wise book subjects (Sar Sangrah / Speedy / Custom Books) student
-  // can toggle between flat page-number list ("page") and date-based hierarchy
-  // ("date"). Default = page (because home subject card opens the book view).
-  const [hwBookViewMode, setHwBookViewMode] = useState<'page' | 'date'>('page');
-  // Optional Year / Month filter on the page-wise list. null = show all.
-  const [bookFilterYear, setBookFilterYear] = useState<number | null>(null);
-  const [bookFilterMonth, setBookFilterMonth] = useState<number | null>(null);
   const [hwActiveHwId, setHwActiveHwId] = useState<string | null>(null);
   // Content Code Generator
   const [showContentCodeModal, setShowContentCodeModal] = useState(false);
@@ -4262,37 +4256,40 @@ export const StudentDashboard: React.FC<Props> = ({
     lucentCategoryView,
     activeSessionClass,
   });
-  useEffect(() => {
-    navStateRef.current = {
-      activeTab,
-      contentViewStep,
-      lucentNoteViewer:    !!lucentNoteViewer,
-      lucentPageListViewer: !!lucentPageListViewer,
-      lucentPageIndex,
-      hwActiveHwId,
-      showHomeworkHistory,
-      showChat,
-      showNotifPage,
-      showStarredPage,
-      showCompMcqHub,
-      showMistakePractice,
-      showRulesPage,
-      showAllNotesCatalog:  !!(showAllNotesCatalog),
-      showTopicDirectory,
-      showCompareView,
-      showMcqSearchView,
-      showHomeSearch,
-      showUserGuide,
-      showSupportModal,
-      showLessonModal,
-      showSidebar,
-      showInbox,
-      initialParentSubject,
-      homeworkSubjectView,
-      lucentCategoryView,
-      activeSessionClass,
-    };
-  });
+  // Update navStateRef synchronously during render so the popstate handler
+  // always sees fresh state even when the user presses back rapidly (before
+  // the next useEffect run). React allows ref writes during render — they
+  // don't cause re-renders and are safe as long as you don't read the ref
+  // during the same render's output (we only read in event handlers).
+  navStateRef.current = {
+    activeTab,
+    contentViewStep,
+    lucentNoteViewer:    !!lucentNoteViewer,
+    lucentPageListViewer: !!lucentPageListViewer,
+    lucentPageIndex,
+    hwActiveHwId,
+    showHomeworkHistory,
+    showChat,
+    showNotifPage,
+    showStarredPage,
+    showCompMcqHub,
+    showMistakePractice,
+    showRulesPage,
+    showAllNotesCatalog:  !!(showAllNotesCatalog),
+    showTopicDirectory,
+    showCompareView,
+    showMcqSearchView,
+    showHomeSearch,
+    showUserGuide,
+    showSupportModal,
+    showLessonModal,
+    showSidebar,
+    showInbox,
+    initialParentSubject,
+    homeworkSubjectView,
+    lucentCategoryView,
+    activeSessionClass,
+  };
 
   useEffect(() => {
     // Push an initial trap entry so the first back press is captured.
@@ -4325,6 +4322,9 @@ export const StudentDashboard: React.FC<Props> = ({
         reTrap(); return;
       }
       if (s.lucentPageListViewer){ setLucentPageListViewer(null);     reTrap(); return; }
+      // Competition/HOME context: close category view (book list) after page list closes.
+      // (COURSES tab handles lucentCategoryView in its own block below, so skip here.)
+      if (s.lucentCategoryView && s.activeTab !== 'COURSES') { setLucentCategoryView(false); reTrap(); return; }
       // Homework/competition viewer: step back item-by-item; close when on first item
       if (s.hwActiveHwId) {
         const filtered = hwFilteredRef.current;
@@ -5053,74 +5053,49 @@ export const StudentDashboard: React.FC<Props> = ({
                   )}
                 </div>
               </div>
-              {/* 3-dot options — write mode only; read mode uses content-area 3-dot */}
+              {/* Write mode inline top-bar controls */}
               {effectiveMode === 'notes' && hwNotesViewMode === 'html' && (
-                <div className="flex items-center gap-0.5 shrink-0 relative">
+                <div className="flex items-center gap-1 shrink-0">
+                  {/* A− / % / A+ group */}
+                  <div className="flex items-center rounded-xl overflow-hidden border border-white/25" style={{ background: 'rgba(255,255,255,0.12)' }}>
+                    <button onClick={zoomOut} className="w-7 h-7 flex items-center justify-center text-white text-[11px] font-black active:scale-90 transition-all hover:bg-white/15">A−</button>
+                    <span className="px-1 text-white/70 text-[10px] font-bold tabular-nums border-x border-white/20">{Math.round(noteZoom * 100)}%</span>
+                    <button onClick={zoomIn} className="w-7 h-7 flex items-center justify-center text-white text-[11px] font-black active:scale-90 transition-all hover:bg-white/15">A+</button>
+                  </div>
+                  {/* Rotate */}
                   <button
-                    onClick={() => setHwOptionsOpen(p => !p)}
-                    className="flex items-center justify-center w-8 h-8 rounded-xl bg-white/20 border border-white/30 text-white hover:bg-white/30 transition-colors shrink-0"
-                    title="More options"
+                    onClick={handleRotate}
+                    className={`w-8 h-8 flex items-center justify-center rounded-xl border transition-all active:scale-90 shrink-0 ${isLandscape ? 'bg-emerald-500/30 border-emerald-400/50 text-emerald-300' : 'bg-white/15 border-white/25 text-white'}`}
+                    title="Rotate Screen"
                   >
-                    <MoreVertical size={15} />
+                    <RotateCcw size={14} />
                   </button>
-                  {/* 3-dot dropdown — professional design */}
-                  {hwOptionsOpen && (
-                    <div className="absolute top-full right-0 mt-2 z-50 w-52 rounded-2xl shadow-2xl overflow-hidden" style={{ background: 'rgba(10,12,22,0.98)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.09)' }}>
-                      {/* Text size section */}
-                      <div className="px-3.5 pt-3.5 pb-3 border-b border-white/8">
-                        <p className="text-[9px] font-black text-white/30 uppercase tracking-[0.14em] mb-2">Text Size</p>
-                        <div className="flex items-center gap-1.5 bg-white/7 rounded-xl p-1">
-                          <button onClick={zoomOut} className="w-10 h-8 flex items-center justify-center rounded-lg bg-white/10 text-white text-[11px] font-black hover:bg-white/18 active:scale-95 transition-all">A−</button>
-                          <span className="flex-1 text-white/80 text-[11px] font-bold text-center tabular-nums">{Math.round(noteZoom * 100)}%</span>
-                          <button onClick={zoomIn} className="w-10 h-8 flex items-center justify-center rounded-lg bg-white/10 text-white text-[11px] font-black hover:bg-white/18 active:scale-95 transition-all">A+</button>
-                        </div>
-                      </div>
-                      {/* Action rows */}
-                      <div className="p-1.5 flex flex-col gap-0.5">
-                        <button
-                          onClick={() => { handleRotate(); setHwOptionsOpen(false); }}
-                          className={`w-full flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-[12px] font-semibold transition-all active:scale-[0.97] ${isLandscape ? 'bg-emerald-500/12 text-emerald-300' : 'text-white/80 hover:bg-white/7'}`}
-                        >
-                          <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${isLandscape ? 'bg-emerald-500/25' : 'bg-white/10'}`}>
-                            <RotateCcw size={13} />
-                          </div>
-                          <span>Rotate Screen</span>
-                          {isLandscape && <span className="ml-auto text-[9px] font-black text-emerald-400 bg-emerald-500/20 px-1.5 py-0.5 rounded-md">ON</span>}
-                        </button>
-                        {hwNotesViewMode === 'html' && (activeHw as any).htmlNotes && (
-                          <button
-                            onClick={async () => {
-                              setHwOptionsOpen(false);
-                              try {
-                                const safeTitle = (activeHw.title || 'Homework').replace(/[^a-z0-9_\- ]/gi, '_').slice(0, 60);
-                                const _dlOk = await checkAndDoDownload(async () => {
-                                  await downloadAsMHTML('hw-html-download', safeTitle, { appName: settings?.appShortName || settings?.appName || 'IIC', pageTitle: activeHw.title || 'Homework', subtitle: 'Homework Notes — Write Mode' });
-                                });
-                                if (_dlOk) showAlert('📥 Saved!', 'SUCCESS');
-                              } catch (e) {
-                                showAlert('Download failed. Please try again.', 'ERROR');
-                              }
-                            }}
-                            className="w-full flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-[12px] font-semibold text-sky-300 hover:bg-sky-500/10 transition-all active:scale-[0.97]"
-                          >
-                            <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-sky-500/20">
-                              <Download size={13} />
-                            </div>
-                            <span>Save Offline</span>
-                          </button>
-                        )}
-                        <button
-                          onClick={() => { setHwOptionsOpen(false); setContentPickerPopup({ type: 'COMPETITION', hw: activeHw }); }}
-                          className="w-full flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-[12px] font-semibold text-violet-300 hover:bg-violet-500/10 transition-all active:scale-[0.97]"
-                        >
-                          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-violet-500/20">
-                            <LayoutGrid size={13} />
-                          </div>
-                          <span>More Options</span>
-                        </button>
-                      </div>
-                    </div>
+                  {/* Save Offline */}
+                  {(activeHw as any).htmlNotes && (
+                    <button
+                      onClick={async () => {
+                        try {
+                          const safeTitle = (activeHw.title || 'Homework').replace(/[^a-z0-9_\- ]/gi, '_').slice(0, 60);
+                          const _dlOk = await checkAndDoDownload(async () => {
+                            await downloadAsMHTML('hw-html-download', safeTitle, { appName: settings?.appShortName || settings?.appName || 'IIC', pageTitle: activeHw.title || 'Homework', subtitle: 'Homework Notes — Write Mode' });
+                          });
+                          if (_dlOk) showAlert('📥 Saved!', 'SUCCESS');
+                        } catch { showAlert('Download failed. Please try again.', 'ERROR'); }
+                      }}
+                      className="w-8 h-8 flex items-center justify-center rounded-xl bg-white/15 border border-white/25 text-white active:scale-90 transition-all shrink-0"
+                      title="Save Offline"
+                    >
+                      <Download size={14} />
+                    </button>
                   )}
+                  {/* More Options */}
+                  <button
+                    onClick={() => setContentPickerPopup({ type: 'COMPETITION', hw: activeHw })}
+                    className="w-8 h-8 flex items-center justify-center rounded-xl bg-white/15 border border-white/25 text-white active:scale-90 transition-all shrink-0"
+                    title="More Options"
+                  >
+                    <LayoutGrid size={14} />
+                  </button>
                 </div>
               )}
               <span className="bg-white/20 text-white text-[11px] font-black px-2.5 py-1 rounded-full shrink-0">
@@ -6128,24 +6103,7 @@ export const StudentDashboard: React.FC<Props> = ({
       // A top toggle lets the student switch to "By Date" (Year → Month → notes
       // sorted by date) — useful when reading the same notes through the
       // Homework page mental model.
-      const renderBookViewToggle = () => (
-        <div className={`border-2 rounded-2xl p-1 flex gap-1 mb-4 shadow-sm`} style={{ background: tierTheme.profileCardBg, borderColor: tierTheme.primary }}>
-          <button
-            onClick={() => setHwBookViewMode('page')}
-            className={`flex-1 py-2 px-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${hwBookViewMode === 'page' ? `${theme.btn} text-white shadow` : `${theme.text} hover:${theme.bgSoft}`}`}
-          >
-            <BookOpen size={14} /> By Page
-          </button>
-          <button
-            onClick={() => setHwBookViewMode('date')}
-            className={`flex-1 py-2 px-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${hwBookViewMode === 'date' ? `${theme.btn} text-white shadow` : `${theme.text} hover:${theme.bgSoft}`}`}
-          >
-            <Calendar size={14} /> By Date
-          </button>
-        </div>
-      );
-
-      if (isPageWiseSubject && hwBookViewMode === 'page' && hwYear === null && hwMonth === null) {
+      if (isPageWiseSubject && hwYear === null && hwMonth === null) {
         // BY PAGE shows ALL pages of the book sorted by pageNo. Year/Month
         // filter lives in BY DATE mode (where it makes contextual sense).
         const withPage = filteredHw.filter(hw => {
@@ -6171,8 +6129,6 @@ export const StudentDashboard: React.FC<Props> = ({
                   </p>
                 </div>
               </div>
-              {renderBookViewToggle()}
-
               {filteredHw.length === 0 ? (
                 <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center">
                   <BookOpen size={36} className={`${theme.text} mx-auto mb-2 opacity-60`} />
@@ -6260,154 +6216,6 @@ export const StudentDashboard: React.FC<Props> = ({
         );
       }
 
-      // ============== ROOT MONTH-YEAR LIST (flat — skips standalone Year step) ==============
-      // Earlier the BY DATE root showed a Year card → Month list → Notes. The Year
-      // step added little value when most books only have one or two years of
-      // entries. Now we render a single flat list of "Month YYYY" cards (e.g.
-      // "May 2026 — 5 notes"). Tapping a card sets BOTH hwYear and hwMonth and
-      // jumps straight to the existing month → date-sorted notes view.
-      const monthYearAvailable = (() => {
-        // Years that actually have notes (used to populate the Year filter dropdown).
-        const yearsSet = new Set<number>();
-        filteredHw.forEach(hw => yearsSet.add(new Date(hw.date).getFullYear()));
-        return Array.from(yearsSet).sort((a, b) => b - a);
-      })();
-      const monthsForFilterYear = bookFilterYear === null
-        ? Array.from(new Set(filteredHw.map(hw => new Date(hw.date).getMonth()))).sort((a, b) => a - b)
-        : Array.from(new Set(
-            filteredHw
-              .filter(hw => new Date(hw.date).getFullYear() === bookFilterYear)
-              .map(hw => new Date(hw.date).getMonth())
-          )).sort((a, b) => a - b);
-
-      const passesDateFilter = (hw: any) => {
-        const d = new Date(hw.date);
-        if (bookFilterYear !== null && d.getFullYear() !== bookFilterYear) return false;
-        if (bookFilterMonth !== null && d.getMonth() !== bookFilterMonth) return false;
-        return true;
-      };
-
-      // Build "yyyy-mm" → { year, month, count } map of all distinct month-year
-      // buckets present in the filtered data.
-      const monthYearMap = new Map<string, { year: number; month: number; count: number }>();
-      filteredHw.filter(passesDateFilter).forEach(hw => {
-        const d = new Date(hw.date);
-        const key = `${d.getFullYear()}-${String(d.getMonth()).padStart(2, '0')}`;
-        const cur = monthYearMap.get(key);
-        if (cur) cur.count++;
-        else monthYearMap.set(key, { year: d.getFullYear(), month: d.getMonth(), count: 1 });
-      });
-      // Newest first (descending year, then descending month).
-      const monthYearList = Array.from(monthYearMap.values()).sort((a, b) => {
-        if (b.year !== a.year) return b.year - a.year;
-        return b.month - a.month;
-      });
-      const dateFilterActive = bookFilterYear !== null || bookFilterMonth !== null;
-
-      return (
-        <div className={`min-h-[100dvh] p-4 pt-2`} style={{ background: _appBg }}>
-          <div className="max-w-3xl mx-auto pb-8 animate-in fade-in">
-            <div className="flex items-center gap-3 mb-4">
-              <button onClick={goBack} className={`${theme.bgSoft} p-2 rounded-full ${theme.text}`}>
-                <ChevronRight size={18} className="rotate-180" />
-              </button>
-              <h2 className={`text-xl font-black ${theme.textDeep}`}>{subjectLabel[homeworkSubjectView] || homeworkSubjectView}</h2>
-            </div>
-            {/* Page-wise subjects also offer "By Page" mode here so the user can flip
-                back to the flat page-number list without going to the home grid. */}
-            {isPageWiseSubject && renderBookViewToggle()}
-
-            {/* === Year / Month filter (BY DATE only) ===
-                Lets the student narrow down the month list — useful when a book
-                spans many months/years. Year filter populates Month filter. */}
-            {isPageWiseSubject && filteredHw.length > 0 && (
-              <div className={`border-2 rounded-2xl p-2 mb-3 flex items-center gap-2`} style={{ background: tierTheme.profileCardBg, borderColor: tierTheme.primary }}>
-                <span className={`text-[10px] font-black uppercase tracking-wider ${theme.text} pl-1 shrink-0`}>Filter</span>
-                <select
-                  value={bookFilterYear === null ? 'all' : String(bookFilterYear)}
-                  onChange={e => {
-                    const v = e.target.value;
-                    const newYear = v === 'all' ? null : parseInt(v, 10);
-                    setBookFilterYear(newYear);
-                    // Reset month if it doesn't exist in the newly chosen year.
-                    if (newYear !== null && bookFilterMonth !== null) {
-                      const monthsInNewYear = new Set(
-                        filteredHw.filter(hw => new Date(hw.date).getFullYear() === newYear).map(hw => new Date(hw.date).getMonth())
-                      );
-                      if (!monthsInNewYear.has(bookFilterMonth)) setBookFilterMonth(null);
-                    }
-                  }}
-                  className={`flex-1 min-w-0 text-xs font-bold ${theme.textDeep} bg-transparent border border-slate-200 rounded-lg px-2 py-1.5 outline-none focus:border-slate-400`}
-                >
-                  <option value="all">All Years</option>
-                  {monthYearAvailable.map(y => (
-                    <option key={y} value={y}>{y}</option>
-                  ))}
-                </select>
-                <select
-                  value={bookFilterMonth === null ? 'all' : String(bookFilterMonth)}
-                  onChange={e => {
-                    const v = e.target.value;
-                    setBookFilterMonth(v === 'all' ? null : parseInt(v, 10));
-                  }}
-                  className={`flex-1 min-w-0 text-xs font-bold ${theme.textDeep} bg-transparent border border-slate-200 rounded-lg px-2 py-1.5 outline-none focus:border-slate-400`}
-                >
-                  <option value="all">All Months</option>
-                  {monthsForFilterYear.map(m => (
-                    <option key={m} value={m}>{monthNames[m]}</option>
-                  ))}
-                </select>
-                {dateFilterActive && (
-                  <button
-                    type="button"
-                    onClick={() => { setBookFilterYear(null); setBookFilterMonth(null); }}
-                    className={`shrink-0 text-[10px] font-black uppercase tracking-wider ${theme.text} hover:${theme.bgSoft} rounded-lg px-2 py-1.5`}
-                    aria-label="Clear filter"
-                  >
-                    Clear
-                  </button>
-                )}
-              </div>
-            )}
-
-            {lucentSectionEl}
-
-            {filteredHw.length === 0 ? (
-              <div className="rounded-2xl border p-8 text-center" style={{ background: tierTheme.profileCardBg, borderColor: tierTheme.primary }}>
-                <Calendar size={36} className={`${theme.text} mx-auto mb-2 opacity-60`} />
-                <p className={`text-sm font-bold ${theme.textDeep}`}>Abhi koi note add nahi hua</p>
-              </div>
-            ) : monthYearList.length === 0 ? (
-              <div className="rounded-2xl border p-8 text-center" style={{ background: tierTheme.profileCardBg, borderColor: tierTheme.primary }}>
-                <Calendar size={32} className={`mx-auto mb-2 ${theme.text} opacity-40`} />
-                <p className={`text-sm font-bold ${theme.textDeep}`}>Is filter ke liye koi note nahi mila</p>
-                <p className={`text-[11px] ${theme.text} opacity-60 mt-1`}>Year ya Month change karke try karein.</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {monthYearList.map(({ year, month, count }) => (
-                  <button
-                    key={`${year}-${month}`}
-                    onClick={() => { setHwYear(year); setHwMonth(month); }}
-                    className={`border-2 rounded-2xl p-4 text-left hover:shadow-md transition-all active:scale-[0.98] flex items-center gap-3`}
-                    style={{ background: tierTheme.profileCardBg, borderColor: tierTheme.primary }}
-                  >
-                    <div className={`${theme.bgSoft} ${theme.textDeep} w-16 h-16 rounded-2xl flex flex-col items-center justify-center shrink-0`}>
-                      <span className="text-[10px] font-bold uppercase tracking-wider opacity-80">{monthNames[month].slice(0, 3)}</span>
-                      <span className="text-base font-black leading-none mt-0.5">{year}</span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-base font-black ${theme.textDeep}`}>{monthNames[month]} {year}</p>
-                      <p className={`text-xs font-bold mt-0.5 ${theme.text} opacity-70`}>{count} {count === 1 ? 'note' : 'notes'}</p>
-                    </div>
-                    <ChevronRight size={18} className={`${theme.text}`} />
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      );
     }
 
     // LUCENT BOOK CATEGORY VIEW
@@ -15122,58 +14930,40 @@ export const StudentDashboard: React.FC<Props> = ({
                         <MoreVertical size={15} />
                       </button>
                     )}
-                    {/* 3-dot menu — write mode: opens dropdown */}
-                    {_isWriteMode && <button
-                      onClick={() => setLucentOptionsOpen(p => !p)}
-                      className="flex items-center justify-center w-8 h-8 rounded-xl bg-white/20 border border-white/30 text-white hover:bg-white/30 transition-colors shrink-0"
-                      title="More options"
-                    >
-                      <MoreVertical size={15} />
-                    </button>}
-                    {_isWriteMode && lucentOptionsOpen && (
-                      <div className="absolute top-full right-0 mt-2 z-50 w-52 rounded-2xl shadow-2xl overflow-hidden" style={{ background: 'rgba(10,12,22,0.98)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.09)' }}>
-                        {/* Text size section */}
-                        <div className="px-3.5 pt-3.5 pb-3 border-b border-white/8">
-                          <p className="text-[9px] font-black text-white/30 uppercase tracking-[0.14em] mb-2">Text Size</p>
-                          <div className="flex items-center gap-1.5 bg-white/7 rounded-xl p-1">
-                            <button onClick={zoomOut} className="w-10 h-8 flex items-center justify-center rounded-lg bg-white/10 text-white text-[11px] font-black hover:bg-white/18 active:scale-95 transition-all">A−</button>
-                            <span className="flex-1 text-white/80 text-[11px] font-bold text-center tabular-nums">{Math.round(noteZoom * 100)}%</span>
-                            <button onClick={zoomIn} className="w-10 h-8 flex items-center justify-center rounded-lg bg-white/10 text-white text-[11px] font-black hover:bg-white/18 active:scale-95 transition-all">A+</button>
-                          </div>
+                    {/* Write mode: inline top-bar controls */}
+                    {_isWriteMode && (
+                      <>
+                        {/* A− / % / A+ group */}
+                        <div className="flex items-center rounded-xl overflow-hidden border border-white/25" style={{ background: 'rgba(255,255,255,0.12)' }}>
+                          <button onClick={zoomOut} className="w-7 h-7 flex items-center justify-center text-white text-[11px] font-black active:scale-90 transition-all hover:bg-white/15">A−</button>
+                          <span className="px-1 text-white/70 text-[10px] font-bold tabular-nums border-x border-white/20">{Math.round(noteZoom * 100)}%</span>
+                          <button onClick={zoomIn} className="w-7 h-7 flex items-center justify-center text-white text-[11px] font-black active:scale-90 transition-all hover:bg-white/15">A+</button>
                         </div>
-                        {/* Action rows */}
-                        <div className="p-1.5 flex flex-col gap-0.5">
-                          <button
-                            onClick={() => { handleRotate(); setLucentOptionsOpen(false); }}
-                            className={`w-full flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-[12px] font-semibold transition-all active:scale-[0.97] ${isLandscape ? 'bg-emerald-500/12 text-emerald-300' : 'text-white/80 hover:bg-white/7'}`}
-                          >
-                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${isLandscape ? 'bg-emerald-500/25' : 'bg-white/10'}`}>
-                              <RotateCcw size={13} />
-                            </div>
-                            <span>Rotate Screen</span>
-                            {isLandscape && <span className="ml-auto text-[9px] font-black text-emerald-400 bg-emerald-500/20 px-1.5 py-0.5 rounded-md">ON</span>}
-                          </button>
-                          <button
-                            onClick={_handleSaveOffline}
-                            className={`w-full flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-[12px] font-semibold transition-all active:scale-[0.97] ${lucentSaved ? 'bg-emerald-500/12 text-emerald-300' : 'text-sky-300 hover:bg-sky-500/10'}`}
-                          >
-                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${lucentSaved ? 'bg-emerald-500/25' : 'bg-sky-500/20'}`}>
-                              <WifiOff size={13} />
-                            </div>
-                            <span>{lucentSaved ? 'Saved!' : 'Save Offline'}</span>
-                            {lucentSaved && <span className="ml-auto text-[9px] font-black text-emerald-400">✓</span>}
-                          </button>
-                          <button
-                            onClick={() => { setLucentOptionsOpen(false); setContentPickerPopup({ type: 'LUCENT', entry, pageIdx: safeIndex }); }}
-                            className="w-full flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-[12px] font-semibold text-violet-300 hover:bg-violet-500/10 transition-all active:scale-[0.97]"
-                          >
-                            <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-violet-500/20">
-                              <LayoutGrid size={13} />
-                            </div>
-                            <span>More Options</span>
-                          </button>
-                        </div>
-                      </div>
+                        {/* Rotate */}
+                        <button
+                          onClick={handleRotate}
+                          className={`w-8 h-8 flex items-center justify-center rounded-xl border transition-all active:scale-90 shrink-0 ${isLandscape ? 'bg-emerald-500/30 border-emerald-400/50 text-emerald-300' : 'bg-white/15 border-white/25 text-white'}`}
+                          title="Rotate Screen"
+                        >
+                          <RotateCcw size={14} />
+                        </button>
+                        {/* Save Offline */}
+                        <button
+                          onClick={_handleSaveOffline}
+                          className={`w-8 h-8 flex items-center justify-center rounded-xl border transition-all active:scale-90 shrink-0 ${lucentSaved ? 'bg-emerald-500/30 border-emerald-400/50 text-emerald-300' : 'bg-white/15 border-white/25 text-white'}`}
+                          title={lucentSaved ? 'Saved!' : 'Save Offline'}
+                        >
+                          <WifiOff size={14} />
+                        </button>
+                        {/* More Options */}
+                        <button
+                          onClick={() => setContentPickerPopup({ type: 'LUCENT', entry, pageIdx: safeIndex })}
+                          className="w-8 h-8 flex items-center justify-center rounded-xl bg-white/15 border border-white/25 text-white active:scale-90 transition-all shrink-0"
+                          title="More Options"
+                        >
+                          <LayoutGrid size={14} />
+                        </button>
+                      </>
                     )}
                   </div>
                 );

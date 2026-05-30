@@ -1,8 +1,6 @@
-import React, { useState } from 'react';
-import { User, UserCustomTheme, SystemSettings, AdminSavedTheme, ThemeHistoryEntry } from '../types';
+import React, { useState, useEffect } from 'react';
+import { User, UserCustomTheme, SystemSettings, ThemeHistoryEntry } from '../types';
 import { saveUserToLive, saveSystemSettings } from '../firebase';
-import { ThemeBrowser } from './ThemeBrowser';
-import type { AppTheme } from '../utils/themeLibrary';
 import { getTotalCredits, applyDeduction } from '../utils/creditSystem';
 import {
     ArrowLeft, Sparkles, RotateCcw, Eye, Palette,
@@ -589,8 +587,6 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
     const totalCoins = getTotalCredits(user);
     const isFirstTime = !user.personalTheme;
 
-    /* ── VIEW STATE: EDITOR vs LIBRARY ── */
-    const [view, setView] = useState<'EDITOR' | 'LIBRARY'>('EDITOR');
 
     /* ── STATE ── */
     const [theme, setTheme]               = useState<ThemeState>(() => stateFromTheme(user.personalTheme));
@@ -617,25 +613,32 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
     const [showDefaultPopup, setShowDefaultPopup] = useState(false);
     const [defaultSaving, setDefaultSaving] = useState(false);
 
-    /* ── ADMIN GLOBAL APPLY STATE ── */
-    const [showGlobalPopup, setShowGlobalPopup] = useState(false);
-    const [globalDuration, setGlobalDuration]   = useState<'permanent' | '1h' | '6h' | '24h' | '7d' | '30d' | 'custom'>('permanent');
-    const [globalCustomH, setGlobalCustomH]     = useState<number>(1);
-    const [globalCustomM, setGlobalCustomM]     = useState<number>(0);
-    const [globalCustomS, setGlobalCustomS]     = useState<number>(0);
-    const [globalTier, setGlobalTier]           = useState<'all' | 'ultra' | 'basic' | 'free'>('all');
-    const [globalMinLevel, setGlobalMinLevel]   = useState<number>(0);
-    const [globalMaxLevel, setGlobalMaxLevel]   = useState<number>(0);
+    /* ── ADMIN THEME SCHEDULE STATE ── */
+    const [showSchedulePopup, setShowSchedulePopup] = useState(false);
+    const [scheduleEventName, setScheduleEventName] = useState('');
+    const [scheduleStartDt,   setScheduleStartDt]   = useState('');
+    const [scheduleDurationH, setScheduleDurationH] = useState<number>(2);
+    const [scheduleTier,      setScheduleTier]       = useState<'ALL' | 'ULTRA' | 'BASIC' | 'FREE'>('ALL');
+    const [scheduleApplyProfile, setScheduleApplyProfile] = useState(false);
+    const [scheduleApplyBg,      setScheduleApplyBg]      = useState(false);
+    const [scheduleSaving,       setScheduleSaving]        = useState(false);
     /* Local live state so admin sees immediate feedback after apply/remove */
     const [liveAdminTheme, setLiveAdminTheme]   = useState(settings?.adminAppliedTheme);
 
-    /* ── THEME LIBRARY STATE (admin) ── */
-    const [showSaveModal, setShowSaveModal]           = useState(false);
-    const [saveThemeName, setSaveThemeName]           = useState('');
-    const [librarySaving, setLibrarySaving]           = useState(false);
-    const [broadcastThemeName, setBroadcastThemeName] = useState('');
     /* ── USER HISTORY STATE ── */
     const [userThemeSaving, setUserThemeSaving]       = useState(false);
+
+    /* ── ONE-TIME: clear old adminThemeLibrary data from Firestore ── */
+    useEffect(() => {
+        if (!isAdmin) return;
+        const lib = (settings as any)?.adminThemeLibrary;
+        if (lib && lib.length > 0) {
+            const cleaned = { ...(settings || {}), adminThemeLibrary: [] };
+            saveSystemSettings(cleaned as any)
+                .then(() => onUpdateSettings?.(cleaned as any))
+                .catch(() => {});
+        }
+    }, []);
 
     const setColor = (key: keyof ThemeState) => (v: string) =>
         setTheme(prev => ({ ...prev, [key]: v }));
@@ -785,54 +788,59 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
         likes:         0,
     });
 
-    const doGlobalApply = async () => {
-        setShowGlobalPopup(false);
-        setSaving(true);
+    const doScheduleTheme = async () => {
+        if (!scheduleStartDt) { alert('❌ Start date/time select karo pehle.'); return; }
+        if (scheduleDurationH <= 0) { alert('❌ Duration kam se kam 1 ghanta hona chahiye.'); return; }
+        setScheduleSaving(true);
+        setShowSchedulePopup(false);
         const themeObj = buildThemeObj();
-        let expiresAt: string | null = null;
-        if (globalDuration === '1h')   expiresAt = new Date(Date.now() + 3600000).toISOString();
-        if (globalDuration === '6h')   expiresAt = new Date(Date.now() + 6 * 3600000).toISOString();
-        if (globalDuration === '24h')  expiresAt = new Date(Date.now() + 86400000).toISOString();
-        if (globalDuration === '7d')   expiresAt = new Date(Date.now() + 7  * 86400000).toISOString();
-        if (globalDuration === '30d')  expiresAt = new Date(Date.now() + 30 * 86400000).toISOString();
-        if (globalDuration === 'custom') {
-            const ms = globalCustomH * 3600000 + globalCustomM * 60000 + globalCustomS * 1000;
-            if (ms > 0) expiresAt = new Date(Date.now() + ms).toISOString();
-        }
-        const adminAppliedTheme = {
-            theme: themeObj,
-            appliedAt: new Date().toISOString(),
-            expiresAt: expiresAt ?? null,
-            targetTier: globalTier,
-            minLevel: globalMinLevel > 0 ? globalMinLevel : null,
-            maxLevel: globalMaxLevel > 0 ? globalMaxLevel : null,
+        const scheduledEntry: ScheduledTheme = {
+            id: `sched_${Date.now()}`,
+            themeId: themeObj.id || `th_${Date.now()}`,
+            themeName: scheduleEventName.trim() || themeObj.themeName || `Theme Event — ${new Date(scheduleStartDt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`,
+            themeEmoji: themeObj.themeEmoji || '🎨',
+            themeColors: {
+                bgColor:       themeObj.bgColor,
+                topBarStart:   themeObj.topBarStart,
+                topBarEnd:     themeObj.topBarEnd,
+                navBg:         themeObj.navBg,
+                navActive:     themeObj.navActive,
+                navBorder:     themeObj.navBorder,
+                cardBg:        themeObj.cardBg,
+                cardBorder:    themeObj.cardBorder,
+                btnStart:      themeObj.btnStart,
+                btnEnd:        themeObj.btnEnd,
+                textPrimary:   themeObj.textPrimary,
+                textSecondary: themeObj.textSecondary,
+                accentGlow:    themeObj.accentGlow,
+                progressColor: themeObj.progressColor,
+            },
+            topBarEffect:     themeObj.topBarEffect,
+            animColor:        themeObj.animColor,
+            scheduledAt:      new Date(scheduleStartDt).toISOString(),
+            durationHours:    scheduleDurationH,
+            target:           scheduleTier,
+            applyToProfile:   scheduleApplyProfile,
+            applyToBackground: scheduleApplyBg,
+            createdBy:        user.id,
+            createdAt:        new Date().toISOString(),
         };
-        // Add entry to themeHistory (users can see & switch to this theme)
-        const historyEntry: ThemeHistoryEntry = {
-            id: `hist_${Date.now()}`,
-            name: broadcastThemeName.trim() || `Broadcast — ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`,
-            themeData: themeObj,
-            targetTier: globalTier,
-            appliedAt: new Date().toISOString(),
-            expiresAt: expiresAt ?? null,
+        const prevScheduled: ScheduledTheme[] = (settings as any)?.scheduledThemes || [];
+        const newSettings = {
+            ...(settings || {}),
+            scheduledThemes: [scheduledEntry, ...prevScheduled].slice(0, 20),
         };
-        const prevHistory: ThemeHistoryEntry[] = (settings as any)?.themeHistory || [];
-        // Keep last 30 entries (filter super-old expired ones > 30 days)
-        const cleanHistory = prevHistory.filter(e =>
-            !e.expiresAt || new Date(e.expiresAt).getTime() > Date.now() - 30 * 86400000
-        );
-        const newHistory = [historyEntry, ...cleanHistory].slice(0, 30);
-        const newSettings = { ...(settings || {}), adminAppliedTheme, themeHistory: newHistory };
         try {
-            await saveSystemSettings(newSettings);
+            await saveSystemSettings(newSettings as any);
             onUpdateSettings?.(newSettings as any);
-            setLiveAdminTheme(adminAppliedTheme as any);
-            setBroadcastThemeName('');
-            alert(`✅ Theme broadcast ho gayi!\n${globalTier === 'all' ? 'Sabhi users' : globalTier.toUpperCase() + ' users'} ko yeh theme milegi.\n\nHistory mein naam: "${historyEntry.name}"`);
+            setScheduleEventName('');
+            setScheduleStartDt('');
+            setScheduleDurationH(2);
+            alert(`✅ Theme event schedule ho gaya!\n📅 Shuru: ${new Date(scheduledEntry.scheduledAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}\n⏱ Duration: ${scheduleDurationH} ghante\n👥 Target: ${scheduleTier === 'ALL' ? 'Sabhi users' : scheduleTier}`);
         } catch {
             alert('❌ Kuch galat hua — dobara try karo.');
         }
-        setSaving(false);
+        setScheduleSaving(false);
     };
 
     const doRemoveGlobal = async () => {
@@ -941,153 +949,9 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
         setTheme({ ...DEFAULT_THEME });
     };
 
-    /* ─────────────────────────────────────────
-       ADMIN THEME LIBRARY
-    ───────────────────────────────────────── */
-    const doSaveToLibrary = async () => {
-        if (!saveThemeName.trim()) { alert('Theme ka naam do!'); return; }
-        setLibrarySaving(true);
-        const themeObj = buildThemeObj();
-        const entry: AdminSavedTheme = {
-            id: `lib_${Date.now()}`,
-            name: saveThemeName.trim(),
-            themeData: themeObj,
-            createdAt: new Date().toISOString(),
-            createdBy: user.name,
-        };
-        const existing: AdminSavedTheme[] = (settings as any)?.adminThemeLibrary || [];
-        const newLibrary = [entry, ...existing].slice(0, 50);
-        const newSettings = { ...(settings || {}), adminThemeLibrary: newLibrary };
-        try {
-            await saveSystemSettings(newSettings);
-            onUpdateSettings?.(newSettings as any);
-            setSaveThemeName('');
-            setShowSaveModal(false);
-            alert(`✅ "${entry.name}" library mein save ho gayi!`);
-        } catch {
-            alert('❌ Save nahi hua — dobara try karo.');
-        }
-        setLibrarySaving(false);
-    };
 
-    const doDeleteFromLibrary = async (id: string) => {
-        if (!confirm('Is theme ko library se delete karo?')) return;
-        const existing: AdminSavedTheme[] = (settings as any)?.adminThemeLibrary || [];
-        const newLibrary = existing.filter(e => e.id !== id);
-        const newSettings = { ...(settings || {}), adminThemeLibrary: newLibrary };
-        try {
-            await saveSystemSettings(newSettings);
-            onUpdateSettings?.(newSettings as any);
-        } catch {
-            alert('❌ Delete nahi hua.');
-        }
-    };
 
-    const doLoadFromLibrary = (saved: AdminSavedTheme) => {
-        const td = saved.themeData;
-        setTheme({
-            bgColor:       td.bgColor       || '#ffffff',
-            topBarStart:   td.topBarStart   || '#1e3a5f',
-            topBarEnd:     td.topBarEnd     || '#0f1e3c',
-            navBg:         td.navBg         || '#ffffff',
-            navActive:     td.navActive     || '#3b82f6',
-            navBorder:     td.navBorder     || '#e2e8f0',
-            cardBg:        td.cardBg        || td.cardColor || '#f8fafc',
-            cardBorder:    td.cardBorder    || '#e2e8f0',
-            btnStart:      td.btnStart      || td.accentColor || '#3b82f6',
-            btnEnd:        td.btnEnd        || '#6366f1',
-            textPrimary:   td.textColor     || td.btnStart || '#1e293b',
-            textSecondary: td.textSecondary || '#64748b',
-            accentGlow:    td.accentGlow    || '#3b82f6',
-            progressColor: td.progressColor || '#3b82f6',
-            flashcardBg1:  td.flashcardBg1,
-            flashcardBg2:  td.flashcardBg2,
-            chapterAccent: td.chapterAccent,
-            mcqTabActive:  td.mcqTabActive,
-        });
-        setBroadcastThemeName(saved.name);
-    };
 
-    /* ─────────────────────────────────────────
-       LIBRARY: Load AppTheme into editor
-    ───────────────────────────────────────── */
-    const handleLoadFromLibrary = (appTheme: AppTheme) => {
-        const c = appTheme.colors;
-        setTheme({
-            bgColor:       c.bgColor,
-            topBarStart:   c.topBarStart,
-            topBarEnd:     c.topBarEnd,
-            navBg:         c.navBg,
-            navActive:     c.navActive,
-            navBorder:     c.navBorder,
-            cardBg:        c.cardBg,
-            cardBorder:    c.cardBorder,
-            btnStart:      c.btnStart,
-            btnEnd:        c.btnEnd,
-            textPrimary:   c.textPrimary,
-            textSecondary: c.textSecondary,
-            accentGlow:    c.accentGlow,
-            progressColor: c.progressColor,
-            flashcardBg1:  c.topBarStart,
-            flashcardBg2:  c.topBarEnd,
-            chapterAccent: c.navActive,
-            mcqTabActive:  c.navActive,
-            topBarEffect:  appTheme.topBarEffect,
-            animColor:     appTheme.animColor,
-            animSpeed:     appTheme.animSpeed,
-            themeName:     appTheme.name,
-            themeEmoji:    appTheme.emoji,
-        });
-        setView('EDITOR');
-        /* For admin — apply immediately free */
-        if (isAdmin) {
-            setTimeout(() => doApply(), 100);
-        } else if (isFirstTime) {
-            setTimeout(() => doApply(), 100);
-        } else {
-            setShowCoinPopup(true);
-        }
-    };
-
-    const handleScheduleFromLibrary = async (appTheme: AppTheme) => {
-        if (!isAdmin) return;
-        const c = appTheme.colors;
-        const themeObj: UserCustomTheme = {
-            id: `lib_${appTheme.id}_${Date.now()}`,
-            userId: user.id,
-            userName: `Library: ${appTheme.name}`,
-            bgColor: c.bgColor, accentColor: c.navActive, textColor: c.textPrimary,
-            cardColor: c.cardBg, topBarStart: c.topBarStart, topBarEnd: c.topBarEnd,
-            navBg: c.navBg, navActive: c.navActive, navBorder: c.navBorder,
-            cardBg: c.cardBg, cardBorder: c.cardBorder, btnStart: c.btnStart, btnEnd: c.btnEnd,
-            textSecondary: c.textSecondary, accentGlow: c.accentGlow, progressColor: c.progressColor,
-            flashcardBg1: c.topBarStart, flashcardBg2: c.topBarEnd,
-            chapterAccent: c.navActive, mcqTabActive: c.navActive,
-            createdAt: new Date().toISOString(), likes: 0,
-            themeName: appTheme.name, themeEmoji: appTheme.emoji,
-            topBarEffect: appTheme.topBarEffect, animColor: appTheme.animColor,
-        };
-        const schedCfg = (appTheme as any)._scheduleConfig || {};
-        const expiresAt = schedCfg.durationMs > 0 ? new Date(Date.now() + schedCfg.durationMs).toISOString() : undefined;
-        const startsAt = schedCfg.delayMs > 0 ? new Date(Date.now() + schedCfg.delayMs).toISOString() : undefined;
-        const entry = {
-            id: themeObj.id, name: appTheme.name, themeData: themeObj,
-            targetTier: schedCfg.targetTier || 'all',
-            createdAt: new Date().toISOString(),
-            expiresAt, startsAt,
-            applyProfileBg: schedCfg.applyProfileBg || false,
-            applyAppBg: schedCfg.applyAppBg || false,
-        };
-        const prev: any[] = (settings as any)?.themeHistory || [];
-        const newSettings = { ...(settings || {}), themeHistory: [entry, ...prev] };
-        try {
-            await saveSystemSettings(newSettings as any);
-            onUpdateSettings?.(newSettings as any);
-            alert(`✅ "${appTheme.name}" schedule ho gayi!\n${startsAt ? `Shuru: ${new Date(startsAt).toLocaleString('en-IN')}` : 'Abhi se active'}\n${expiresAt ? `Khatam: ${new Date(expiresAt).toLocaleString('en-IN')}` : 'Permanent'}`);
-        } catch {
-            alert('❌ Schedule karne mein error — dobara try karo.');
-        }
-    };
 
     /* ─────────────────────────────────────────
        USER: SET ACTIVE HISTORY THEME
@@ -1410,21 +1274,17 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
             >
                 <div className="px-4 py-3 flex items-center gap-3">
                     <button
-                        onClick={view === 'LIBRARY' ? () => setView('EDITOR') : onBack}
+                        onClick={onBack}
                         className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center shrink-0 active:scale-90 transition-transform"
                     >
                         <ArrowLeft size={16} className="text-white" />
                     </button>
                     <div className="flex-1">
-                        <p className="text-sm font-black text-white">
-                            {view === 'LIBRARY' ? '📚 Theme Library' : '🎨 Theme Studio'}
-                        </p>
-                        <p className="text-[9px] text-white/60">
-                            {view === 'LIBRARY' ? '1000+ categorized themes' : 'Har element ka alag color'}
-                        </p>
+                        <p className="text-sm font-black text-white">🎨 Theme Studio</p>
+                        <p className="text-[9px] text-white/60">Har element ka alag color</p>
                     </div>
                     <div className="flex items-center gap-2">
-                        {!isAdmin && view === 'EDITOR' && (
+                        {!isAdmin && (
                             <div
                                 className="h-6 rounded-full px-2.5 flex items-center gap-1 text-[9px] font-black"
                                 style={{ background: 'rgba(255,255,255,0.15)', color: 'white' }}
@@ -1432,7 +1292,7 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
                                 🪙 {totalCoins}
                             </div>
                         )}
-                        {isFirstTime && !isAdmin && view === 'EDITOR' && (
+                        {isFirstTime && !isAdmin && (
                             <div
                                 className="h-6 rounded-full px-2.5 flex items-center text-[9px] font-black text-green-300"
                                 style={{ background: 'rgba(34,197,94,0.2)' }}
@@ -1450,49 +1310,12 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
                         )}
                     </div>
                 </div>
-                {/* ── TAB BAR: Editor | Library ── */}
-                <div className="flex border-t border-white/10">
-                    {[
-                        { id: 'EDITOR' as const, label: '🎨 Custom Editor', desc: 'Color picker' },
-                        { id: 'LIBRARY' as const, label: '📚 Theme Library', desc: '1001+ themes' },
-                    ].map(tab => (
-                        <button
-                            key={tab.id}
-                            onClick={() => setView(tab.id)}
-                            className="flex-1 py-2 flex flex-col items-center gap-0.5 transition-all active:scale-95"
-                            style={{
-                                background: view === tab.id ? 'rgba(255,255,255,0.12)' : 'transparent',
-                                borderBottom: view === tab.id ? `2px solid ${theme.btnStart}` : '2px solid transparent',
-                            }}
-                        >
-                            <span className="text-[11px] font-black text-white">{tab.label}</span>
-                            <span className="text-[8px] text-white/45">{tab.desc}</span>
-                        </button>
-                    ))}
-                </div>
             </div>
-
-            {/* ══════════════════════════════════════════════════
-                LIBRARY VIEW — 1000+ themes with categories
-            ══════════════════════════════════════════════════ */}
-            {view === 'LIBRARY' && (
-                <div style={{ margin: '0 -16px' }}>
-                    <ThemeBrowser
-                        user={user}
-                        settings={settings}
-                        isAdmin={isAdmin}
-                        accentColor={theme.btnStart}
-                        onApplyTheme={handleLoadFromLibrary}
-                        onScheduleTheme={handleScheduleFromLibrary}
-                        onBack={() => setView('EDITOR')}
-                    />
-                </div>
-            )}
 
             {/* ══════════════════════════════════════════════════
                 EDITOR VIEW — main content below
             ══════════════════════════════════════════════════ */}
-            {view === 'EDITOR' && <div className="px-4 pt-4 space-y-4">
+            <div className="px-4 pt-4 space-y-4">
 
                 {/* ── ACTIVE THEME STATUS ── */}
                 <div
@@ -1531,68 +1354,6 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
                         </div>
                     )}
                 </div>
-
-                {/* ═══════════════════════════════════════
-                    ADMIN: THEME LIBRARY
-                ═══════════════════════════════════════ */}
-                {isAdmin && (
-                    <div>
-                        <div className="flex items-center justify-between mb-2.5">
-                            <p className="text-[9px] font-black text-white/30 uppercase tracking-widest flex items-center gap-1.5">
-                                📚 Theme Library
-                            </p>
-                            <button
-                                onClick={() => { setSaveThemeName(''); setShowSaveModal(true); }}
-                                className="flex items-center gap-1 px-3 py-1.5 rounded-full text-[9px] font-black text-amber-300 border border-amber-500/25 active:scale-95 transition-all"
-                                style={{ background: 'rgba(245,158,11,0.10)' }}
-                            >
-                                + Save Current Theme
-                            </button>
-                        </div>
-                        {(() => {
-                            const library: AdminSavedTheme[] = (settings as any)?.adminThemeLibrary || [];
-                            if (!library.length) return (
-                                <div className="rounded-2xl p-4 text-center" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                                    <p className="text-2xl mb-1.5">📭</p>
-                                    <p className="text-xs font-bold text-white/30">Abhi koi saved theme nahi hai</p>
-                                    <p className="text-[9px] text-white/20 mt-1">Upar "Save Current Theme" pe click karo</p>
-                                </div>
-                            );
-                            return (
-                                <div className="space-y-2">
-                                    {library.map(saved => (
-                                        <div key={saved.id} className="rounded-2xl px-3 py-2.5 flex items-center gap-2.5"
-                                            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                                            <div className="w-9 h-9 rounded-xl shrink-0 border border-white/10"
-                                                style={{ background: `linear-gradient(135deg, ${saved.themeData.topBarStart || '#1e3a5f'}, ${saved.themeData.btnStart || '#3b82f6'})` }} />
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-xs font-black text-white truncate">{saved.name}</p>
-                                                <p className="text-[9px] text-white/30">{new Date(saved.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
-                                            </div>
-                                            <button
-                                                onClick={() => doLoadFromLibrary(saved)}
-                                                className="px-2.5 py-1 rounded-full text-[9px] font-black text-amber-300 border border-amber-500/25 active:scale-95 transition-all shrink-0"
-                                                style={{ background: 'rgba(245,158,11,0.10)' }}
-                                                title="Editor mein load karo"
-                                            >Load</button>
-                                            <button
-                                                onClick={() => { doLoadFromLibrary(saved); setShowGlobalPopup(true); }}
-                                                className="px-2.5 py-1 rounded-full text-[9px] font-black text-indigo-300 border border-indigo-500/25 active:scale-95 transition-all shrink-0"
-                                                style={{ background: 'rgba(99,102,241,0.10)' }}
-                                                title="Load karke broadcast popup kholo"
-                                            >Apply</button>
-                                            <button
-                                                onClick={() => doDeleteFromLibrary(saved.id)}
-                                                className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] text-red-400 border border-red-500/20 active:scale-95 transition-all shrink-0"
-                                                style={{ background: 'rgba(239,68,68,0.08)' }}
-                                            >✕</button>
-                                        </div>
-                                    ))}
-                                </div>
-                            );
-                        })()}
-                    </div>
-                )}
 
                 {/* ═══════════════════════════════════════
                     USER: ADMIN APPLIED THEMES HISTORY
@@ -2114,31 +1875,27 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
                     </button>
                 </div>
 
-                {/* ── ADMIN GLOBAL BROADCAST BUTTON ── */}
+                {/* ── ADMIN THEME SCHEDULE BUTTON ── */}
                 {isAdmin && (
                     <div className="flex gap-2 pt-1">
                         <button
-                            onClick={() => setShowGlobalPopup(true)}
-                            disabled={saving}
+                            onClick={() => {
+                                const now = new Date();
+                                now.setMinutes(now.getMinutes() + 30);
+                                const pad = (n: number) => String(n).padStart(2, '0');
+                                setScheduleStartDt(`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`);
+                                setShowSchedulePopup(true);
+                            }}
+                            disabled={scheduleSaving}
                             className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl font-black text-sm text-white active:scale-95 transition-all disabled:opacity-60 border"
                             style={{
                                 background: 'rgba(99,102,241,0.15)',
                                 borderColor: 'rgba(99,102,241,0.35)',
                             }}
                         >
-                            <Globe size={15} className="text-indigo-400" />
-                            <span className="text-indigo-300">App Pe Globally Apply</span>
+                            <span className="text-base">📅</span>
+                            <span className="text-indigo-300">Theme Event Schedule Karo</span>
                         </button>
-                        {liveAdminTheme && (
-                            <button
-                                onClick={doRemoveGlobal}
-                                disabled={saving}
-                                className="px-4 py-3 rounded-2xl font-bold text-xs text-orange-300 border border-orange-500/20 active:scale-95 transition-all shrink-0"
-                                style={{ background: 'rgba(249,115,22,0.07)' }}
-                            >
-                                Hataao
-                            </button>
-                        )}
                     </div>
                 )}
                 {isAdmin && liveAdminTheme && (
@@ -2225,7 +1982,7 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
                             ? `✨ Pehla theme free! Iske baad ${THEME_COST} coins lagenge`
                             : 'Ye theme permanently rahegi jab tak tum khud reset nahi karte'}
                 </p>
-            </div>}
+            </div>
         </div>
 
         {/* ══════════════════════════════════════════════════
@@ -2353,227 +2110,149 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
             ADMIN GLOBAL APPLY POPUP
         ══════════════════════════════════════════════════ */}
 
-        {showGlobalPopup && (
-            <div className="fixed inset-0 z-[300] flex items-end justify-center pb-6 px-4" style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)' }}>
+        {showSchedulePopup && (
+            <div className="fixed inset-0 z-[300] flex items-end justify-center pb-6 px-4" style={{ background: 'rgba(0,0,0,0.82)', backdropFilter: 'blur(8px)' }}>
                 <div className="w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl" style={{ background: '#0d0f1a', border: '1px solid rgba(99,102,241,0.3)' }}>
-                    {/* Header */}
-                    <div className="px-5 py-4 flex items-center gap-3" style={{ background: 'linear-gradient(135deg,#3730a3,#1e1b4b)', borderBottom: '1px solid rgba(99,102,241,0.2)' }}>
-                        <div className="w-9 h-9 rounded-xl bg-indigo-500/20 flex items-center justify-center">
-                            <Globe size={18} className="text-indigo-300" />
-                        </div>
+                    <div className="px-5 py-4 flex items-center gap-3" style={{ background: 'linear-gradient(135deg,#312e81,#1e1b4b)', borderBottom: '1px solid rgba(99,102,241,0.2)' }}>
+                        <span className="text-2xl">📅</span>
                         <div className="flex-1">
-                            <p className="text-white font-black text-sm">App Pe Apply Karo</p>
-                            <p className="text-indigo-300/70 text-[10px]">Yeh theme selected users ko milegi</p>
+                            <p className="text-white font-black text-sm">Theme Event Schedule Karo</p>
+                            <p className="text-indigo-300/70 text-[10px]">Future mein theme event set karo — discount event jaisa</p>
                         </div>
-                        <button onClick={() => setShowGlobalPopup(false)} className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center">
+                        <button onClick={() => setShowSchedulePopup(false)} className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center">
                             <X size={13} className="text-white/70" />
                         </button>
                     </div>
+                    <div className="p-5 flex flex-col gap-4 overflow-y-auto max-h-[70vh]">
+                        {/* Theme preview strip */}
+                        <div className="rounded-2xl overflow-hidden border border-white/08">
+                            <div className="h-8 w-full flex items-center px-3 gap-2" style={{ background: `linear-gradient(135deg,${theme.topBarStart},${theme.topBarEnd})` }}>
+                                <div className="w-3 h-3 rounded-full" style={{ background: theme.navActive }} />
+                                <span className="text-[9px] font-black text-white/80">{theme.themeName || 'Current Theme'} {theme.themeEmoji || '🎨'}</span>
+                            </div>
+                        </div>
 
-                    <div className="p-5 flex flex-col gap-5">
-                        {/* Theme Name for History */}
+                        {/* Event name */}
                         <div>
-                            <p className="text-white/60 text-xs font-bold mb-1.5 flex items-center gap-1.5">
-                                📌 Theme Ka Naam <span className="text-white/30 font-normal">(users ko dikhega)</span>
-                            </p>
+                            <p className="text-white/60 text-[11px] font-bold mb-1.5">🎉 Event Ka Naam</p>
                             <input
                                 type="text"
-                                value={broadcastThemeName}
-                                onChange={e => setBroadcastThemeName(e.target.value)}
-                                placeholder={`Broadcast — ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`}
+                                value={scheduleEventName}
+                                onChange={e => setScheduleEventName(e.target.value)}
+                                placeholder={`Diwali Theme, Independence Day...`}
                                 className="w-full rounded-xl px-3 py-2.5 text-sm font-bold text-white outline-none"
-                                style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(99,102,241,0.30)' }}
+                                style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(99,102,241,0.25)' }}
                                 maxLength={40}
                             />
                         </div>
-                        {/* Duration */}
+
+                        {/* Start date/time */}
                         <div>
-                            <div className="flex items-center gap-2 mb-2.5">
-                                <Clock size={13} className="text-indigo-400" />
-                                <p className="text-white text-xs font-bold">Kitne Time Ke Liye?</p>
-                            </div>
-                            {/* Quick presets */}
-                            <div className="grid grid-cols-4 gap-1.5 mb-2">
-                                {([['permanent','Sada'],['1h','1 Ghanta'],['6h','6 Ghante'],['24h','24h'],['7d','7 Din'],['30d','30 Din'],['custom','Custom ⚙️']] as const).map(([val,label]) => (
-                                    <button key={val} onClick={() => setGlobalDuration(val)}
-                                        className="py-2 rounded-xl text-[10px] font-bold transition-all active:scale-95 col-span-1"
-                                        style={{
-                                            background: globalDuration === val ? `linear-gradient(135deg,${theme.btnStart},${theme.btnEnd})` : 'rgba(255,255,255,0.06)',
-                                            color: globalDuration === val ? '#fff' : 'rgba(255,255,255,0.5)',
-                                            border: `1px solid ${globalDuration === val ? theme.btnStart + '80' : 'transparent'}`,
-                                        }}
-                                    >{label}</button>
-                                ))}
-                            </div>
-                            {/* Custom H/M/S inputs */}
-                            {globalDuration === 'custom' && (
-                                <div className="flex gap-2 mt-1">
-                                    {[
-                                        { label: 'Ghante', val: globalCustomH, set: setGlobalCustomH, max: 999 },
-                                        { label: 'Minute', val: globalCustomM, set: setGlobalCustomM, max: 59 },
-                                        { label: 'Second', val: globalCustomS, set: setGlobalCustomS, max: 59 },
-                                    ].map(({ label, val, set, max }) => (
-                                        <div key={label} className="flex-1 flex flex-col items-center gap-1">
-                                            <p className="text-white/40 text-[9px]">{label}</p>
-                                            <div className="flex items-center rounded-xl overflow-hidden w-full" style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)' }}>
-                                                <button
-                                                    className="w-7 h-9 flex items-center justify-center text-white/50 text-base font-bold shrink-0 active:scale-90"
-                                                    onClick={() => set(v => Math.max(0, v - 1))}
-                                                >−</button>
-                                                <input
-                                                    type="number" min={0} max={max} value={val}
-                                                    onChange={e => set(Math.min(max, Math.max(0, parseInt(e.target.value) || 0)))}
-                                                    className="flex-1 min-w-0 text-center text-sm font-black text-white outline-none bg-transparent py-2"
-                                                />
-                                                <button
-                                                    className="w-7 h-9 flex items-center justify-center text-white/50 text-base font-bold shrink-0 active:scale-90"
-                                                    onClick={() => set(v => Math.min(max, v + 1))}
-                                                >+</button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
+                            <p className="text-white/60 text-[11px] font-bold mb-1.5">⏰ Kab Shuru Hoga?</p>
+                            <input
+                                type="datetime-local"
+                                value={scheduleStartDt}
+                                onChange={e => setScheduleStartDt(e.target.value)}
+                                min={new Date().toISOString().slice(0,16)}
+                                className="w-full rounded-xl px-3 py-2.5 text-sm font-bold text-white outline-none"
+                                style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(99,102,241,0.25)', colorScheme: 'dark' }}
+                            />
                         </div>
 
-                        {/* Tier */}
+                        {/* Duration — quick presets */}
                         <div>
-                            <div className="flex items-center gap-2 mb-2.5">
-                                <Users size={13} className="text-indigo-400" />
-                                <p className="text-white text-xs font-bold">Kis Tier Ko Mileg?</p>
-                            </div>
-                            <div className="grid grid-cols-4 gap-1.5">
-                                {([['all','Sabhi'],['ultra','ULTRA'],['basic','BASIC'],['free','FREE']] as const).map(([val,label]) => (
-                                    <button key={val} onClick={() => setGlobalTier(val)}
+                            <p className="text-white/60 text-[11px] font-bold mb-1.5">⏱ Kitne Ghante Chalega?</p>
+                            <div className="grid grid-cols-4 gap-1.5 mb-2">
+                                {([1,2,4,6,12,24,48,72] as number[]).map(h => (
+                                    <button key={h} onClick={() => setScheduleDurationH(h)}
                                         className="py-2 rounded-xl text-[10px] font-bold transition-all active:scale-95"
                                         style={{
-                                            background: globalTier === val ? `linear-gradient(135deg,${theme.btnStart},${theme.btnEnd})` : 'rgba(255,255,255,0.06)',
-                                            color: globalTier === val ? '#fff' : 'rgba(255,255,255,0.5)',
-                                            border: `1px solid ${globalTier === val ? theme.btnStart + '80' : 'transparent'}`,
+                                            background: scheduleDurationH === h ? `linear-gradient(135deg,${theme.btnStart},${theme.btnEnd})` : 'rgba(255,255,255,0.06)',
+                                            color: scheduleDurationH === h ? '#fff' : 'rgba(255,255,255,0.5)',
+                                            border: `1px solid ${scheduleDurationH === h ? theme.btnStart+'80' : 'transparent'}`,
                                         }}
-                                    >{label}</button>
+                                    >{h}h</button>
+                                ))}
+                            </div>
+                            <div className="flex items-center gap-2 rounded-xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                <button className="w-10 h-9 flex items-center justify-center text-white/50 text-lg font-bold active:scale-90" onClick={() => setScheduleDurationH(h => Math.max(1, h-1))}>−</button>
+                                <input type="number" min={1} max={720} value={scheduleDurationH}
+                                    onChange={e => setScheduleDurationH(Math.max(1, Math.min(720, parseInt(e.target.value)||1)))}
+                                    className="flex-1 text-center text-sm font-black text-white outline-none bg-transparent py-2"
+                                />
+                                <span className="text-white/40 text-xs pr-2">ghante</span>
+                                <button className="w-10 h-9 flex items-center justify-center text-white/50 text-lg font-bold active:scale-90" onClick={() => setScheduleDurationH(h => Math.min(720, h+1))}>+</button>
+                            </div>
+                        </div>
+
+                        {/* Target tier */}
+                        <div>
+                            <p className="text-white/60 text-[11px] font-bold mb-1.5">👥 Kis Ko Milega?</p>
+                            <div className="grid grid-cols-4 gap-1.5">
+                                {(['ALL','ULTRA','BASIC','FREE'] as const).map(tier => (
+                                    <button key={tier} onClick={() => setScheduleTier(tier)}
+                                        className="py-2 rounded-xl text-[10px] font-bold transition-all active:scale-95"
+                                        style={{
+                                            background: scheduleTier === tier ? `linear-gradient(135deg,${theme.btnStart},${theme.btnEnd})` : 'rgba(255,255,255,0.06)',
+                                            color: scheduleTier === tier ? '#fff' : 'rgba(255,255,255,0.5)',
+                                            border: `1px solid ${scheduleTier === tier ? theme.btnStart+'80' : 'transparent'}`,
+                                        }}
+                                    >{tier === 'ALL' ? 'Sabhi' : tier}</button>
                                 ))}
                             </div>
                         </div>
 
-                        {/* Level Range */}
-                        <div>
-                            <div className="flex items-center gap-2 mb-2.5">
-                                <BarChart2 size={13} className="text-indigo-400" />
-                                <p className="text-white text-xs font-bold">Level Range <span className="text-white/30 font-normal">(0 = koi limit nahi)</span></p>
-                            </div>
-                            <div className="flex gap-3">
-                                <div className="flex-1">
-                                    <p className="text-white/40 text-[9px] mb-1">Min Level</p>
-                                    <input
-                                        type="number" min={0} max={20} value={globalMinLevel}
-                                        onChange={e => setGlobalMinLevel(parseInt(e.target.value) || 0)}
-                                        className="w-full rounded-xl px-3 py-2.5 text-sm font-bold text-white text-center outline-none"
-                                        style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)' }}
-                                    />
-                                </div>
-                                <div className="flex-1">
-                                    <p className="text-white/40 text-[9px] mb-1">Max Level</p>
-                                    <input
-                                        type="number" min={0} max={20} value={globalMaxLevel}
-                                        onChange={e => setGlobalMaxLevel(parseInt(e.target.value) || 0)}
-                                        className="w-full rounded-xl px-3 py-2.5 text-sm font-bold text-white text-center outline-none"
-                                        style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)' }}
-                                    />
-                                </div>
-                            </div>
+                        {/* Options */}
+                        <div className="flex gap-3">
+                            {[
+                                { label: 'Profile bg bhi', state: scheduleApplyProfile, set: setScheduleApplyProfile },
+                                { label: 'App bg bhi', state: scheduleApplyBg, set: setScheduleApplyBg },
+                            ].map(({ label, state, set }) => (
+                                <button key={label} onClick={() => set(!state)}
+                                    className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-[10px] font-bold transition-all active:scale-95"
+                                    style={{
+                                        background: state ? `${theme.btnStart}25` : 'rgba(255,255,255,0.05)',
+                                        color: state ? theme.navActive : 'rgba(255,255,255,0.4)',
+                                        border: `1px solid ${state ? theme.btnStart+'50' : 'rgba(255,255,255,0.08)'}`,
+                                    }}
+                                >
+                                    <span>{state ? '✓' : '○'}</span> {label}
+                                </button>
+                            ))}
                         </div>
 
-                        {/* Summary */}
-                        <div className="rounded-2xl p-3 text-center" style={{ background: `${theme.btnStart}15`, border: `1px solid ${theme.btnStart}30` }}>
-                            <p className="text-white/60 text-[10px]">
-                                <span className="text-white font-bold">{globalTier === 'all' ? 'Sabhi users' : globalTier.toUpperCase() + ' users'}</span>
-                                {globalMinLevel > 0 || globalMaxLevel > 0 ? ` · Level ${globalMinLevel || 1}${globalMaxLevel > 0 ? '–' + globalMaxLevel : '+'}` : ''}
-                                {' '}ko{' '}
-                                <span className="text-white font-bold">{
-                                    globalDuration === 'permanent' ? 'permanently' :
-                                    globalDuration === '1h'  ? '1 ghante' :
-                                    globalDuration === '6h'  ? '6 ghante' :
-                                    globalDuration === '24h' ? '24 ghante' :
-                                    globalDuration === '7d'  ? '7 din' :
-                                    globalDuration === '30d' ? '30 din' :
-                                    globalDuration === 'custom' ?
-                                        [globalCustomH > 0 ? `${globalCustomH}h` : '', globalCustomM > 0 ? `${globalCustomM}m` : '', globalCustomS > 0 ? `${globalCustomS}s` : ''].filter(Boolean).join(' ') || '0s'
-                                    : ''
-                                }</span>
-                                {' '}ke liye theme milegi
-                            </p>
-                        </div>
-
-                        {/* Confirm */}
-                        <button
-                            onClick={doGlobalApply}
-                            disabled={saving}
-                            className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-black text-sm text-white active:scale-95 transition-all disabled:opacity-60"
-                            style={{ background: `linear-gradient(135deg,${theme.btnStart},${theme.btnEnd})`, boxShadow: `0 6px 24px ${theme.btnStart}55` }}
-                        >
-                            <Globe size={16} />
-                            {saving ? 'Applying...' : 'App Pe Apply Karo ✓'}
-                        </button>
-                    </div>
-                </div>
-            </div>
-        )}
-
-        {/* ══════════════════════════════════════════════════
-            ADMIN: SAVE THEME TO LIBRARY MODAL
-        ══════════════════════════════════════════════════ */}
-        {showSaveModal && (
-            <div className="fixed inset-0 z-[400] flex items-center justify-center px-6" style={{ background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(8px)' }}>
-                <div className="w-full max-w-xs rounded-3xl overflow-hidden shadow-2xl" style={{ background: '#0d0f1a', border: `1px solid ${theme.btnStart}40` }}>
-                    <div className="h-1.5 w-full" style={{ background: `linear-gradient(90deg, ${theme.btnStart}, ${theme.btnEnd})` }} />
-                    <div className="p-5">
-                        <div className="text-center mb-4">
-                            <div className="text-3xl mb-2">📚</div>
-                            <p className="text-base font-black text-white">Theme Library Mein Save Karo</p>
-                            <p className="text-xs text-white/40 mt-1">Is theme design ko ek naam do</p>
-                        </div>
-                        {/* Color preview strip */}
-                        <div className="rounded-2xl overflow-hidden mb-4 border border-white/08">
-                            <div className="h-10 w-full" style={{ background: `linear-gradient(135deg, ${theme.topBarStart}, ${theme.topBarEnd})` }} />
-                            <div className="flex items-center gap-2 px-3 py-2" style={{ background: '#0a0c14' }}>
-                                <div className="w-4 h-4 rounded-full border border-white/15" style={{ background: `linear-gradient(135deg, ${theme.btnStart}, ${theme.btnEnd})` }} />
-                                <div className="w-4 h-4 rounded-full border border-white/15" style={{ background: theme.navActive }} />
-                                <div className="w-4 h-4 rounded-full border border-white/15" style={{ background: theme.cardBorder }} />
-                                <div className="w-4 h-4 rounded-full border border-white/15" style={{ background: theme.accentGlow }} />
-                                <p className="text-[9px] text-white/30 ml-auto">Color Preview</p>
+                        {/* Summary card */}
+                        {scheduleStartDt && (
+                            <div className="rounded-2xl p-3" style={{ background: `${theme.btnStart}12`, border: `1px solid ${theme.btnStart}25` }}>
+                                <p className="text-[10px] text-white/50 font-bold uppercase tracking-wide mb-1">Event Summary</p>
+                                <p className="text-xs text-white font-bold">{scheduleEventName || 'Theme Event'}</p>
+                                <p className="text-[10px] text-white/50 mt-0.5">
+                                    📅 {new Date(scheduleStartDt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+                                    {' '}→ {scheduleDurationH}h chalega
+                                </p>
+                                <p className="text-[10px] text-white/50">
+                                    👥 {scheduleTier === 'ALL' ? 'Sabhi users' : scheduleTier}
+                                </p>
                             </div>
-                        </div>
-                        <input
-                            type="text"
-                            value={saveThemeName}
-                            onChange={e => setSaveThemeName(e.target.value)}
-                            placeholder="e.g. Diwali Special, Monsoon Blue, Summer Vibes..."
-                            className="w-full rounded-2xl px-4 py-3 text-sm font-bold text-white outline-none mb-4"
-                            style={{ background: 'rgba(255,255,255,0.07)', border: `1px solid ${theme.btnStart}40` }}
-                            maxLength={40}
-                            autoFocus
-                            onKeyDown={e => e.key === 'Enter' && doSaveToLibrary()}
-                        />
-                        <div className="flex gap-2">
-                            <button
-                                onClick={() => setShowSaveModal(false)}
+                        )}
+
+                        <div className="flex gap-2 pt-1">
+                            <button onClick={() => setShowSchedulePopup(false)}
                                 className="flex-1 py-3 rounded-2xl font-bold text-sm text-white/40 border border-white/10 active:scale-95 transition-all"
                                 style={{ background: 'rgba(255,255,255,0.04)' }}
                             >Cancel</button>
-                            <button
-                                onClick={doSaveToLibrary}
-                                disabled={librarySaving || !saveThemeName.trim()}
+                            <button onClick={doScheduleTheme} disabled={scheduleSaving || !scheduleStartDt}
                                 className="flex-1 py-3 rounded-2xl font-black text-sm text-white active:scale-95 transition-all disabled:opacity-40"
-                                style={{ background: `linear-gradient(135deg, ${theme.btnStart}, ${theme.btnEnd})`, boxShadow: `0 4px 14px ${theme.btnStart}50` }}
+                                style={{ background: `linear-gradient(135deg,${theme.btnStart},${theme.btnEnd})`, boxShadow: `0 4px 16px ${theme.btnStart}40` }}
                             >
-                                {librarySaving ? 'Saving...' : '💾 Save Karo'}
+                                {scheduleSaving ? 'Saving...' : '📅 Schedule Karo'}
                             </button>
                         </div>
                     </div>
                 </div>
             </div>
         )}
+
         </>
     );
 };
