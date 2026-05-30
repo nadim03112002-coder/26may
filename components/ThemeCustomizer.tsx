@@ -856,10 +856,14 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
         const expiresAt = globalNowHours > 0
             ? new Date(Date.now() + globalNowHours * 3600000).toISOString()
             : undefined;
+        const tierVal = globalNowTier === 'ALL' ? 'all'
+            : globalNowTier === 'ULTRA' ? 'ultra'
+            : globalNowTier === 'BASIC' ? 'basic'
+            : 'free';
         const adminAppliedTheme = {
-            ...themeObj,
-            targetTier: globalNowTier === 'ALL' ? 'all' : globalNowTier,
-            expiresAt,
+            theme: themeObj,
+            targetTier: tierVal as 'all' | 'ultra' | 'basic' | 'free',
+            expiresAt: expiresAt ?? null,
             appliedAt: new Date().toISOString(),
         };
         const newSettings = { ...(settings || {}), adminAppliedTheme };
