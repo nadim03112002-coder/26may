@@ -550,7 +550,8 @@ export const StudentDashboard: React.FC<Props> = ({
   const _adminGlobalActive = (() => {
     if (!_adminGlobal) return false;
     if (_adminGlobal.expiresAt && new Date(_adminGlobal.expiresAt) <= new Date()) return false;
-    if (_adminGlobal.targetTier !== 'all' && getUserTier(user) !== _adminGlobal.targetTier) return false;
+    const _isAdminRole = user.role === 'ADMIN' || user.role === 'SUB_ADMIN';
+    if (!_isAdminRole && _adminGlobal.targetTier !== 'all' && getUserTier(user) !== _adminGlobal.targetTier) return false;
     const _lvl = getLevelInfo(user.totalScore || 0).level;
     if (_adminGlobal.minLevel && _lvl < _adminGlobal.minLevel) return false;
     if (_adminGlobal.maxLevel && _lvl > _adminGlobal.maxLevel) return false;
@@ -7727,6 +7728,7 @@ export const StudentDashboard: React.FC<Props> = ({
           settings={settings}
           onUserUpdate={handleUserUpdate}
           onBack={() => onTabChange('HOME')}
+          themeColor={(tierTheme as any).primary}
           renderEarnContent={
             isGameEnabled
               ? user.isGameBanned
@@ -8921,21 +8923,11 @@ export const StudentDashboard: React.FC<Props> = ({
             {/* Streak pill */}
             <button
               onClick={() => setShowStreakPopup(true)}
-              className={`inline-flex items-center gap-0.5 px-2 py-1 rounded-full text-[11px] font-black shrink-0 active:scale-90 transition-all ${user.streak > 0 ? 'bg-white text-orange-500 shadow shadow-orange-500/30' : 'bg-white/15 text-white/60 border border-white/20'}`}
+              className="inline-flex items-center gap-0.5 px-2 py-1 rounded-full text-[11px] font-black shrink-0 active:scale-90 transition-all text-white"
               title={`Login streak: ${user.streak} day${user.streak === 1 ? '' : 's'}`}
             >
               <span className="text-[13px] leading-none">🔥</span>
               <span>{user.streak}d</span>
-            </button>
-
-            {/* Rank */}
-            <button
-              onClick={() => setShowLevelLeaderboard(true)}
-              className="keep-light-badge px-2.5 py-1.5 rounded-xl transition-all shrink-0 active:scale-95 shadow bg-white text-slate-700 hover:bg-slate-50 flex items-center gap-1"
-              title="Rank"
-            >
-              <Trophy size={14} className="text-amber-500" />
-              <span className="text-[11px] font-black">Rank</span>
             </button>
 
             {/* Mail */}
@@ -8945,10 +8937,10 @@ export const StudentDashboard: React.FC<Props> = ({
               return (
                 <button
                   onClick={() => { setInboxTab('UPDATES'); setShowInbox(true); }}
-                  className="keep-light-badge p-1.5 rounded-xl transition-colors relative bg-white text-slate-600 hover:bg-slate-50 shrink-0 active:scale-95 shadow"
+                  className="p-[3px] rounded-xl transition-colors relative text-white shrink-0 active:scale-95"
                   title="Mail & Notifications"
                 >
-                  <Mail size={16} />
+                  <Mail size={18} />
                   {totalCount > 0 && (
                     <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-0.5 bg-red-500 rounded-full text-[9px] text-white font-black flex items-center justify-center">
                       {totalCount > 9 ? '9+' : totalCount}
@@ -8962,7 +8954,7 @@ export const StudentDashboard: React.FC<Props> = ({
             <div className="relative shrink-0">
               <button
                 onClick={() => setShowDotsMenu(v => !v)}
-                className="keep-light-badge p-1.5 rounded-xl transition-all bg-white text-slate-600 hover:bg-slate-50 active:scale-95 shadow"
+                className="p-1.5 rounded-xl transition-all text-white active:scale-95"
                 title="More options"
               >
                 <MoreVertical size={16} />
@@ -9018,24 +9010,22 @@ export const StudentDashboard: React.FC<Props> = ({
                         </div>
                       </div>
 
-                      {/* Aaj ki Limits — opens DAILY tab of score panel */}
-                      <div className="px-4 pt-3 pb-3 border-b border-slate-100">
-                        <button
-                          onClick={() => { setShowDotsMenu(false); setShowScorePanel(true); setScorePanelTab('DAILY'); }}
-                          className="w-full flex items-center gap-3 p-2.5 rounded-xl bg-emerald-50 border border-emerald-100 hover:bg-emerald-100 active:scale-95 transition-all"
-                        >
-                          <span className="text-base">📊</span>
-                          <div className="text-left">
-                            <p className="text-xs font-black text-emerald-800">Aaj ki Usage Limits</p>
-                            <p className="text-[10px] text-emerald-600">MCQ, Notes, TTS, Downloads aur aur</p>
-                          </div>
-                        </button>
-                      </div>
-
                       {/* Quick Actions */}
                       <div className="px-4 pt-3 pb-3 border-b border-slate-100">
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Quick Access</p>
                         <div className="grid grid-cols-2 gap-2">
+                          <button
+                            onClick={() => { setShowLevelLeaderboard(true); setShowDotsMenu(false); }}
+                            className="flex items-center gap-2 p-2 rounded-xl bg-amber-50 text-amber-700 font-bold text-xs hover:bg-amber-100 transition-all"
+                          >
+                            <Trophy size={14} className="text-amber-500" /> Rank
+                          </button>
+                          <button
+                            onClick={() => { setShowDotsMenu(false); setShowScorePanel(true); setScorePanelTab('DAILY'); }}
+                            className="flex items-center gap-2 p-2 rounded-xl bg-emerald-50 text-emerald-700 font-bold text-xs hover:bg-emerald-100 transition-all"
+                          >
+                            <span className="text-sm">📊</span> Limits
+                          </button>
                           <button
                             onClick={() => { onTabChange("UNIVERSAL_VIDEO"); setCurrentLogicalTab("VIDEO"); setShowDotsMenu(false); }}
                             className="flex items-center gap-2 p-2 rounded-xl bg-blue-50 text-blue-700 font-bold text-xs hover:bg-blue-100 transition-all"
@@ -9110,11 +9100,11 @@ export const StudentDashboard: React.FC<Props> = ({
               return (
                 <button
                   onClick={() => { setShowScorePanel(true); setScorePanelTab('DAILY'); }}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black bg-white/20 text-white border border-white/35 whitespace-nowrap shrink-0 active:scale-95 transition-all shadow-sm"
+                  className="inline-flex items-center gap-[3px] px-[7.5px] py-[3px] rounded-full text-[8px] font-black bg-white/20 text-white border border-white/35 whitespace-nowrap shrink-0 active:scale-95 transition-all shadow-sm"
                   title="View my level"
                   style={{ boxShadow: `0 0 8px ${_li.glowColor}` }}
                 >
-                  <span className="text-[12px] leading-none">{_li.emoji}</span>
+                  <span className="text-[9px] leading-none">{_li.emoji}</span>
                   <span>Level {_li.level}</span>
                 </button>
               );
@@ -9126,19 +9116,19 @@ export const StudentDashboard: React.FC<Props> = ({
                 {((settings?.specialDiscountEvent?.enabled && isDiscountCooldown) ? topBarCreditFlip : false) ? (
                   <button
                     onClick={() => { if (getLevelInfo(user.totalScore || 0).level <= 4) { const todayStr = new Date().toISOString().split('T')[0]; const k = `nst_store_visits_${user.id}_${todayStr}`; try { localStorage.setItem(k, String(parseInt(localStorage.getItem(k) || '0', 10) + 1)); } catch {} } onTabChange("STORE"); }}
-                    className="inline-flex items-center gap-px px-1.5 py-[2px] rounded-full text-[6px] font-black bg-white/20 text-white border border-white/35 whitespace-nowrap shrink-0 active:scale-95 transition-all shadow-sm"
+                    className="inline-flex items-center gap-[2px] px-2 py-[3px] rounded-full text-[8px] font-black bg-white/20 text-white border border-white/35 whitespace-nowrap shrink-0 active:scale-95 transition-all shadow-sm"
                     title="Cooldown Timer"
                   >
-                    <Timer size={7} />
+                    <Timer size={9} />
                     <span>{cooldownTimeLeft ? `${String(cooldownTimeLeft.hours).padStart(2, '0')}:${String(cooldownTimeLeft.minutes).padStart(2, '0')}:${String(cooldownTimeLeft.seconds).padStart(2, '0')}` : '00:00:00'}</span>
                   </button>
                 ) : ((settings?.specialDiscountEvent?.enabled && isDiscountLive) ? topBarCreditFlip : false) ? (
                   <button
                     onClick={() => { if (getLevelInfo(user.totalScore || 0).level <= 4) { const todayStr = new Date().toISOString().split('T')[0]; const k = `nst_store_visits_${user.id}_${todayStr}`; try { localStorage.setItem(k, String(parseInt(localStorage.getItem(k) || '0', 10) + 1)); } catch {} } onTabChange("STORE"); }}
-                    className="inline-flex items-center gap-px px-1.5 py-[2px] rounded-full text-[6px] font-black bg-white/20 text-white border border-white/35 whitespace-nowrap shrink-0 active:scale-95 transition-all shadow-sm"
+                    className="inline-flex items-center gap-[2px] px-2 py-[3px] rounded-full text-[8px] font-black bg-white/20 text-white border border-white/35 whitespace-nowrap shrink-0 active:scale-95 transition-all shadow-sm"
                     title="Discount"
                   >
-                    <Ticket size={7} />
+                    <Ticket size={9} />
                     <span>{Number(settings?.specialDiscountEvent?.discountPercent ?? 20)}% OFF</span>
                   </button>
                 ) : (
@@ -9151,10 +9141,10 @@ export const StudentDashboard: React.FC<Props> = ({
                       }
                       onTabChange("STORE");
                     }}
-                    className="inline-flex items-center gap-px px-1.5 py-[2px] rounded-full text-[6px] font-black bg-white/20 text-white border border-white/35 whitespace-nowrap shrink-0 active:scale-95 transition-all shadow-sm"
+                    className="inline-flex items-center gap-[2px] px-2 py-[3px] rounded-full text-[8px] font-black bg-white/20 text-white border border-white/35 whitespace-nowrap shrink-0 active:scale-95 transition-all shadow-sm"
                     title="Credits"
                   >
-                    <Crown size={7} />
+                    <Crown size={9} />
                     <span>{user.credits} CR</span>
                   </button>
                 )}
@@ -9786,23 +9776,38 @@ export const StudentDashboard: React.FC<Props> = ({
       })()}
 
       {/* NOTIFICATION BAR (Only on Home) (COMPACT VERSION) */}
-      {activeTab === "HOME" && settings?.noticeText && isHomeSectionVisible('home_notice_bar', settings) && (
-        <div className="bg-slate-900 text-white p-3 mb-4 rounded-xl shadow-md border border-slate-700 animate-in slide-in-from-top-4 relative mx-2 mt-2">
-          <div className="flex items-center gap-3">
-            <Megaphone size={16} className="text-yellow-400 shrink-0" />
-            <div className="overflow-hidden flex-1">
-              <p className="text-xs font-medium truncate">
-                {settings.noticeText}
-              </p>
+      {activeTab === "HOME" && settings?.noticeText && isHomeSectionVisible('home_notice_bar', settings) && (() => {
+        const _nb_p = (tierTheme as any).primary || '#2563eb';
+        const _nb_hex = _nb_p.replace('#','');
+        const _nb_r = parseInt(_nb_hex.substring(0,2),16);
+        const _nb_g = parseInt(_nb_hex.substring(2,4),16);
+        const _nb_b = parseInt(_nb_hex.substring(4,6),16);
+        return (
+          <div
+            className="text-white p-3 mb-4 rounded-xl shadow-md animate-in slide-in-from-top-4 relative mx-2 mt-2 overflow-hidden"
+            style={{
+              background: `linear-gradient(135deg, rgba(${_nb_r},${_nb_g},${_nb_b},0.85) 0%, rgba(${_nb_r},${_nb_g},${_nb_b},0.65) 100%)`,
+              border: `1px solid rgba(${_nb_r},${_nb_g},${_nb_b},0.5)`,
+              backdropFilter: 'blur(8px)',
+            }}
+          >
+            <div className="absolute inset-0 pointer-events-none" style={{ background: `radial-gradient(ellipse at left, rgba(255,255,255,0.08) 0%, transparent 60%)` }} />
+            <div className="flex items-center gap-2 relative z-10">
+              <Megaphone size={15} className="text-yellow-300 shrink-0" />
+              <div className="overflow-hidden flex-1">
+                <p className="text-xs font-bold whitespace-nowrap animate-marquee inline-block">
+                  {settings.noticeText}&nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp;{settings.noticeText}
+                </p>
+              </div>
+              <SpeakButton
+                text={settings.noticeText}
+                className="text-white/80 hover:bg-white/10 shrink-0"
+                iconSize={13}
+              />
             </div>
-            <SpeakButton
-              text={settings.noticeText}
-              className="text-white hover:bg-white/10"
-              iconSize={14}
-            />
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* DAILY GK & GLOBAL CHALLENGE (Only on Home) */}
       {activeTab === "HOME" && isHomeSectionVisible('home_promo_banners', settings) && (() => {

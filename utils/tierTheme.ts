@@ -30,7 +30,7 @@ export const TIER_THEME = {
     navBorder:     'rgba(30,58,138,0.28)',
     navRing:       'rgba(30,58,138,0.30)',
     pillGrad:      'linear-gradient(90deg,#0f1f5c,#1e3a8a,#2563eb)',
-    topBarGrad:    'linear-gradient(135deg,#0a1240 0%,#0f1f6e 40%,#0a1240 100%)',
+    topBarGrad:    'linear-gradient(135deg,#1e3a8a 0%,#2563eb 45%,#1e3a8a 100%)',
     btnGrad:       'linear-gradient(135deg,#1e3a8a,#2563eb)',
     shadowColor:   'rgba(30,58,138,0.40)',
     profileBg:     '#070d2e',
