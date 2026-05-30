@@ -3551,6 +3551,8 @@ export const StudentDashboard: React.FC<Props> = ({
   const [gkExpandedWeek, setGkExpandedWeek] = useState<string | null>(null);
   // GK page: today's banner is collapsed by default. Tap the banner to reveal today's Q&A.
   const [gkTodayExpanded, setGkTodayExpanded] = useState<boolean>(false);
+  // GK page: set of MCQ flashcard keys whose answer has been revealed
+  const [gkMcqRevealedSet, setGkMcqRevealedSet] = useState<Set<string>>(new Set());
   const [activeChallenges20, setActiveChallenges20] = useState<Challenge20[]>(
     [],
   );
@@ -9124,19 +9126,19 @@ export const StudentDashboard: React.FC<Props> = ({
                 {((settings?.specialDiscountEvent?.enabled && isDiscountCooldown) ? topBarCreditFlip : false) ? (
                   <button
                     onClick={() => { if (getLevelInfo(user.totalScore || 0).level <= 4) { const todayStr = new Date().toISOString().split('T')[0]; const k = `nst_store_visits_${user.id}_${todayStr}`; try { localStorage.setItem(k, String(parseInt(localStorage.getItem(k) || '0', 10) + 1)); } catch {} } onTabChange("STORE"); }}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black bg-white/20 text-white border border-white/35 whitespace-nowrap shrink-0 active:scale-95 transition-all shadow-sm"
+                    className="inline-flex items-center gap-0.5 px-2 py-[3px] rounded-full text-[8px] font-black bg-white/20 text-white border border-white/35 whitespace-nowrap shrink-0 active:scale-95 transition-all shadow-sm"
                     title="Cooldown Timer"
                   >
-                    <Timer size={12} />
+                    <Timer size={9} />
                     <span>{cooldownTimeLeft ? `${String(cooldownTimeLeft.hours).padStart(2, '0')}:${String(cooldownTimeLeft.minutes).padStart(2, '0')}:${String(cooldownTimeLeft.seconds).padStart(2, '0')}` : '00:00:00'}</span>
                   </button>
                 ) : ((settings?.specialDiscountEvent?.enabled && isDiscountLive) ? topBarCreditFlip : false) ? (
                   <button
                     onClick={() => { if (getLevelInfo(user.totalScore || 0).level <= 4) { const todayStr = new Date().toISOString().split('T')[0]; const k = `nst_store_visits_${user.id}_${todayStr}`; try { localStorage.setItem(k, String(parseInt(localStorage.getItem(k) || '0', 10) + 1)); } catch {} } onTabChange("STORE"); }}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black bg-white/20 text-white border border-white/35 whitespace-nowrap shrink-0 active:scale-95 transition-all shadow-sm"
+                    className="inline-flex items-center gap-0.5 px-2 py-[3px] rounded-full text-[8px] font-black bg-white/20 text-white border border-white/35 whitespace-nowrap shrink-0 active:scale-95 transition-all shadow-sm"
                     title="Discount"
                   >
-                    <Ticket size={12} />
+                    <Ticket size={9} />
                     <span>{Number(settings?.specialDiscountEvent?.discountPercent ?? 20)}% OFF</span>
                   </button>
                 ) : (
@@ -9149,10 +9151,10 @@ export const StudentDashboard: React.FC<Props> = ({
                       }
                       onTabChange("STORE");
                     }}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black bg-white/20 text-white border border-white/35 whitespace-nowrap shrink-0 active:scale-95 transition-all shadow-sm"
+                    className="inline-flex items-center gap-0.5 px-2 py-[3px] rounded-full text-[8px] font-black bg-white/20 text-white border border-white/35 whitespace-nowrap shrink-0 active:scale-95 transition-all shadow-sm"
                     title="Credits"
                   >
-                    <Crown size={12} />
+                    <Crown size={9} />
                     <span>{user.credits} CR</span>
                   </button>
                 )}
@@ -11986,6 +11988,80 @@ export const StudentDashboard: React.FC<Props> = ({
                     )}
                   </div>
                 )}
+
+                {/* YESTERDAY'S MCQ FLASHCARDS */}
+                {(() => {
+                  const yest = new Date();
+                  yest.setDate(yest.getDate() - 1);
+                  yest.setHours(0, 0, 0, 0);
+                  const yestEnd = new Date(yest);
+                  yestEnd.setHours(23, 59, 59, 999);
+                  const yestMcqs = getMistakeBankSync().filter(
+                    (m) => m.addedAt >= yest.getTime() && m.addedAt <= yestEnd.getTime()
+                  );
+                  if (yestMcqs.length === 0) return null;
+                  return (
+                    <div className="rounded-2xl border border-violet-200 bg-gradient-to-br from-violet-50 via-purple-50 to-fuchsia-50 shadow-sm overflow-hidden">
+                      <div className="px-4 pt-4 pb-2 flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-xl bg-violet-100 flex items-center justify-center text-violet-600 shrink-0">
+                          <BrainCircuit size={16} />
+                        </div>
+                        <div>
+                          <p className="text-xs font-black text-violet-700 uppercase tracking-widest">Kal ke MCQ Revision</p>
+                          <p className="text-[10px] text-violet-500">{yestMcqs.length} question{yestMcqs.length > 1 ? 's' : ''} · Answer chhupa hai, tap karke dekho</p>
+                        </div>
+                      </div>
+                      <div className="px-4 pb-4 space-y-3 mt-1">
+                        {yestMcqs.map((mcq, i) => {
+                          const revKey = mcq.id || `yest_mcq_${i}`;
+                          const revealed = gkMcqRevealedSet.has(revKey);
+                          return (
+                            <div key={revKey} className="bg-white rounded-xl border border-violet-100 shadow-sm p-3">
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className="text-[9px] font-black bg-violet-100 text-violet-600 px-2 py-0.5 rounded-full uppercase tracking-widest">Q{i + 1}</span>
+                                {mcq.topic && <span className="text-[9px] text-slate-400 font-semibold truncate">{mcq.topic}</span>}
+                              </div>
+                              <p className="font-bold text-slate-800 text-sm mb-3">{mcq.question}</p>
+                              {mcq.options && mcq.options.length > 0 && (
+                                <div className="space-y-1.5 mb-3">
+                                  {mcq.options.map((opt, oi) => (
+                                    <div
+                                      key={oi}
+                                      className={`text-xs px-3 py-2 rounded-lg border transition-colors ${
+                                        revealed && oi === mcq.correctAnswer
+                                          ? 'bg-emerald-50 border-emerald-300 text-emerald-800 font-bold'
+                                          : 'bg-slate-50 border-slate-200 text-slate-600'
+                                      }`}
+                                    >
+                                      <span className="font-black mr-1.5">{String.fromCharCode(65 + oi)}.</span>{opt}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              {!revealed ? (
+                                <button
+                                  onClick={() => setGkMcqRevealedSet(prev => { const s = new Set(prev); s.add(revKey); return s; })}
+                                  className="w-full py-2 text-xs font-black text-violet-600 border border-violet-200 rounded-lg bg-violet-50 hover:bg-violet-100 active:scale-[0.98] transition-all"
+                                >
+                                  👁 Jawab Dekhein
+                                </button>
+                              ) : (
+                                <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+                                  <p className="text-xs font-black text-emerald-700">
+                                    ✓ Sahi Jawab: {mcq.options?.[mcq.correctAnswer] ?? String(mcq.correctAnswer)}
+                                  </p>
+                                  {mcq.explanation && (
+                                    <p className="text-[11px] text-emerald-600 mt-1">{mcq.explanation}</p>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* HIERARCHICAL HISTORY: YEAR -> MONTH -> WEEK -> DAYS */}
                 {years.length > 0 ? (
@@ -19296,22 +19372,22 @@ RULES:
       {/* CUSTOM CONFIRM DIALOG */}
       {/* ═══════════ RULES PAGE MODAL ═══════════ */}
       {showRulesPage && (
-        <div className="fixed inset-0 z-[9999] bg-white flex flex-col animate-in slide-in-from-bottom-10 duration-200">
+        <div className="fixed inset-0 z-[9999] flex flex-col animate-in slide-in-from-bottom-10 duration-200" style={{ background: tierTheme.profileBg }}>
           {/* Header */}
-          <div className="flex items-center gap-3 px-4 py-4 border-b border-slate-100 bg-white sticky top-0 shadow-sm">
-            <button onClick={() => setShowRulesPage(false)} className="p-2 rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all">
+          <div className="flex items-center gap-3 px-4 py-4 sticky top-0 shadow-sm shrink-0" style={{ background: tierTheme.topBarGrad }}>
+            <button onClick={() => setShowRulesPage(false)} className="p-2 rounded-full bg-white/20 text-white hover:bg-white/30 transition-all">
               <svg width="16" height="16" viewBox="0 0 14 14" fill="none"><path d="M13 7H1M1 7l6-6M1 7l6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </button>
             <div>
-              <h2 className="text-base font-black text-slate-800">📋 Feature Rules</h2>
-              <p className="text-[10px] text-slate-500">Free · Basic · Ultra — sabke liye rules</p>
+              <h2 className="text-base font-black text-white">📋 Feature Rules</h2>
+              <p className="text-[10px] text-white/70">Free · Basic · Ultra — sabke liye rules</p>
             </div>
           </div>
           {/* Content */}
           <div className="flex-1 overflow-y-auto p-4 space-y-3 pb-10">
 
             {/* TIER HEADER */}
-            <div className="grid grid-cols-3 gap-1.5 sticky top-0 z-10 bg-white pb-2">
+            <div className="grid grid-cols-3 gap-1.5 sticky top-0 z-10 pb-2" style={{ background: tierTheme.profileBg }}>
               <div className="bg-slate-100 rounded-xl p-2 text-center">
                 <p className="text-[9px] font-black text-slate-400 uppercase">Free</p>
                 <p className="text-[8px] text-slate-400 mt-0.5">Basic access</p>

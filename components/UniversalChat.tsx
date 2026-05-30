@@ -400,7 +400,7 @@ export const UniversalChat: React.FC<Props> = ({ user, onClose, isAdmin, targetU
                 </div>
             )}
 
-            <div className="w-full h-full flex flex-col overflow-hidden" style={{ background: appTheme.profileBg || '#ffffff' }}>
+            <div className="w-full h-full flex flex-col overflow-hidden" style={{ background: appTheme.appBgColor || appTheme.profileBg || '#ffffff' }}>
 
                 {/* Header */}
                 <div className="text-white p-4 flex items-center justify-between shrink-0" style={{ background: appTheme.topBarGrad || '#0f172a' }}>
@@ -555,7 +555,7 @@ export const UniversalChat: React.FC<Props> = ({ user, onClose, isAdmin, targetU
                         })()}
 
                 {/* Messages */}
-                        <div className="flex-1 overflow-y-auto p-3 space-y-3" style={{ background: appTheme.profileBg || '#f8fafc' }}>
+                        <div className="flex-1 overflow-y-auto p-3 space-y-3" style={{ background: appTheme.appBgColor || appTheme.profileBg || '#f8fafc' }}>
                             {visibleMessages.length === 0 && (
                                 <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-2">
                                     <MessageSquare size={40} className="opacity-40" />
