@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Volume2, Square, BookOpen, Star, Palette, Check, Type, RotateCcw, Search, Monitor, X, Layers } from 'lucide-react';
+import { Volume2, Square, BookOpen, Star, Palette, Check, Type, RotateCcw, Search, Monitor, X, LayoutGrid, MoreVertical } from 'lucide-react';
 import { rotateScreen, isDesktopModeOn, setDesktopMode } from '../utils/displayPrefs';
 import { speakText, stopSpeech } from '../utils/textToSpeech';
 import { splitIntoTopics, NotesTopic as Topic } from '../utils/notesSplitter';
@@ -1032,6 +1032,16 @@ export const ChunkedNotesReader: React.FC<Props> = ({ content, className, langua
                 {isReading && activeIdx !== null ? `${activeIdx + 1}/${activeTopicList.length}` : 'READ MODE'}
               </span>
             </div>
+            {onMoreOptions && !hideInline3dot && (
+              <button
+                type="button"
+                onClick={onMoreOptions}
+                className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-100 border border-slate-200 text-slate-500 active:scale-90 transition shrink-0"
+                title="More options"
+              >
+                <LayoutGrid size={14} />
+              </button>
+            )}
           </div>
 
           {/* ── 5-button compact row — hides on scroll down ── */}
@@ -1066,7 +1076,7 @@ export const ChunkedNotesReader: React.FC<Props> = ({ content, className, langua
               {/* More */}
               <button type="button" onClick={() => setShowControls(s => !s)}
                 className={`flex-1 h-8 flex items-center justify-center rounded-xl border active:scale-95 transition ${showControls ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-600'}`}>
-                <Layers size={14} />
+                <MoreVertical size={14} />
               </button>
             </div>
           </div>
@@ -1098,7 +1108,7 @@ export const ChunkedNotesReader: React.FC<Props> = ({ content, className, langua
                     {showColorMenu && (
                       <>
                         <div className="fixed inset-0 z-[310]" onClick={() => setShowColorMenu(false)} />
-                        <div className="absolute right-0 bottom-full mb-2 z-[320] bg-white border border-slate-200 rounded-xl shadow-lg p-3 w-52 animate-in fade-in slide-in-from-bottom-2 duration-150">
+                        <div className="absolute left-0 top-full mt-1 z-[320] bg-white border border-slate-200 rounded-xl shadow-lg p-3 w-52 animate-in fade-in slide-in-from-top-2 duration-150">
                           <p className="text-[10px] font-black uppercase tracking-wider text-slate-500 mb-2">
                             Text Color · {themeMode === 'blue' ? 'Blue' : themeMode === 'dark' ? 'Dark' : 'Light'} mode
                           </p>

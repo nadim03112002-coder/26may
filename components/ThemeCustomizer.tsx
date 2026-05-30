@@ -625,6 +625,12 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
     /* Local live state so admin sees immediate feedback after apply/remove */
     const [liveAdminTheme, setLiveAdminTheme]   = useState(settings?.adminAppliedTheme);
 
+    /* ── ADMIN GLOBAL APPLY NOW STATE ── */
+    const [showGlobalNowPopup, setShowGlobalNowPopup] = useState(false);
+    const [globalNowTier, setGlobalNowTier] = useState<'ALL' | 'ULTRA' | 'BASIC' | 'FREE'>('ALL');
+    const [globalNowHours, setGlobalNowHours] = useState<number>(24);
+    const [globalNowSaving, setGlobalNowSaving] = useState(false);
+
     /* ── USER HISTORY STATE ── */
     const [userThemeSaving, setUserThemeSaving]       = useState(false);
 
@@ -841,6 +847,31 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
             alert('❌ Kuch galat hua — dobara try karo.');
         }
         setScheduleSaving(false);
+    };
+
+    const doGlobalApplyNow = async () => {
+        setGlobalNowSaving(true);
+        setShowGlobalNowPopup(false);
+        const themeObj = buildThemeObj();
+        const expiresAt = globalNowHours > 0
+            ? new Date(Date.now() + globalNowHours * 3600000).toISOString()
+            : undefined;
+        const adminAppliedTheme = {
+            ...themeObj,
+            targetTier: globalNowTier === 'ALL' ? 'all' : globalNowTier,
+            expiresAt,
+            appliedAt: new Date().toISOString(),
+        };
+        const newSettings = { ...(settings || {}), adminAppliedTheme };
+        try {
+            await saveSystemSettings(newSettings as any);
+            onUpdateSettings?.(newSettings as any);
+            setLiveAdminTheme(adminAppliedTheme as any);
+            alert(`✅ Theme abhi apply ho gayi!\n👥 ${globalNowTier === 'ALL' ? 'Sabhi users' : globalNowTier}\n⏱ ${globalNowHours}h ke liye`);
+        } catch {
+            alert('❌ Error — dobara try karo.');
+        }
+        setGlobalNowSaving(false);
     };
 
     const doRemoveGlobal = async () => {
@@ -1875,6 +1906,24 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
                     </button>
                 </div>
 
+                {/* ── ADMIN GLOBAL APPLY NOW BUTTON ── */}
+                {isAdmin && (
+                    <div className="flex gap-2 pt-1">
+                        <button
+                            onClick={() => setShowGlobalNowPopup(true)}
+                            disabled={globalNowSaving}
+                            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl font-black text-sm text-white active:scale-95 transition-all disabled:opacity-60 border"
+                            style={{
+                                background: `linear-gradient(135deg,${theme.btnStart}28,${theme.btnEnd}28)`,
+                                borderColor: `${theme.btnStart}55`,
+                            }}
+                        >
+                            <span>🌐</span>
+                            <span style={{ color: theme.navActive }}>Abhi Apply Karo (Tier + Time)</span>
+                        </button>
+                    </div>
+                )}
+
                 {/* ── ADMIN THEME SCHEDULE BUTTON ── */}
                 {isAdmin && (
                     <div className="flex gap-2 pt-1">
@@ -1984,6 +2033,101 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
                 </p>
             </div>
         </div>
+
+        {/* ══════════════════════════════════════════════════
+            ADMIN GLOBAL APPLY NOW POPUP
+        ══════════════════════════════════════════════════ */}
+        {showGlobalNowPopup && (
+            <div className="fixed inset-0 z-[300] flex items-end justify-center pb-6 px-4" style={{ background: 'rgba(0,0,0,0.82)', backdropFilter: 'blur(6px)' }}>
+                <div className="w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl" style={{ background: '#0d0f1a', border: `1px solid ${theme.btnStart}50` }}>
+                    {/* Header */}
+                    <div className="px-5 py-4 flex items-center gap-3" style={{ background: `linear-gradient(135deg,${theme.btnStart}30,${theme.btnEnd}20)`, borderBottom: `1px solid ${theme.btnStart}30` }}>
+                        <div className="w-9 h-9 rounded-xl flex items-center justify-center text-xl" style={{ background: `${theme.btnStart}25` }}>🌐</div>
+                        <div className="flex-1">
+                            <p className="text-white font-black text-sm">Abhi Apply Karo</p>
+                            <p className="text-[10px]" style={{ color: `${theme.navActive}99` }}>Selected tier ke users ka theme turant badlega</p>
+                        </div>
+                        <button onClick={() => setShowGlobalNowPopup(false)} className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center">
+                            <X size={13} className="text-white/70" />
+                        </button>
+                    </div>
+                    <div className="p-5 flex flex-col gap-4">
+                        {/* Tier selection */}
+                        <div>
+                            <p className="text-white/60 text-xs font-bold mb-2">👥 Kis Ko Apply Karo?</p>
+                            <div className="grid grid-cols-4 gap-1.5">
+                                {(['ALL','ULTRA','BASIC','FREE'] as const).map((tier) => {
+                                    const colors: Record<string, string> = { ALL: '#6366f1', ULTRA: '#1e3a8a', BASIC: '#2563eb', FREE: '#0ea5e9' };
+                                    const emojis: Record<string, string> = { ALL: '🌐', ULTRA: '💎', BASIC: '⭐', FREE: '🎓' };
+                                    const sel = globalNowTier === tier;
+                                    return (
+                                        <button key={tier} onClick={() => setGlobalNowTier(tier)}
+                                            className="py-2.5 rounded-2xl flex flex-col items-center gap-0.5 text-[10px] font-black transition-all active:scale-95"
+                                            style={{
+                                                background: sel ? `${colors[tier]}30` : 'rgba(255,255,255,0.05)',
+                                                border: `2px solid ${sel ? colors[tier] + '80' : 'transparent'}`,
+                                                color: sel ? '#fff' : 'rgba(255,255,255,0.35)',
+                                            }}
+                                        >
+                                            <span className="text-base">{emojis[tier]}</span>
+                                            {tier === 'ALL' ? 'Sabhi' : tier}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                        {/* Duration */}
+                        <div>
+                            <p className="text-white/60 text-xs font-bold mb-2">⏱ Kitne Ghante Ke Liye?</p>
+                            <div className="grid grid-cols-5 gap-1.5 mb-2">
+                                {[1, 6, 12, 24, 48].map(h => (
+                                    <button key={h} onClick={() => setGlobalNowHours(h)}
+                                        className="py-2 rounded-xl text-[10px] font-bold transition-all active:scale-95"
+                                        style={{
+                                            background: globalNowHours === h ? `linear-gradient(135deg,${theme.btnStart},${theme.btnEnd})` : 'rgba(255,255,255,0.06)',
+                                            color: globalNowHours === h ? '#fff' : 'rgba(255,255,255,0.5)',
+                                            border: `1px solid ${globalNowHours === h ? theme.btnStart + '80' : 'transparent'}`,
+                                        }}
+                                    >{h}h</button>
+                                ))}
+                            </div>
+                            <div className="flex items-center gap-2 rounded-xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                <button className="w-10 h-9 flex items-center justify-center text-white/50 text-lg font-bold active:scale-90" onClick={() => setGlobalNowHours(h => Math.max(1, h - 1))}>−</button>
+                                <input type="number" min={1} max={720} value={globalNowHours}
+                                    onChange={e => setGlobalNowHours(Math.max(1, Math.min(720, parseInt(e.target.value) || 1)))}
+                                    className="flex-1 text-center text-sm font-black text-white outline-none bg-transparent py-2"
+                                />
+                                <span className="text-white/40 text-xs pr-2">ghante</span>
+                                <button className="w-10 h-9 flex items-center justify-center text-white/50 text-lg font-bold active:scale-90" onClick={() => setGlobalNowHours(h => Math.min(720, h + 1))}>+</button>
+                            </div>
+                        </div>
+                        {/* Summary */}
+                        <div className="rounded-2xl p-3" style={{ background: `${theme.btnStart}12`, border: `1px solid ${theme.btnStart}25` }}>
+                            <p className="text-[10px] text-white/50 font-bold uppercase tracking-wide mb-1">Summary</p>
+                            <p className="text-xs text-white font-bold">
+                                👥 {globalNowTier === 'ALL' ? 'Sabhi users' : globalNowTier} · ⏱ {globalNowHours}h ke liye
+                            </p>
+                            <p className="text-[10px] text-white/40 mt-0.5">
+                                Expires: {new Date(Date.now() + globalNowHours * 3600000).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+                            </p>
+                        </div>
+                        {/* Buttons */}
+                        <div className="flex gap-2">
+                            <button onClick={() => setShowGlobalNowPopup(false)}
+                                className="flex-1 py-3 rounded-2xl font-bold text-sm text-white/40 border border-white/10 active:scale-95 transition-all"
+                                style={{ background: 'rgba(255,255,255,0.04)' }}
+                            >Cancel</button>
+                            <button onClick={doGlobalApplyNow} disabled={globalNowSaving}
+                                className="flex-1 py-3 rounded-2xl font-black text-sm text-white active:scale-95 transition-all disabled:opacity-40"
+                                style={{ background: `linear-gradient(135deg,${theme.btnStart},${theme.btnEnd})`, boxShadow: `0 4px 16px ${theme.btnStart}40` }}
+                            >
+                                {globalNowSaving ? 'Applying...' : '🌐 Abhi Apply Karo'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )}
 
         {/* ══════════════════════════════════════════════════
             ADMIN OFFICIAL TIER APPLY POPUP
