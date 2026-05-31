@@ -73,6 +73,7 @@ export const LessonView: React.FC<Props> = ({
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [language, setLanguage] = useState<'English' | 'Hindi'>('English');
   const [notesViewMode, setNotesViewMode] = useState<'readable' | 'styled'>('readable');
+  const _modeToggleFn = useRef<((mode: 'readable' | 'styled') => void) | null>(null);
   const [isLandscape, setIsLandscape] = useState<boolean>(() => {
     try { return window.matchMedia('(orientation: landscape)').matches; } catch { return false; }
   });
@@ -363,6 +364,14 @@ export const LessonView: React.FC<Props> = ({
           >
             {isImmersive ? '↩ Exit Focus' : '🎯 Focus Mode'}
           </button>
+          {_modeToggleFn.current && (
+            <button
+              onClick={() => { _modeToggleFn.current?.(notesViewMode === 'readable' ? 'styled' : 'readable'); setFabOpen(false); }}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', background: notesViewMode === 'styled' ? '#0f766e' : '#6366f1', color: '#fff', border: 'none', borderRadius: '24px', padding: '8px 14px', fontSize: '12px', fontWeight: 900, boxShadow: '0 4px 16px rgba(0,0,0,0.25)', cursor: 'pointer', whiteSpace: 'nowrap' }}
+            >
+              {notesViewMode === 'styled' ? <><Volume2 size={14} /> TTS Reader</> : <><FileText size={14} /> Notes Maker</>}
+            </button>
+          )}
         </div>
       )}
 
@@ -516,6 +525,7 @@ export const LessonView: React.FC<Props> = ({
                   setNotesViewMode('readable');
               }
           };
+          _modeToggleFn.current = handleModeToggle;
 
           // Strip leading title heading from HTML to avoid showing title twice
           const deduplicatedHtml = decodedContent.replace(/^(\s*<(div|section)[^>]*>\s*)?<h[12][^>]*>[^<]*<\/h[12]>/i, '');
@@ -697,8 +707,6 @@ export const LessonView: React.FC<Props> = ({
                       <div className="flex-1 flex flex-row overflow-hidden bg-slate-50">
                           {/* Left panel: mode switcher controls */}
                           <div className={`w-[220px] flex-shrink-0 bg-white border-r border-slate-100 flex flex-col p-4 gap-3 overflow-y-auto${isImmersive ? ' hidden' : ''}`}>
-                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Reading Mode</p>
-                              {modeSwitcher}
                               {/* Language toggle */}
                               <div className="mt-2">
                                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Language</p>
@@ -739,10 +747,6 @@ export const LessonView: React.FC<Props> = ({
                       /* ── PORTRAIT: Normal single-column layout ── */
                       <div className="flex-1 overflow-y-auto w-full pb-6 bg-slate-50">
                           <div className="w-full max-w-5xl mx-auto px-4 md:px-8">
-                              {/* Mode switcher tab bar */}
-                              <div className={`sticky top-0 z-20 bg-slate-50 pt-3 pb-2${isImmersive ? ' hidden' : ''}`}>
-                                  {modeSwitcher}
-                              </div>
                               {notesContent}
                           </div>
                       </div>

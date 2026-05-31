@@ -720,13 +720,16 @@ export const StudentDashboard: React.FC<Props> = ({
     (tierTheme as any).accentGlowColor, isDarkMode,
   ]);
 
-  // ── Meta theme-color: profile tab → official tier color, others → active theme ──
+  // ── Meta theme-color: profile tab → official tier color, others → top bar start color ──
   useEffect(() => {
     const officialTheme = getTierTheme(user);
-    const color = activeTab === 'PROFILE' ? officialTheme.primary : tierTheme.primary;
+    // Extract first hex color from topBarGrad gradient so status bar blends seamlessly with top bar
+    const _gradMatch = tierTheme.topBarGrad.match(/#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b/);
+    const _topBarStartColor = _gradMatch ? _gradMatch[0] : tierTheme.primary;
+    const color = activeTab === 'PROFILE' ? officialTheme.primary : _topBarStartColor;
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) meta.setAttribute('content', color);
-  }, [activeTab, tierTheme.primary, user.isPremium, user.subscriptionLevel, user.subscriptionEndDate]);
+  }, [activeTab, tierTheme.primary, tierTheme.topBarGrad, user.isPremium, user.subscriptionLevel, user.subscriptionEndDate]);
 
   // ── HTML Write-Mode Daily Quota (ALL tiers) ──────────────────────────────
   const _subValid      = SubscriptionEngine.isPremium(user); // true only if not expired
@@ -1771,6 +1774,7 @@ export const StudentDashboard: React.FC<Props> = ({
   const [cardFxOff, setCardFxOff] = useState(() => { try { return localStorage.getItem('nst_card_fx_off') === '1'; } catch { return false; } });
   const [displayLevel, setDisplayLevel] = useState<number | null>(() => { try { const v = localStorage.getItem('nst_display_level'); return v ? parseInt(v, 10) : null; } catch { return null; } });
   const [showLevelChooser, setShowLevelChooser] = useState(false);
+  const [showProfileSettings, setShowProfileSettings] = useState(false);
   const [rewardSubTab, setRewardSubTab] = useState<'EARNED' | 'RULES' | 'HISTORY'>('EARNED');
   const [rewardHistorySeenCount, setRewardHistorySeenCount] = useState<number>(() => {
     const saved = localStorage.getItem(`nst_reward_hist_seen_${user?.id || ''}`);
@@ -8317,7 +8321,11 @@ export const StudentDashboard: React.FC<Props> = ({
             {/* Total score */}
             <div className="rounded-2xl pt-4 pb-3 px-3 text-center" style={{ background: _pCard, border: `1px solid ${tierTheme.primary}35`, boxShadow: `0 4px 16px ${tierTheme.primary}10` }}>
               <div className="text-[11px] mb-1.5">⭐</div>
-              <div className="text-[22px] font-black tabular-nums leading-none mb-1" style={{ color: tierTheme.primary }}>{_pRawScore > 999 ? `${(_pRawScore/1000).toFixed(1)}k` : _pRawScore}</div>
+              {(() => {
+                const _s = _pRawScore >= 100000 ? `${Math.round(_pRawScore/1000)}k` : _pRawScore >= 10000 ? `${(_pRawScore/1000).toFixed(1)}k` : _pRawScore >= 1000 ? `${(_pRawScore/1000).toFixed(1)}k` : String(_pRawScore);
+                const _fs = _s.length <= 3 ? '22px' : _s.length === 4 ? '18px' : _s.length === 5 ? '15px' : '13px';
+                return <div className="font-black tabular-nums leading-none mb-1 w-full text-center overflow-hidden" style={{ color: tierTheme.primary, fontSize: _fs }}>{_s}</div>;
+              })()}
               <div className={`text-[9px] font-bold uppercase tracking-widest ${_pTxtSub}`}>XP Score</div>
             </div>
           </div>
@@ -8574,6 +8582,19 @@ export const StudentDashboard: React.FC<Props> = ({
               </button>
             )}
 
+            {/* ── Settings Button ── */}
+            <button
+              onClick={() => setShowProfileSettings(v => !v)}
+              className={`w-full px-4 py-4 flex items-center gap-3.5 ${_pHovCls} transition-colors`}
+              style={{ borderBottom: _pSep }}>
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: _pIconBg, border: _pIconBdr }}>
+                <span className="text-base leading-none">⚙️</span>
+              </div>
+              <p className={`flex-1 text-sm font-bold text-left ${_pTxt}`}>Settings</p>
+              <ChevronRight size={15} style={{ color: _pTxtMutedColor, transform: showProfileSettings ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} className="shrink-0" />
+            </button>
+            {showProfileSettings && (<>
+
             {/* ── Theme Override Toggle ── */}
             {(() => {
               // useDefaultTheme !== false  →  LOCKED (default safe state, admin can't override)
@@ -8745,6 +8766,7 @@ export const StudentDashboard: React.FC<Props> = ({
               <p className={`flex-1 text-sm font-bold text-left ${_pTxt}`}>Reset Settings</p>
               <ChevronRight size={15} style={{ color: _pTxtMutedColor }} className="shrink-0" />
             </button>
+            </>)}
 
             {/* App Guide */}
             <button onClick={() => setShowUserGuide(true)}
@@ -9246,9 +9268,6 @@ export const StudentDashboard: React.FC<Props> = ({
 
           </div>
         </div>
-
-        {/* DIVIDER LINE between Line 1 and Line 2 */}
-        <div className="h-px mx-4" style={{ background: 'rgba(255,255,255,0.22)' }} />
 
         {/* SECOND LINE: greeting + Level / Credits / Subscription pills */}
         <div className="flex items-center justify-between w-full mt-0.5 pt-1 px-4 pb-1.5">
@@ -15149,7 +15168,7 @@ export const StudentDashboard: React.FC<Props> = ({
         };
 
         return (
-          <div className="fixed inset-0 z-[200] flex flex-col animate-in fade-in" style={{ background: tierTheme.profileBg }}>
+          <div className="fixed inset-0 z-[200] flex flex-col animate-in fade-in" style={{ background: '#ffffff' }}>
             {/* Reading progress bar — same gradient style as Sar Sangrah / Speedy */}
             <div className="absolute top-0 left-0 right-0 h-1 bg-slate-200/60 z-[60] pointer-events-none">
               <div
@@ -15172,7 +15191,7 @@ export const StudentDashboard: React.FC<Props> = ({
               </button>
             )}
             {/* Header */}
-            <div className={`text-white px-4 py-3 flex items-center gap-2 shrink-0 ${isLandscapeUiHidden || (lucentActiveTab === 'NOTES' && lucentNotesViewMode === 'chunk') ? 'hidden' : ''}`} style={{ background: tierTheme.topBarGrad }}>
+            <div className={`text-white px-4 py-3 flex items-center gap-2 shrink-0 ${isLandscapeUiHidden ? 'hidden' : ''}`} style={{ background: tierTheme.topBarGrad }}>
               <button onClick={closeLucentViewer} className="bg-white/20 hover:bg-white/30 p-2 rounded-full shrink-0 transition-colors">
                 <ChevronRight size={18} className="rotate-180" />
               </button>
@@ -15287,7 +15306,7 @@ export const StudentDashboard: React.FC<Props> = ({
               const _pgHasVideo = !!(currentPage as any)?.videoUrl;
               if (!_pgHasNotes && !_pgHasVideo) return null;
               return (
-                <div className={`shrink-0 bg-white border-b border-slate-100 px-4 py-2 flex items-center gap-2 ${isLandscapeUiHidden || (lucentActiveTab === 'NOTES' && lucentNotesViewMode === 'chunk') ? 'hidden' : ''}`}>
+                <div className={`shrink-0 bg-white border-b border-slate-100 px-4 py-2 flex items-center gap-2 ${isLandscapeUiHidden ? 'hidden' : ''}`}>
                   {_pgHasNotes && (
                     <button
                       onClick={() => { setLucentActiveTab('NOTES'); }}
@@ -15397,8 +15416,8 @@ export const StudentDashboard: React.FC<Props> = ({
                         .replace(/\n{3,}/g, '\n\n').trim();
                     })()}`}
                     topBarLabel={`Page ${currentPage.pageNo}`}
-                    hideTopBar={isLandscapeUiHidden}
-                    suppressStickyControls={isLandscapeUiHidden}
+                    hideTopBar={true}
+                    suppressStickyControls={true}
                     preferChunkMode={true}
                     autoStart={autoSyncOn}
                     searchQuery={pendingReadQuery}

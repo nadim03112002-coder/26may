@@ -173,6 +173,8 @@ export const FullBookCompare: React.FC<Props> = ({ settings, user, isLimited = f
   // ── Compre notes (Firestore) — loaded at mount for search ──
   const [allCompreNotes, setAllCompreNotes] = useState<Record<string, CompreNote[]>>({});
   const [compreLoading, setCompreLoading] = useState(true);
+  const [_fbcFocus, _setFbcFocus] = useState(false);
+  const effectiveFocusMode = isFocusMode || _fbcFocus;
 
   // ── Subject filter ──
   const [compreSubject, setCompreSubject] = useState<string>('all');
@@ -456,8 +458,34 @@ export const FullBookCompare: React.FC<Props> = ({ settings, user, isLimited = f
 
   return (
     <div className="fixed inset-0 z-[250] flex flex-col overflow-hidden animate-in fade-in" style={{ background: (settings as any)?.appBackground || '#ffffff' }}>
+      {/* Floating focus toggle button */}
+      <button
+        onClick={() => _setFbcFocus(v => !v)}
+        style={{
+          position: 'fixed',
+          bottom: '88px',
+          right: '16px',
+          width: '52px',
+          height: '52px',
+          borderRadius: '50%',
+          background: effectiveFocusMode ? 'rgba(79,70,229,0.95)' : 'rgba(15,23,42,0.88)',
+          border: `2.5px solid ${effectiveFocusMode ? 'rgba(99,102,241,0.9)' : 'rgba(255,255,255,0.5)'}`,
+          backdropFilter: 'blur(10px)',
+          zIndex: 9200,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'pointer',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+        }}
+        title={effectiveFocusMode ? 'Exit Focus' : 'Focus Mode'}
+      >
+        <span style={{ fontSize: '18px', pointerEvents: 'none' }}>{effectiveFocusMode ? '↩' : '🎯'}</span>
+        <span style={{ position: 'absolute', top: '3px', right: '3px', width: '10px', height: '10px', borderRadius: '50%', background: effectiveFocusMode ? '#6366f1' : '#22c55e', border: '2px solid #fff', pointerEvents: 'none' }} />
+      </button>
+
       {/* Header — hidden in focus mode */}
-      {!isFocusMode && (
+      {!effectiveFocusMode && (
         <div className="text-white px-4 py-3 flex items-center gap-3 shrink-0 shadow-xl" style={{ background: topBarGrad || getCompareTierGrad(user) }}>
           <div className="p-2 rounded-xl bg-white/10">
             <Crown size={18} className="text-yellow-400" />
@@ -482,7 +510,7 @@ export const FullBookCompare: React.FC<Props> = ({ settings, user, isLimited = f
       )}
 
       {/* ── TOPIC COMPARE breadcrumb + tabs — hidden in focus mode ── */}
-      {!isFocusMode && topicResult && (
+      {!effectiveFocusMode && topicResult && (
         <>
           <div className="flex items-center gap-2 px-3 pt-3 shrink-0">
             <button

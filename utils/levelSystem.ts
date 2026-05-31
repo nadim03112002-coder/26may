@@ -78,6 +78,10 @@ export interface LevelDailyLimits {
 const _BONUS_LOGIN = [0, 5, 10, 15, 20, 30, 40, 50, 65, 80, 100, 120, 150, 185, 220];
 const _CREDIT_WRITE_MAX = [100, 100, 100, 100, 100, 110, 120, 130, 140, 145, 150, 155, 160, 165, 170];
 
+// MCQ increments per level: L1→L2=+10, L2→L3=+10... L5→L6=+20, L6→L7=+20, L7→L8=+20,
+// L8→L9=+30, L9→L10=+30, L10→L11=+40, L11→L12=+40, L12→L13=+50, L13→L14=+60, L14→L15=+70
+const _MCQ_INCR_CUMUL = [0, 10, 20, 30, 40, 60, 80, 100, 130, 160, 200, 240, 290, 350, 420];
+
 const buildTable = (): Record<number, LevelDailyLimits> => {
   const tbl: Record<number, LevelDailyLimits> = {};
   for (let i = 1; i <= MAX_LEVEL; i++) {
@@ -86,7 +90,7 @@ const buildTable = (): Record<number, LevelDailyLimits> => {
     const writeBasic = Math.max(5, 5 + Math.max(0, n - 3));
     const writeUltra = Math.max(10, 10 + Math.max(0, n - 3));
     tbl[i] = {
-      mcq:       { free: 50  + n * 30, basic: 70  + n * 30, ultra: 100 + n * 30 },
+      mcq:       { free: 50 + _MCQ_INCR_CUMUL[n], basic: 70 + _MCQ_INCR_CUMUL[n], ultra: 100 + _MCQ_INCR_CUMUL[n] },
       dl:        { free: 2   + n * 2,  basic: 5   + n * 3,  ultra: 10  + n * 5  },
       pdf:       { free: 2   + n * 2,  basic: 3   + n * 3,  ultra: 5   + n * 5  },
       video:     { free: Math.max(0, n), basic: 2 + n * 2, ultra: 5 + n * 2 },
