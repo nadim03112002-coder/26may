@@ -44,12 +44,24 @@ type Mode = 'topic-compare' | 'book-by-book' | 'read-all' | 'book-notes';
 
 // ── Helpers ──
 
+// Common Hindi + English stop-words that appear in almost every sentence
+// and inflate Dice scores without adding meaningful similarity.
+const STOP_WORDS = new Set([
+  'और','पर','में','की','के','का','से','है','हैं','था','थे','थी','एक','यह','वह',
+  'इस','उस','जो','तो','भी','ही','कि','या','न','नहीं','हो','कर','को','ने',
+  'हुए','हुई','हुआ','लिए','साथ','बाद','पहले','अब','जब','तब','अगर',
+  'the','and','or','of','in','is','are','was','were','a','an','to','for',
+  'on','at','by','as','it','its','this','that','with','from','be','has','have',
+]);
+
 function normalizeSentence(s: string): string {
   return s.toLowerCase().replace(/[^\u0900-\u097fa-z0-9\s]/g, '').replace(/\s+/g, ' ').trim();
 }
 
 function getSignificantWords(s: string): string[] {
-  return normalizeSentence(s).split(' ').filter(w => w.length >= 3);
+  return normalizeSentence(s)
+    .split(' ')
+    .filter(w => w.length >= 3 && !STOP_WORDS.has(w));
 }
 
 function wordOverlap(a: string, b: string): number {
@@ -59,8 +71,6 @@ function wordOverlap(a: string, b: string): number {
   let commonCount = 0;
   wa.forEach(w => { if (wb.has(w)) commonCount++; });
   // Dice coefficient: 2*|intersection| / (|A| + |B|)
-  // Avoids false matches where a single shared number/word inflates the min-based score.
-  // Still generous enough to match a short summary against a longer detailed point.
   return (2 * commonCount) / (wa.size + wb.size);
 }
 
@@ -292,34 +302,35 @@ function computeTopicComparison(bookContents: BookContent[]): TopicCompareResult
     points: [] as string[],
   }));
 
-  // Using Dice coefficient (2*|A∩B|/(|A|+|B|)) which is fairer than min-based overlap.
-  // Dice scores are generally lower than min-based for asymmetric-length pairs, so thresholds
-  // are set lower accordingly.
+  // Using Dice coefficient (2*|A∩B|/(|A|+|B|)) on significant (non-stop) words.
   // MATCH_THRESHOLD: two points are "the same fact" if Dice >= this value.
-  // DEDUP_THRESHOLD: equal to MATCH — once a fact is in common, same-threshold check
-  //   prevents the same fact (different wording, different book) from being added again.
-  const MATCH_THRESHOLD = 0.30;
-  const DEDUP_THRESHOLD = 0.30;
+  //   0.55 means ~55%+ meaningful word overlap — prevents accidental common-tagging.
+  // DEDUP_THRESHOLD: once a fact is in common, this prevents near-duplicate phrasing
+  //   from being added again (slightly lower so paraphrases of same fact merge cleanly).
+  const MATCH_THRESHOLD = 0.55;
+  const DEDUP_THRESHOLD = 0.50;
 
   bookPoints.forEach((book, bi) => {
     book.points.forEach(point => {
+      // Short points (< 4 significant words) need near-exact match to avoid false positives
+      const pointWords = getSignificantWords(point);
+      const effectiveThreshold = pointWords.length < 4 ? Math.max(MATCH_THRESHOLD, 0.65) : MATCH_THRESHOLD;
+
       let matchedInOther = false;
       for (let other = 0; other < bookPoints.length; other++) {
         if (other === bi) continue;
-        if (bookPoints[other].points.some(p => wordOverlap(point, p) >= MATCH_THRESHOLD)) {
+        if (bookPoints[other].points.some(p => wordOverlap(point, p) >= effectiveThreshold)) {
           matchedInOther = true;
           break;
         }
       }
       if (matchedInOther) {
-        // Use the same threshold for dedup — so alag wording ka same fact dobara add na ho
         const alreadyIn = common.some(c => wordOverlap(point, c) >= DEDUP_THRESHOLD);
         const norm = normalizeSentence(point);
         if (!alreadyIn && !usedCommon.has(norm)) {
           common.push(point);
           usedCommon.add(norm);
         }
-        // Even if already in common, do NOT add to extra — it's a duplicate of a common fact
       } else {
         extraPerBook[bi].points.push(point);
       }
@@ -594,83 +605,13 @@ export const CompareView: React.FC<Props> = ({ hits, query, onClose, user, setti
     window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp);
   };
 
-  // ── Download as HTML (MHTML-style) ──
-  const handleDownload = () => {
-    const savedOn = new Date().toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-    const safeQuery = query.replace(/[<>"&]/g, c => ({'<':'&lt;','>':'&gt;','"':'&quot;','&':'&amp;'}[c]||c));
-
-    let bodyHtml = '';
-    if (mode === 'topic-compare' && topicResult) {
-      const commonRows = topicResult.common.map((pt, i) =>
-        `<li style="margin:6px 0;padding:8px 12px;background:#f0fdf4;border-left:3px solid #22c55e;border-radius:6px;">${i+1}. ${pt.replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]||c))}</li>`
-      ).join('');
-      const extraRows = topicResult.extra.map(({ bookName, pageNo, points, topicTitle }) => {
-        if (points.length === 0) return '';
-        const pts = points.map((pt, i) =>
-          `<li style="margin:5px 0;padding:7px 10px;background:#f5f3ff;border-left:3px solid #7c3aed;border-radius:6px;">${i+1}. ${pt.replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]||c))}</li>`
-        ).join('');
-        return `<div style="margin-top:18px;"><h3 style="color:#5b21b6;font-size:14px;margin:0 0 8px;">📚 ${bookName.replace(/[<>&]/g,'?')}${pageNo?` — Page ${pageNo}`:''}${topicTitle?` · ${topicTitle}`:''}</h3><ul style="list-style:none;margin:0;padding:0;">${pts}</ul></div>`;
-      }).join('');
-      bodyHtml = `<h2 style="color:#059669;font-size:16px;margin:0 0 10px;">✅ Common Points (${topicResult.common.length})</h2><ul style="list-style:none;margin:0;padding:0;">${commonRows || '<li style="color:#94a3b8;font-style:italic;">No common points found.</li>'}</ul>${extraRows ? `<hr style="margin:24px 0;border:none;border-top:2px solid #e2e8f0;"/><h2 style="color:#7c3aed;font-size:16px;margin:0 0 10px;">🔖 Extra Points (per book)</h2>${extraRows}` : ''}`;
-    } else {
-      bodyHtml = books.map((h, i) => {
-        const content = (h.noteFullContent || h.noteContent || '').replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]||c)).replace(/\n/g,'<br/>');
-        return `<div style="margin-bottom:24px;"><h3 style="color:#4f46e5;font-size:15px;margin:0 0 8px;">📚 ${i+1}. ${(h.bookName||h.subjectName).replace(/[<>&]/g,'?')}${h.pageNo?` — Page ${h.pageNo}`:''}</h3><div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:16px;line-height:1.8;font-size:14px;">${content}</div></div>`;
-      }).join('');
-    }
-
-    const htmlContent = `<!DOCTYPE html>
-<html lang="hi">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>IIC · Compare: ${safeQuery}</title>
-  <style>
-    body { margin:0; padding:0; font-family: 'Segoe UI', system-ui, sans-serif; background:#f1f5f9; color:#0f172a; }
-    .topbar { background: linear-gradient(135deg,#4f46e5,#7c3aed); color:#fff; padding:14px 20px; display:flex; align-items:center; gap:14px; position:sticky; top:0; z-index:50; box-shadow:0 4px 12px rgba(0,0,0,0.15); }
-    .logo { width:40px; height:40px; border-radius:12px; background:rgba(255,255,255,0.18); display:flex; align-items:center; justify-content:center; font-weight:900; font-size:18px; }
-    .title-block { flex:1; }
-    .app-label { font-size:11px; font-weight:800; letter-spacing:.2em; text-transform:uppercase; opacity:.8; margin:0; }
-    .page-title { font-size:16px; font-weight:800; margin:2px 0 0; }
-    .badge { font-size:10px; font-weight:800; text-transform:uppercase; background:rgba(0,0,0,0.2); padding:4px 10px; border-radius:999px; }
-    .subhead { background:#fff; border-bottom:1px solid #e2e8f0; padding:10px 20px; font-size:12px; color:#64748b; display:flex; justify-content:space-between; }
-    .main { padding:20px; display:flex; justify-content:center; }
-    .card { background:#fff; width:100%; max-width:900px; border:1px solid #e2e8f0; border-radius:18px; box-shadow:0 10px 30px -10px rgba(0,0,0,0.12); padding:24px; }
-    .footer { padding:18px 20px 26px; text-align:center; font-size:11px; color:#64748b; border-top:1px solid #e2e8f0; background:#fff; }
-    @media print { .topbar { position:static; } }
-  </style>
-</head>
-<body>
-  <div class="topbar">
-    <div class="logo">IIC</div>
-    <div class="title-block">
-      <p class="app-label">IIC</p>
-      <h1 class="page-title">Compare: ${safeQuery}</h1>
-    </div>
-    <span class="badge">Saved · Offline</span>
-  </div>
-  <div class="subhead"><span>${books.length} books compared</span><span>Saved on ${savedOn}</span></div>
-  <div class="main"><div class="card">${bodyHtml}</div></div>
-  <div class="footer">Saved from <strong>IIC</strong> — Compare Mode.<br/>This is a static snapshot for offline reading.</div>
-</body>
-</html>`;
-
-    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `compare_${query.replace(/\s+/g, '_').slice(0, 40)}.html`;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
-  };
 
   return (
     <div className="fixed inset-0 z-[250] bg-white flex flex-col overflow-hidden">
 
       {/* Header */}
       {!focusMode && (
-        <div className="bg-gradient-to-r from-violet-700 to-indigo-700 text-white px-3 py-1.5 flex items-center gap-2 shrink-0 shadow-lg">
+        <div className="bg-gradient-to-r from-violet-700 to-indigo-700 text-white px-3 py-1.5 flex items-center gap-2 shrink-0">
           <GitCompare size={16} className="shrink-0 opacity-80" />
           <div className="flex-1 min-w-0">
             <p className="text-[11px] font-black leading-tight text-white truncate">
@@ -687,9 +628,6 @@ export const CompareView: React.FC<Props> = ({ hits, query, onClose, user, setti
               <span className="text-[9px] text-violet-300 ml-0.5">aaj</span>
             </div>
           )}
-          <button onClick={handleDownload} className="flex items-center gap-1 bg-white/20 hover:bg-white/30 text-white px-2 py-1 rounded-lg text-[10px] font-bold transition-all active:scale-95 shrink-0">
-            <Download size={11} /> Save
-          </button>
           <button onClick={onClose} className="p-1.5 rounded-full hover:bg-white/20 transition-colors shrink-0">
             <X size={18} />
           </button>

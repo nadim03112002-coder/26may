@@ -1741,6 +1741,13 @@ export const StudentDashboard: React.FC<Props> = ({
   };
   const [showDotsMenu, setShowDotsMenu] = useState(false);
   const [showScorePanel, setShowScorePanel] = useState(false);
+  const [topBarBtnGlow, setTopBarBtnGlow] = useState(false);
+  React.useEffect(() => {
+    if (activeTab !== 'HOME') return;
+    setTopBarBtnGlow(true);
+    const t = setTimeout(() => setTopBarBtnGlow(false), 1000);
+    return () => clearTimeout(t);
+  }, [activeTab]);
   const [scorePanelTab, setScorePanelTab] = useState<'LEVEL' | 'DAILY' | 'FEATURES' | 'LEADERBOARD'>('LEVEL');
   const [scoreDailyTier, setScoreDailyTier] = useState<'FREE' | 'BASIC' | 'ULTRA' | null>(null);
   const [viewedLevelIdx, setViewedLevelIdx] = useState<number>(0);
@@ -2066,14 +2073,69 @@ export const StudentDashboard: React.FC<Props> = ({
     setCoursePdfUrl(null);
     const board = activeSessionBoard || user?.board || 'CBSE';
     const classLevel = activeSessionClass || user?.classLevel || '10';
-    const streamKey = (classLevel === '11' || classLevel === '12') && user?.stream ? `-${user.stream}` : '';
     const subjectName = selectedSubject?.name || '';
-    const key = `nst_content_${board}_${classLevel}${streamKey}_${subjectName}_${ch.id}`;
-    (async () => {
-      let data: any = await getChapterData(key);
-      if (!data) {
-        try { const l = localStorage.getItem(key); if (l) data = JSON.parse(l); } catch {}
+    const isSenior = classLevel === '11' || classLevel === '12';
+
+    // Build a prioritised list of keys to try — covers all stream/board/subject-name
+    // combinations so any admin-save mismatch never hides content from a student.
+
+    // 1. Subject name variants: admin may save with English name, student sees Hindi (BSEB) or vice versa
+    const HINDI_ENGLISH_MAP: Record<string, string> = {
+      'Physics': 'भौतिकी', 'Chemistry': 'रसायन शास्त्र', 'Biology': 'जीव विज्ञान',
+      'Mathematics': 'गणित', 'History': 'इतिहास', 'Geography': 'भूगोल',
+      'Political Science': 'राजनीति विज्ञान', 'Economics': 'अर्थशास्त्र',
+      'Business Studies': 'व्यवसाय अध्ययन', 'Accountancy': 'लेखाशास्त्र',
+      'Science': 'विज्ञान', 'Social Science': 'सामाजिक विज्ञान',
+      'English': 'अंग्रेजी', 'Hindi': 'हिन्दी', 'Sanskrit': 'संस्कृत',
+      'Computer Science': 'कंप्यूटर विज्ञान', 'Math': 'गणित',
+    };
+    const ENGLISH_HINDI_MAP: Record<string, string> = Object.fromEntries(
+      Object.entries(HINDI_ENGLISH_MAP).map(([e, h]) => [h, e])
+    );
+    const subjectVariants = Array.from(new Set([
+      subjectName,
+      HINDI_ENGLISH_MAP[subjectName] || '',   // English→Hindi
+      ENGLISH_HINDI_MAP[subjectName] || '',   // Hindi→English
+    ].filter(Boolean)));
+
+    // 2. Board variants: try both CBSE and BSEB regardless of user's profile board
+    const boardVariants = Array.from(new Set([board, 'CBSE', 'BSEB'].filter(Boolean)));
+
+    // 3. Stream suffix variants for class 11/12
+    const streamSuffixes: string[] = [''];  // always try no-stream-suffix
+    if (isSenior) {
+      const userStreamKey = user?.stream ? `-${user.stream}` : '';
+      if (userStreamKey) streamSuffixes.unshift(userStreamKey); // user's stream first
+      for (const s of ['Science', 'Arts', 'Commerce', 'science', 'arts', 'commerce']) {
+        const sk = `-${s}`;
+        if (!streamSuffixes.includes(sk)) streamSuffixes.push(sk);
       }
+    }
+
+    // 4. Build all combinations (priority: user's board+stream+subject first)
+    const keysToTry: string[] = [];
+    const addKey = (k: string) => { if (!keysToTry.includes(k)) keysToTry.push(k); };
+    for (const b of boardVariants) {
+      for (const ss of streamSuffixes) {
+        for (const sn of subjectVariants) {
+          addKey(`nst_content_${b}_${classLevel}${ss}_${sn}_${ch.id}`);
+        }
+      }
+    }
+
+    const tryFetchData = async (): Promise<any> => {
+      for (const k of keysToTry) {
+        let d: any = await getChapterData(k);
+        if (!d) {
+          try { const l = localStorage.getItem(k); if (l) d = JSON.parse(l); } catch {}
+        }
+        if (d) return d;
+      }
+      return null;
+    };
+
+    (async () => {
+      const data = await tryFetchData();
       if (data) {
         const readNotes = !!(data.freeNotes || data.topicNotes?.length || data.content || data.teachingStrategyNotes || data.chunkNotes || data.notes);
         const writeNotes = !!(data.freeNotesHtml || data.htmlNotes || data.premiumNotes);
@@ -9046,7 +9108,7 @@ export const StudentDashboard: React.FC<Props> = ({
             {/* Streak pill */}
             <button
               onClick={() => setShowStreakPopup(true)}
-              className="inline-flex items-center gap-0.5 px-2 py-1 rounded-full text-[11px] font-black shrink-0 active:scale-90 transition-all text-white"
+              className={`inline-flex items-center gap-0.5 px-2 py-1 rounded-full text-[11px] font-black shrink-0 active:scale-90 transition-all text-white${topBarBtnGlow ? ' nst-topbar-btn-glow' : ''}`}
               title={`Login streak: ${user.streak} day${user.streak === 1 ? '' : 's'}`}
             >
               <span className="text-[13px] leading-none">🔥</span>
@@ -9060,7 +9122,7 @@ export const StudentDashboard: React.FC<Props> = ({
               return (
                 <button
                   onClick={() => { setInboxTab('UPDATES'); setShowInbox(true); }}
-                  className="p-[3px] rounded-xl transition-colors relative text-white shrink-0 active:scale-95"
+                  className={`p-[3px] rounded-xl transition-colors relative text-white shrink-0 active:scale-95${topBarBtnGlow ? ' nst-topbar-btn-glow' : ''}`}
                   title="Mail & Notifications"
                 >
                   <Mail size={18} />
@@ -9192,7 +9254,7 @@ export const StudentDashboard: React.FC<Props> = ({
         </div>
 
         {/* SECOND LINE: greeting + Level / Credits / Subscription pills */}
-        <div className="flex items-center justify-between w-full mt-0.5 pt-1 px-4 pb-1.5 border-t border-white/10">
+        <div className="flex items-center justify-between w-full mt-0.5 pt-1 px-4 pb-1.5">
 
           {/* Left: two-line greeting */}
           {(() => {
@@ -9223,11 +9285,9 @@ export const StudentDashboard: React.FC<Props> = ({
               return (
                 <button
                   onClick={() => { setShowScorePanel(true); setScorePanelTab('DAILY'); }}
-                  className="inline-flex items-center gap-[3px] px-[7.5px] py-[3px] rounded-full text-[8px] font-black text-white whitespace-nowrap shrink-0 active:scale-95 transition-all"
+                  className={`inline-flex items-center gap-[3px] text-[11px] font-black text-white whitespace-nowrap shrink-0 active:scale-95 transition-all${topBarBtnGlow ? ' nst-topbar-btn-glow' : ''}`}
                   title="View my level"
-                  style={{ boxShadow: `0 0 8px ${_li.glowColor}` }}
                 >
-                  <span className="text-[9px] leading-none">{_li.emoji}</span>
                   <span>Level {_li.level}</span>
                 </button>
               );
@@ -9239,7 +9299,7 @@ export const StudentDashboard: React.FC<Props> = ({
                 {((settings?.specialDiscountEvent?.enabled && isDiscountCooldown) ? topBarCreditFlip : false) ? (
                   <button
                     onClick={() => { if (getLevelInfo(user.totalScore || 0).level <= 4) { const todayStr = new Date().toISOString().split('T')[0]; const k = `nst_store_visits_${user.id}_${todayStr}`; try { localStorage.setItem(k, String(parseInt(localStorage.getItem(k) || '0', 10) + 1)); } catch {} } onTabChange("STORE"); }}
-                    className="inline-flex items-center gap-[2px] px-2 py-[3px] rounded-full text-[8px] font-black text-white whitespace-nowrap shrink-0 active:scale-95 transition-all"
+                    className={`inline-flex items-center gap-[2px] px-2 py-[3px] rounded-full text-[8px] font-black text-white whitespace-nowrap shrink-0 active:scale-95 transition-all${topBarBtnGlow ? ' nst-topbar-btn-glow' : ''}`}
                     title="Cooldown Timer"
                   >
                     <Timer size={9} />
@@ -9248,7 +9308,7 @@ export const StudentDashboard: React.FC<Props> = ({
                 ) : ((settings?.specialDiscountEvent?.enabled && isDiscountLive) ? topBarCreditFlip : false) ? (
                   <button
                     onClick={() => { if (getLevelInfo(user.totalScore || 0).level <= 4) { const todayStr = new Date().toISOString().split('T')[0]; const k = `nst_store_visits_${user.id}_${todayStr}`; try { localStorage.setItem(k, String(parseInt(localStorage.getItem(k) || '0', 10) + 1)); } catch {} } onTabChange("STORE"); }}
-                    className="inline-flex items-center gap-[2px] px-2 py-[3px] rounded-full text-[8px] font-black text-white whitespace-nowrap shrink-0 active:scale-95 transition-all"
+                    className={`inline-flex items-center gap-[2px] px-2 py-[3px] rounded-full text-[8px] font-black text-white whitespace-nowrap shrink-0 active:scale-95 transition-all${topBarBtnGlow ? ' nst-topbar-btn-glow' : ''}`}
                     title="Discount"
                   >
                     <Ticket size={9} />
@@ -9264,7 +9324,7 @@ export const StudentDashboard: React.FC<Props> = ({
                       }
                       onTabChange("STORE");
                     }}
-                    className="inline-flex items-center gap-[2px] px-2 py-[3px] rounded-full text-[8px] font-black text-white whitespace-nowrap shrink-0 active:scale-95 transition-all"
+                    className={`inline-flex items-center gap-[2px] px-2 py-[3px] rounded-full text-[8px] font-black text-white whitespace-nowrap shrink-0 active:scale-95 transition-all${topBarBtnGlow ? ' nst-topbar-btn-glow' : ''}`}
                     title="Credits"
                   >
                     <Crown size={9} />
@@ -10575,7 +10635,7 @@ export const StudentDashboard: React.FC<Props> = ({
         return (
           <div className="fixed inset-0 z-[100] flex flex-col animate-in fade-in pb-20" style={{ background: tierTheme.profileBg }}>
             {/* Header */}
-            <div className="sticky top-0 z-10 shadow-md" style={{ background: tierTheme.topBarGrad }}>
+            <div className="sticky top-0 z-10" style={{ background: tierTheme.topBarGrad }}>
               <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">
                 <button
                   onClick={() => {
@@ -11184,7 +11244,7 @@ export const StudentDashboard: React.FC<Props> = ({
         return (
           <div className="fixed inset-0 z-[100] flex flex-col animate-in fade-in pb-20" style={{ background: tierTheme.profileBg }}>
             {/* Header */}
-            <div className="sticky top-0 z-10 shadow-md" style={{ background: tierTheme.topBarGrad }}>
+            <div className="sticky top-0 z-10" style={{ background: tierTheme.topBarGrad }}>
               <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">
                 <button
                   onClick={closeHub}
@@ -12008,7 +12068,7 @@ export const StudentDashboard: React.FC<Props> = ({
         return (
           <div className="fixed inset-0 z-[100] bg-slate-50 flex flex-col animate-in fade-in pb-20">
             {/* Header */}
-            <div className="bg-white border-b border-slate-200 shadow-sm sticky top-0 z-10">
+            <div className="bg-white sticky top-0 z-10">
               <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">
                 <button
                   onClick={() => { setShowDailyGkHistory(false); stopSpeech(); setSpeakingId(null); }}
@@ -12660,7 +12720,7 @@ export const StudentDashboard: React.FC<Props> = ({
         return (
           <div className="fixed inset-0 z-[250] flex flex-col animate-in fade-in" style={{ background: tierTheme.profileBg }}>
             {/* Header */}
-            <div className={`text-white px-4 py-3 flex items-center gap-3 shrink-0 shadow-lg${isLandscapeUiHidden ? ' hidden' : ''}`} style={{ background: tierTheme.topBarGrad }}>
+            <div className={`text-white px-4 py-3 flex items-center gap-3 shrink-0${isLandscapeUiHidden ? ' hidden' : ''}`} style={{ background: tierTheme.topBarGrad }}>
               <button
                 onClick={() => setLucentLessonCompare(null)}
                 className="bg-white/20 hover:bg-white/30 p-2 rounded-full transition-colors shrink-0"
@@ -16672,7 +16732,7 @@ RULES:
       {/* ===================== NOTIFICATION PAGE ===================== */}
       {showNotifPage && (
         <div className="fixed inset-0 z-[9000] flex flex-col animate-in slide-in-from-right-full duration-300" style={{ background: tierTheme.profileBg }}>
-          <div className="flex items-center gap-3 px-4 py-3 sticky top-0 z-10 shadow-lg" style={{ background: tierTheme.topBarGrad }}>
+          <div className="flex items-center gap-3 px-4 py-3 sticky top-0 z-10" style={{ background: tierTheme.topBarGrad }}>
             <button onClick={() => setShowNotifPage(false)} className="p-2 rounded-full bg-white/20 text-white">
               <ArrowLeft size={20} />
             </button>
@@ -16772,7 +16832,7 @@ RULES:
         // ensures the user sees only ONE page at a time.
         <div className="fixed inset-0 z-[200] flex flex-col animate-in slide-in-from-right-full duration-300" style={{ background: _appBg }}>
           {/* === PREMIUM HEADER (study-app gradient) === */}
-          <div className="relative sticky top-0 z-10 shadow-lg" style={{ background: tierTheme.topBarGrad }}>
+          <div className="relative sticky top-0 z-10" style={{ background: tierTheme.topBarGrad }}>
             {/* Decorative pattern overlay */}
             <div className="absolute inset-0 opacity-10 pointer-events-none" style={{
               backgroundImage: `radial-gradient(circle at 20% 30%, white 1px, transparent 1px), radial-gradient(circle at 70% 60%, white 1px, transparent 1px)`,
@@ -19539,7 +19599,7 @@ RULES:
       {showRulesPage && (
         <div className="fixed inset-0 z-[9999] flex flex-col animate-in slide-in-from-bottom-10 duration-200" style={{ background: tierTheme.profileBg }}>
           {/* Header */}
-          <div className="flex items-center gap-3 px-4 py-4 sticky top-0 shadow-sm shrink-0" style={{ background: tierTheme.topBarGrad }}>
+          <div className="flex items-center gap-3 px-4 py-4 sticky top-0 shrink-0" style={{ background: tierTheme.topBarGrad }}>
             <button onClick={() => setShowRulesPage(false)} className="p-2 rounded-full bg-white/20 text-white hover:bg-white/30 transition-all">
               <svg width="16" height="16" viewBox="0 0 14 14" fill="none"><path d="M13 7H1M1 7l6-6M1 7l6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </button>

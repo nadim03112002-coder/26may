@@ -51,6 +51,9 @@
   --nst-dur-slower:  600ms;
   --nst-dur-page:    350ms;
 
+  /* ── Top bar button glow ring ─────────────────────── */
+  --nst-topbar-glow: rgba(255,255,255,0.85);
+
   /* ── Easing curves ────────────────────────────────── */
   --nst-ease-out:    cubic-bezier(0.0, 0.0, 0.2, 1);
   --nst-ease-in-out: cubic-bezier(0.4, 0.0, 0.2, 1);
@@ -2711,6 +2714,18 @@ model-viewer {
   animation: nst-name-scroll 5s ease-in-out infinite alternate;
   white-space: nowrap;
   display: inline-block;
+}
+
+/* ── Top bar button entry glow ring ──────────────────── */
+@keyframes nst-topbar-btn-glow {
+  0%   { box-shadow: 0 0 0 0px rgba(255,255,255,0.0), 0 0 0 0px rgba(255,255,255,0.0); }
+  30%  { box-shadow: 0 0 0 3px rgba(255,255,255,0.55), 0 0 10px 4px rgba(255,255,255,0.25); }
+  70%  { box-shadow: 0 0 0 3px rgba(255,255,255,0.4),  0 0 10px 4px rgba(255,255,255,0.15); }
+  100% { box-shadow: 0 0 0 0px rgba(255,255,255,0.0), 0 0 0 0px rgba(255,255,255,0.0); }
+}
+.nst-topbar-btn-glow {
+  animation: nst-topbar-btn-glow 1s ease-out forwards;
+  border-radius: 9999px;
 }
 
 /* ── UNIFIED SUBJECT CARDS — White inside, tier color on border/left accent ── */

@@ -15,19 +15,30 @@ function getCompareTierGrad(user?: { subscriptionLevel?: string; isPremium?: boo
 }
 
 // ── Comparison helpers ──
+
+// Common Hindi + English stop-words — inflate similarity scores without real meaning
+const FBC_STOP_WORDS = new Set([
+  'और','पर','में','की','के','का','से','है','हैं','था','थे','थी','एक','यह','वह',
+  'इस','उस','जो','तो','भी','ही','कि','या','न','नहीं','हो','कर','को','ने',
+  'हुए','हुई','हुआ','लिए','साथ','बाद','पहले','अब','जब','तब','अगर','जिसे','जिसमें',
+  'the','and','or','of','in','is','are','was','were','a','an','to','for',
+  'on','at','by','as','it','its','this','that','with','from','be','has','have',
+]);
+
 function normalizeSentence(s: string): string {
   return s.toLowerCase().replace(/[^\u0900-\u097fa-z0-9\s]/g, '').replace(/\s+/g, ' ').trim();
 }
 function getSignificantWords(s: string): string[] {
-  return normalizeSentence(s).split(' ').filter(w => w.length >= 3);
+  return normalizeSentence(s).split(' ').filter(w => w.length >= 3 && !FBC_STOP_WORDS.has(w));
 }
+// Dice coefficient: 2*|intersection|/(|A|+|B|) — fair for asymmetric-length points
 function wordOverlap(a: string, b: string): number {
   const wa = new Set(getSignificantWords(a));
   const wb = new Set(getSignificantWords(b));
   if (wa.size === 0 || wb.size === 0) return 0;
-  let common = 0;
-  wa.forEach(w => { if (wb.has(w)) common++; });
-  return common / Math.min(wa.size, wb.size);
+  let intersect = 0;
+  wa.forEach(w => { if (wb.has(w)) intersect++; });
+  return (2 * intersect) / (wa.size + wb.size);
 }
 function splitIntoPoints(text: string): string[] {
   return text
@@ -49,22 +60,31 @@ function computeFullBookComparison(bookContents: { bookName: string; text: strin
     bookName: bc.bookName,
     points: splitIntoPoints(bc.text.substring(0, 80000)),
   }));
+  // MATCH_THRESHOLD: Dice >= 0.55 to call two points "the same fact"
+  // Short points (< 4 meaningful words) need >= 0.65 to prevent accidental matches
+  // DEDUP_THRESHOLD: 0.50 to avoid adding near-duplicate phrasing of same fact twice
+  const MATCH_THRESHOLD = 0.55;
+  const DEDUP_THRESHOLD = 0.50;
+
   const common: string[] = [];
   const usedCommon = new Set<string>();
   const extraPerBook = bookPoints.map(b => ({ bookName: b.bookName, points: [] as string[] }));
   bookPoints.forEach((book, bi) => {
     book.points.forEach(point => {
+      const pointWords = getSignificantWords(point);
+      const effectiveThreshold = pointWords.length < 4 ? Math.max(MATCH_THRESHOLD, 0.65) : MATCH_THRESHOLD;
+
       let matchedInOther = false;
       for (let other = 0; other < bookPoints.length; other++) {
         if (other === bi) continue;
-        if (bookPoints[other].points.some(p => wordOverlap(point, p) >= 0.4)) {
+        if (bookPoints[other].points.some(p => wordOverlap(point, p) >= effectiveThreshold)) {
           matchedInOther = true;
           break;
         }
       }
       if (matchedInOther) {
         const norm = normalizeSentence(point);
-        if (!usedCommon.has(norm) && !common.some(c => wordOverlap(point, c) >= 0.65)) {
+        if (!usedCommon.has(norm) && !common.some(c => wordOverlap(point, c) >= DEDUP_THRESHOLD)) {
           common.push(point);
           usedCommon.add(norm);
         }
@@ -126,7 +146,7 @@ export const FullBookCompare: React.FC<Props> = ({ settings, user, isLimited = f
   const [processing, setProcessing] = useState(true);
   const [result, setResult] = useState<{ common: string[]; extra: { bookName: string; points: string[] }[] } | null>(null);
   const [bookContents, setBookContents] = useState<{ bookName: string; text: string }[]>([]);
-  const [tab, setTab] = useState<'search' | 'common' | 'extra' | 'fullnotes' | 'download'>('search');
+  const [tab, setTab] = useState<'search' | 'fullnotes'>('search');
   const [commonPage, setCommonPage] = useState(0);
   const [activeExtraBook, setActiveExtraBook] = useState<string | null>(null);
   const [extraPages, setExtraPages] = useState<Record<string, number>>({});
@@ -394,7 +414,7 @@ export const FullBookCompare: React.FC<Props> = ({ settings, user, isLimited = f
     setFullNotesViewMode('read');
     setExtraPages({});
     setCommonPage(0);
-    setTab(safeContents.length >= 2 ? 'common' : 'extra');
+    setTab('fullnotes');
   }, [allCompreNotes, compreSubject]);
 
   // ── Open word comparison across books ──
@@ -408,84 +428,9 @@ export const FullBookCompare: React.FC<Props> = ({ settings, user, isLimited = f
     setActiveExtraBook(comparison.extra[0]?.bookName ?? null);
     setExtraPages({});
     setCommonPage(0);
-    setTab(contents.length >= 2 ? 'common' : 'extra');
+    setTab('fullnotes');
   }, [wordSearchResults, searchWord]);
 
-  // ── Download ──
-  const handleDownload = (type: 'common' | 'all' | string) => {
-    const active = topicResult ?? result;
-    if (!active) return;
-    const prefix = topicResult ? `"${topicResult.topicName}" — ` : '';
-    const savedOn = new Date().toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-    const esc = (s: string) => s.replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]||c));
-    const pointList = (pts: string[], color: string) =>
-      pts.map((p, i) => `<li style="margin:5px 0;padding:8px 12px;background:${color};border-radius:7px;list-style:none;">${i+1}. ${esc(p)}</li>`).join('');
-
-    let bodyHtml = '';
-    let titleLabel = '';
-    if (type === 'common') {
-      titleLabel = `${prefix}Common Points`;
-      bodyHtml = `<h2 style="color:#059669;font-size:16px;margin:0 0 12px;">✅ Common Points (${active.common.length})</h2><ul style="padding:0;margin:0;">${pointList(active.common, '#f0fdf4') || '<li style="color:#94a3b8;font-style:italic;list-style:none;">No common points.</li>'}</ul>`;
-    } else if (type === 'all') {
-      titleLabel = `${prefix}Full Book Compare`;
-      const commonBlock = `<h2 style="color:#059669;font-size:15px;margin:0 0 10px;">✅ Common Points (${active.common.length})</h2><ul style="padding:0;margin:0 0 24px;">${pointList(active.common, '#f0fdf4') || '<li style="color:#94a3b8;font-style:italic;list-style:none;">No common points.</li>'}</ul>`;
-      const extraBlocks = active.extra.map(({ bookName, points }) =>
-        `<div style="margin-bottom:20px;"><h3 style="color:#7c3aed;font-size:14px;margin:0 0 8px;">📚 ${esc(bookName)} — Extra (${points.length})</h3><ul style="padding:0;margin:0;">${pointList(points, '#f5f3ff')}</ul></div>`
-      ).join('');
-      bodyHtml = commonBlock + `<hr style="border:none;border-top:2px solid #e2e8f0;margin:24px 0;"/>` + `<h2 style="color:#7c3aed;font-size:15px;margin:0 0 12px;">🔖 Extra Points (per book)</h2>` + extraBlocks;
-    } else {
-      const bookExtra = active.extra.find(e => e.bookName === type);
-      if (!bookExtra) return;
-      titleLabel = `${prefix}${bookExtra.bookName} — Extra`;
-      bodyHtml = `<h2 style="color:#7c3aed;font-size:16px;margin:0 0 12px;">📚 ${esc(bookExtra.bookName)} — Extra Points (${bookExtra.points.length})</h2><ul style="padding:0;margin:0;">${pointList(bookExtra.points, '#f5f3ff')}</ul>`;
-    }
-
-    const viewportContent = 'width=device-width, initial-scale=1';
-    const htmlContent = `<!DOCTYPE html>
-<html lang="hi">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="${viewportContent}">
-  <title>IIC · ${esc(titleLabel)}</title>
-  <style>
-    body { margin:0; padding:0; font-family:'Segoe UI',system-ui,sans-serif; background:#f1f5f9; color:#0f172a; font-size:14px; }
-    .topbar { background:linear-gradient(135deg,#1e293b,#7c3aed); color:#fff; padding:14px 20px; display:flex; align-items:center; gap:14px; position:sticky; top:0; z-index:50; box-shadow:0 4px 12px rgba(0,0,0,0.2); }
-    .logo { width:40px; height:40px; border-radius:12px; background:rgba(255,255,255,0.15); display:flex; align-items:center; justify-content:center; font-weight:900; font-size:18px; }
-    .title-block { flex:1; }
-    .app-label { font-size:11px; font-weight:800; letter-spacing:.2em; text-transform:uppercase; opacity:.8; margin:0; }
-    .page-title { font-size:15px; font-weight:800; margin:2px 0 0; }
-    .badge { font-size:10px; font-weight:800; background:rgba(255,215,0,0.25); color:#fde68a; padding:4px 10px; border-radius:999px; border:1px solid rgba(255,215,0,0.3); }
-    .subhead { background:#fff; border-bottom:1px solid #e2e8f0; padding:10px 20px; font-size:12px; color:#64748b; display:flex; justify-content:space-between; }
-    .main { padding:20px; display:flex; justify-content:center; }
-    .card { background:#fff; width:100%; max-width:900px; border:1px solid #e2e8f0; border-radius:18px; box-shadow:0 10px 30px -10px rgba(0,0,0,0.12); padding:24px; }
-    .footer { padding:18px 20px 26px; text-align:center; font-size:11px; color:#64748b; border-top:1px solid #e2e8f0; background:#fff; }
-    @media print { .topbar { position:static; } }
-  </style>
-</head>
-<body>
-  <div class="topbar">
-    <div class="logo">IIC</div>
-    <div class="title-block">
-      <p class="app-label">IIC · Full Book Compare</p>
-      <h1 class="page-title">${esc(titleLabel)}</h1>
-    </div>
-    <span class="badge">⭐ ULTRA</span>
-  </div>
-  <div class="subhead"><span>${esc(prefix || 'Full Compare')}</span><span>Saved on ${savedOn}</span></div>
-  <div class="main"><div class="card">${bodyHtml}</div></div>
-  <div class="footer">Saved from <strong>IIC</strong> — Full Book Compare.<br/>This is a static snapshot for offline reading.</div>
-</body>
-</html>`;
-
-    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `fullbook_${type.replace(/\s+/g, '_')}_${Date.now()}.html`;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
-  };
 
   const paginate = (points: string[], page: number) => points.slice(page * POINTS_PER_PAGE, (page + 1) * POINTS_PER_PAGE);
   const totalPg = (points: string[]) => Math.max(1, Math.ceil(points.length / POINTS_PER_PAGE));
@@ -552,31 +497,10 @@ export const FullBookCompare: React.FC<Props> = ({ settings, user, isLimited = f
 
           <div className="flex bg-slate-100 p-1 gap-1 shrink-0 mx-3 mt-2 rounded-xl overflow-x-auto scrollbar-none" style={{ WebkitOverflowScrolling: 'touch' }}>
             <button
-              onClick={() => setTab('common')}
-              className={`shrink-0 flex-1 py-2 text-[11px] font-bold rounded-lg transition-all flex items-center justify-center gap-1 ${tab === 'common' ? 'bg-white shadow text-emerald-700' : 'text-slate-500'}`}
+              onClick={() => setTab('fullnotes')}
+              className={`shrink-0 flex-1 py-2 text-[11px] font-bold rounded-lg transition-all flex items-center justify-center gap-1 ${tab === 'fullnotes' ? 'bg-white shadow text-blue-700' : 'text-slate-500'}`}
             >
-              <CheckCircle2 size={11} /> Common ({topicResult.common.length})
-            </button>
-            <button
-              onClick={() => setTab('extra')}
-              className={`shrink-0 flex-1 py-2 text-[11px] font-bold rounded-lg transition-all flex items-center justify-center gap-1 ${tab === 'extra' ? 'bg-white shadow' : 'text-slate-500'}`}
-              style={tab === 'extra' ? { color: subColor } : {}}
-            >
-              <BookOpen size={11} /> Extra ({topicResult.extra.reduce((a, e) => a + e.points.length, 0)})
-            </button>
-            {(topicResult.bookNotes || []).length > 0 && (
-              <button
-                onClick={() => setTab('fullnotes')}
-                className={`shrink-0 flex-1 py-2 text-[11px] font-bold rounded-lg transition-all flex items-center justify-center gap-1 ${tab === 'fullnotes' ? 'bg-white shadow text-blue-700' : 'text-slate-500'}`}
-              >
-                <Layers size={11} /> Full Notes
-              </button>
-            )}
-            <button
-              onClick={() => setTab('download')}
-              className={`shrink-0 flex-1 py-2 text-[11px] font-bold rounded-lg transition-all flex items-center justify-center gap-1 ${tab === 'download' ? 'bg-white shadow text-slate-700' : 'text-slate-500'}`}
-            >
-              <Download size={11} /> Save
+              <Layers size={11} /> Full Notes
             </button>
           </div>
         </>
@@ -748,173 +672,6 @@ export const FullBookCompare: React.FC<Props> = ({ settings, user, isLimited = f
           </div>
         )}
 
-        {/* ── COMMON TAB ── */}
-        {tab === 'common' && topicResult && (
-          <div className="px-3 pt-3 space-y-3">
-            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl px-4 py-3 flex items-center gap-3">
-              <CheckCircle2 size={20} className="text-emerald-600 shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-black text-emerald-800">Common — "{topicResult.topicName}"</p>
-                <p className="text-[10px] text-emerald-600">{topicResult.common.length} points jo sab books mein same hain</p>
-              </div>
-              {/* Rotate + Download */}
-              <div className="flex gap-1 shrink-0">
-                <button
-                  onClick={handleRotateFbc}
-                  className={`flex items-center gap-0.5 px-2 py-1 rounded-lg text-[10px] font-black transition-all border ${isLandscapeFbc ? 'bg-green-500 text-white border-green-500 shadow-sm' : 'bg-white text-slate-500 border-slate-200 hover:border-green-300'}`}
-                  title="Screen Rotate"
-                >
-                  <RotateCcw size={10} /> Rot
-                </button>
-              </div>
-              <button onClick={() => handleDownload('common')} className="shrink-0 bg-emerald-600 text-white rounded-xl px-3 py-1.5 text-[10px] font-black flex items-center gap-1">
-                <Download size={11} /> Save
-              </button>
-            </div>
-
-            {topicResult.common.length === 0 ? (
-              <div className="text-center py-14 text-slate-400">
-                <GitCompare size={44} className="mx-auto mb-3 opacity-20" />
-                <p className="font-black text-slate-500">Koi common point nahi mila</p>
-                <p className="text-xs mt-2">Is word ke notes books mein kaafi alag hain — Extra tab dekhein</p>
-              </div>
-            ) : isLimited ? (
-              <div className="relative">
-                <ChunkedNotesReader
-                  key="fbc-common-limited"
-                  content={topicResult.common.slice(0, freeLimit).join('\n')}
-                  topBarLabel={`"${topicResult.topicName}" Common — ${freeLimit} of ${topicResult.common.length}`}
-                  language="hi-IN"
-                />
-                {topicResult.common.length > freeLimit && (
-                  <div className="relative mt-2">
-                    <div className="blur-sm pointer-events-none select-none opacity-40 text-xs text-slate-600 space-y-1 px-1">
-                      {topicResult.common.slice(freeLimit, freeLimit + 3).map((p, i) => <p key={i}>• {p.substring(0, 80)}…</p>)}
-                    </div>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm rounded-2xl px-4 py-5">
-                      <Crown size={28} className="text-yellow-500 mb-2" />
-                      <p className="font-black text-slate-800 text-sm text-center">{topicResult.common.length - freeLimit} aur points hain</p>
-                      <p className="text-[11px] text-slate-500 text-center mt-1">ULTRA mein poore {topicResult.common.length} common points dekho</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <>
-                <ChunkedNotesReader
-                  key={`fbc-common-${commonPage}`}
-                  content={paginate(topicResult.common, commonPage).join('\n')}
-                  topBarLabel={`"${topicResult.topicName}" Common — Page ${commonPage + 1} of ${totalPg(topicResult.common)}`}
-                  language="hi-IN"
-                />
-                {totalPg(topicResult.common) > 1 && (
-                  <div className="flex items-center justify-between pt-2">
-                    <button disabled={commonPage === 0} onClick={() => setCommonPage(p => p - 1)} className="flex items-center gap-1.5 px-5 py-2.5 rounded-2xl bg-emerald-100 text-emerald-700 font-black text-xs disabled:opacity-30 active:scale-95 transition-all">
-                      <ChevronLeft size={14} /> Prev
-                    </button>
-                    <span className="text-xs font-bold text-slate-500">{commonPage + 1} / {totalPg(topicResult.common)}</span>
-                    <button disabled={commonPage >= totalPg(topicResult.common) - 1} onClick={() => setCommonPage(p => p + 1)} className="flex items-center gap-1.5 px-5 py-2.5 rounded-2xl bg-emerald-100 text-emerald-700 font-black text-xs disabled:opacity-30 active:scale-95 transition-all">
-                      Next <ChevronRight size={14} />
-                    </button>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        )}
-
-        {/* ── EXTRA TAB ── */}
-        {tab === 'extra' && topicResult && (
-          <div className="px-3 pt-3 space-y-3">
-            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none" style={{ WebkitOverflowScrolling: 'touch' }}>
-              {topicResult.extra.filter(({ points }) => points.length > 0).map(({ bookName, points }) => (
-                <button
-                  key={bookName}
-                  onClick={() => { setActiveExtraBook(bookName); setExtraPages(prev => ({ ...prev, [bookName]: 0 })); }}
-                  className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-2xl text-[11px] font-black border-2 transition-all"
-                  style={activeExtraBook === bookName ? { background: subColor, color: 'white', borderColor: subColor } : { background: 'white', color: subColor, borderColor: subColorBorder }}
-                >
-                  📚 {bookName}
-                  <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full" style={activeExtraBook === bookName ? { background: 'rgba(255,255,255,0.2)' } : { background: subColorLight }}>{points.length}</span>
-                </button>
-              ))}
-            </div>
-
-            {activeExtraData && (
-              <>
-                <div className="rounded-2xl px-4 py-3 flex items-center gap-3 border" style={{ background: subColorLight, borderColor: subColorBorder }}>
-                  <BookOpen size={18} className="shrink-0" style={{ color: subColor }} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-black text-slate-800">{activeExtraData.bookName}</p>
-                    <p className="text-[10px]" style={{ color: subColor }}>{activeExtraData.points.length} extra — sirf is book mein</p>
-                  </div>
-                  {/* Rotate + Download */}
-                  <div className="flex gap-1 shrink-0">
-                    <button
-                      onClick={handleRotateFbc}
-                      className={`flex items-center gap-0.5 px-2 py-1 rounded-lg text-[10px] font-black transition-all border ${isLandscapeFbc ? 'bg-green-500 text-white border-green-500 shadow-sm' : 'bg-white text-slate-500 border-slate-200 hover:border-green-300'}`}
-                      title="Screen Rotate"
-                    >
-                      <RotateCcw size={10} /> Rot
-                    </button>
-                  </div>
-                  <button onClick={() => handleDownload(activeExtraData.bookName)} className="shrink-0 text-white rounded-xl px-3 py-1.5 text-[10px] font-black flex items-center gap-1" style={{ background: subColor }}>
-                    <Download size={11} /> Save
-                  </button>
-                </div>
-
-                {activeExtraData.points.length === 0 ? (
-                  <div className="text-center py-10 text-slate-400">
-                    <CheckCircle2 size={36} className="mx-auto mb-2 text-emerald-400" />
-                    <p className="font-black text-slate-500">Is book ke sab points common hain!</p>
-                  </div>
-                ) : isLimited ? (
-                  <div className="relative">
-                    <ChunkedNotesReader
-                      key={`fbc-extra-limited-${activeExtraBook}`}
-                      content={activeExtraData.points.slice(0, freeLimit).join('\n')}
-                      topBarLabel={`${activeExtraData.bookName} Extra — ${freeLimit} of ${activeExtraData.points.length}`}
-                      language="hi-IN"
-                    />
-                    {activeExtraData.points.length > freeLimit && (
-                      <div className="relative mt-2">
-                        <div className="blur-sm pointer-events-none select-none opacity-40 text-xs text-slate-600 space-y-1 px-1">
-                          {activeExtraData.points.slice(freeLimit, freeLimit + 3).map((p, i) => <p key={i}>• {p.substring(0, 80)}…</p>)}
-                        </div>
-                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm rounded-2xl px-4 py-5">
-                          <Crown size={28} className="text-yellow-500 mb-2" />
-                          <p className="font-black text-slate-800 text-sm text-center">{activeExtraData.points.length - freeLimit} aur points hain</p>
-                          <p className="text-[11px] text-slate-500 text-center mt-1">ULTRA mein poore {activeExtraData.points.length} extra points dekho</p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <>
-                    <ChunkedNotesReader
-                      key={`fbc-extra-${activeExtraBook}-${extraCurPage}`}
-                      content={paginate(activeExtraData.points, extraCurPage).join('\n')}
-                      topBarLabel={`${activeExtraData.bookName} Extra — Page ${extraCurPage + 1} of ${totalPg(activeExtraData.points)}`}
-                      language="hi-IN"
-                    />
-                    {totalPg(activeExtraData.points) > 1 && (
-                      <div className="flex items-center justify-between pt-2">
-                        <button disabled={extraCurPage === 0} onClick={() => setExtraPages(prev => ({ ...prev, [activeExtraBook!]: extraCurPage - 1 }))} className="flex items-center gap-1.5 px-5 py-2.5 rounded-2xl font-black text-xs disabled:opacity-30 active:scale-95 transition-all" style={{ background: subColorLight, color: subColor }}>
-                          <ChevronLeft size={14} /> Prev
-                        </button>
-                        <span className="text-xs font-bold text-slate-500">{extraCurPage + 1} / {totalPg(activeExtraData.points)}</span>
-                        <button disabled={extraCurPage >= totalPg(activeExtraData.points) - 1} onClick={() => setExtraPages(prev => ({ ...prev, [activeExtraBook!]: extraCurPage + 1 }))} className="flex items-center gap-1.5 px-5 py-2.5 rounded-2xl font-black text-xs disabled:opacity-30 active:scale-95 transition-all" style={{ background: subColorLight, color: subColor }}>
-                          Next <ChevronRight size={14} />
-                        </button>
-                      </div>
-                    )}
-                  </>
-                )}
-              </>
-            )}
-          </div>
-        )}
-
         {/* ── FULL NOTES TAB ── */}
         {tab === 'fullnotes' && topicResult && (
           <div className="px-3 pt-3 space-y-3">
@@ -984,44 +741,6 @@ export const FullBookCompare: React.FC<Props> = ({ settings, user, isLimited = f
           </div>
         )}
 
-        {/* ── DOWNLOAD TAB ── */}
-        {tab === 'download' && activeResult && topicResult && (
-          <div className="px-3 pt-3 space-y-3">
-            <p className="text-[11px] text-slate-500 font-semibold px-1">
-              "{topicResult.topicName}" — alag-alag ya ek saath download karein
-            </p>
-            <button onClick={() => handleDownload('all')} className="w-full bg-gradient-to-r from-slate-900 to-purple-900 text-white py-3.5 rounded-2xl text-sm font-black flex items-center justify-center gap-2 active:scale-95 transition-all shadow-lg">
-              <Download size={16} /> Sab Ek Saath Download
-              <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full">Common + Sab Extra</span>
-            </button>
-            <div className="bg-emerald-50 border-2 border-emerald-200 rounded-2xl p-4 space-y-2">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-black text-emerald-800">✅ Common Points</p>
-                  <p className="text-[10px] text-emerald-600">{activeResult.common.length} points jo sab books mein hain</p>
-                </div>
-                <span className="text-2xl font-black text-emerald-600">{activeResult.common.length}</span>
-              </div>
-              <button onClick={() => handleDownload('common')} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-xl text-xs font-black flex items-center justify-center gap-2 active:scale-95 transition-all">
-                <Download size={13} /> Common Points Download
-              </button>
-            </div>
-            {topicResult.extra.filter(({ points }) => points.length > 0).map(({ bookName, points }) => (
-              <div key={bookName} className="border-2 rounded-2xl p-4 space-y-2" style={{ background: subColorLight, borderColor: subColorBorder }}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-black text-slate-800">📚 {bookName}</p>
-                    <p className="text-[10px]" style={{ color: subColor }}>{points.length} extra points sirf is book mein</p>
-                  </div>
-                  <span className="text-2xl font-black" style={{ color: subColor }}>{points.length}</span>
-                </div>
-                <button onClick={() => handleDownload(bookName)} className="w-full text-white py-2.5 rounded-xl text-xs font-black flex items-center justify-center gap-2 active:scale-95 transition-all" style={{ background: subColor }}>
-                  <Download size={13} /> {bookName} — Extra Download
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
 
       </div>
     </div>
