@@ -2036,10 +2036,11 @@ export const StudentDashboard: React.FC<Props> = ({
   const [lucentNoteViewer, setLucentNoteViewer] = useState<LucentNoteEntry | null>(null);
   const [lucentPageIndex, setLucentPageIndex] = useState(0);
   const [lucentPageListViewer, setLucentPageListViewer] = useState<LucentNoteEntry | null>(null);
-  // Content-picker popup: shows when student taps a page in Lucent or Competition mode
+  // Content-picker popup: shows when student taps a page in Lucent, Competition, OR a Class 6-12 chapter
   const [contentPickerPopup, setContentPickerPopup] = useState<
     | { type: 'LUCENT'; entry: LucentNoteEntry; pageIdx: number }
     | { type: 'COMPETITION'; hw: any }
+    | { type: 'COURSE'; chapter: Chapter }
     | null
   >(null);
   // Ref to pass initial tab/viewMode through the useEffect reset when opening Lucent viewer
@@ -4228,6 +4229,22 @@ export const StudentDashboard: React.FC<Props> = ({
   // listener (registered once) can react without stale closures.
   // ALL full-screen overlays must be tracked here so the back button can
   // close them one-by-one before falling through to tab-level navigation.
+
+  // Ref to the actual lucent viewer object — navStateRef only stores a boolean.
+  // Updated synchronously every render so the nav-history push gets the real object.
+  const lucentViewerRef = useRef<any>(null);
+
+  // Tab navigation history — each entry records the state AT THE TIME the user
+  // tapped a bottom-nav tab, so the back button can retrace the exact path taken:
+  //   home → courses → lucent viewer → history tab → reading note
+  //   back×1 → close note; back×2 → history; back×3 → courses+lucent; back×4 → home
+  const navTabHistory = useRef<Array<{
+    tab: string;
+    lucentViewer: any;
+    lucentPageIdx: number;
+    lucentCat: boolean;
+  }>>([]);
+
   const navStateRef = useRef({
     activeTab,
     contentViewStep,
@@ -4293,6 +4310,8 @@ export const StudentDashboard: React.FC<Props> = ({
     lucentCategoryView,
     activeSessionClass,
   };
+  // Keep lucentViewerRef in sync (navStateRef only holds the boolean, not the object).
+  lucentViewerRef.current = lucentNoteViewer;
 
   useEffect(() => {
     // Push an initial trap entry so the first back press is captured.
@@ -4398,23 +4417,48 @@ export const StudentDashboard: React.FC<Props> = ({
         } else if (s.lucentCategoryView) {
           setLucentCategoryView(false);
         } else {
-          // SUBJECTS root → back to HOME (class selection)
-          setActiveSessionClass(null);
-          setActiveSessionBoard(null);
+          // SUBJECTS root → retrace tab history step-by-step, or fall back to HOME.
+          // Drain stale entries where we're already on that tab (avoids no-op loops).
+          while (navTabHistory.current.length > 0 && navTabHistory.current[navTabHistory.current.length - 1].tab === 'COURSES') {
+            navTabHistory.current.pop();
+          }
+          if (navTabHistory.current.length > 0) {
+            const _prev = navTabHistory.current.pop()!;
+            onTabChange(_prev.tab as any);
+            if (_prev.lucentViewer) { setLucentNoteViewer(_prev.lucentViewer); setLucentPageIndex(_prev.lucentPageIdx); }
+            if (_prev.lucentCat) setLucentCategoryView(true);
+          } else {
+            setActiveSessionClass(null);
+            setActiveSessionBoard(null);
+            onTabChange("HOME");
+          }
+        }
+        reTrap();
+        return;
+      }
+
+      // 4. Any other non-home tab (HISTORY / PROFILE / UPDATES / etc.)
+      //    → retrace tab history step-by-step, or fall back to HOME.
+      if (s.activeTab !== "HOME") {
+        // Drain stale same-tab entries first.
+        while (navTabHistory.current.length > 0 && navTabHistory.current[navTabHistory.current.length - 1].tab === s.activeTab) {
+          navTabHistory.current.pop();
+        }
+        if (navTabHistory.current.length > 0) {
+          const _prev = navTabHistory.current.pop()!;
+          onTabChange(_prev.tab as any);
+          if (_prev.lucentViewer) { setLucentNoteViewer(_prev.lucentViewer); setLucentPageIndex(_prev.lucentPageIdx); }
+          if (_prev.lucentCat) setLucentCategoryView(true);
+        } else {
           onTabChange("HOME");
         }
         reTrap();
         return;
       }
 
-      // 4. Any other non-home tab (HISTORY / PROFILE / UPDATES / etc.) → HOME
-      if (s.activeTab !== "HOME") {
-        onTabChange("HOME");
-        reTrap();
-        return;
-      }
-
-      // 5. Already at HOME root — re-trap so the app does NOT exit on back.
+      // 5. Already at HOME root — drain any leftover stale history entries,
+      //    then re-trap so the app does NOT exit on back.
+      navTabHistory.current = [];
       reTrap();
     };
 
@@ -5257,6 +5301,7 @@ export const StudentDashboard: React.FC<Props> = ({
                       /* ── Read Mode: ChunkedNotesReader TTS ── */
                       <ChunkedNotesReader
                         key={`hw-reader-${activeHw.id}-chunk`}
+                        onBack={goBack}
                         onMoreOptions={() => setContentPickerPopup({ type: 'COMPETITION', hw: activeHw })}
                         isUltraUser={_isUltraUser}
                         ultraHtmlRemaining={_isUltraUser ? ultraHtmlRemaining : undefined}
@@ -6444,9 +6489,9 @@ export const StudentDashboard: React.FC<Props> = ({
               onTabChange(contentTypePref as any);
               setFullScreen(true);
             } else {
-              // OPEN MODAL INSTEAD OF PLAYER
+              // OPEN CONTENT PICKER POPUP (same dark popup as Lucent/Competition)
               setSelectedLessonForModal(chapter);
-              setShowLessonModal(true);
+              setContentPickerPopup({ type: 'COURSE', chapter });
             }
           }}
           onBack={goBack}
@@ -13436,6 +13481,22 @@ export const StudentDashboard: React.FC<Props> = ({
                         if (tab.id !== 'HOME') {
                           setNavTapKeys(prev => ({ ...prev, [tab.id]: (prev[tab.id] || 0) + 1 }));
                         }
+                        // Record current tab state BEFORE readers are closed so the
+                        // back button can retrace the full path (including open viewers).
+                        try {
+                          const _ns = navStateRef.current;
+                          if (_ns.activeTab !== tab.id) {
+                            navTabHistory.current.push({
+                              tab: _ns.activeTab,
+                              lucentViewer: lucentViewerRef.current,
+                              lucentPageIdx: _ns.lucentPageIndex,
+                              lucentCat: _ns.lucentCategoryView,
+                            });
+                            // Extra browser history entry so each tab switch
+                            // gives the popstate handler one more "slot" to consume.
+                            window.history.pushState({ __nstTrap: true }, '');
+                          }
+                        } catch {}
                         // If user is currently inside a notes/MCQ reader (Lucent / HW),
                         // save their progress to Continue Reading and close the reader
                         // BEFORE switching tabs. So nav-tap "exits cleanly" and the
@@ -14669,28 +14730,36 @@ export const StudentDashboard: React.FC<Props> = ({
       {/* ── CONTENT PICKER POPUP ─────────────────────────────────────────── */}
       {contentPickerPopup && (() => {
         const cpp = contentPickerPopup;
+        const isCourse = cpp.type === 'COURSE';
         const isLucent = cpp.type === 'LUCENT';
-        const hw    = isLucent ? null : (cpp as any).hw;
+        const hw    = (!isLucent && !isCourse) ? (cpp as any).hw : null;
         const entry = isLucent ? (cpp as any).entry as LucentNoteEntry : null;
         const pageIdx = isLucent ? (cpp as any).pageIdx as number : 0;
         const page  = isLucent ? entry?.pages?.[pageIdx] : null;
+        const courseChapter = isCourse ? (cpp as any).chapter as Chapter : null;
 
         // Availability checks
-        const hasNotes = isLucent
-          ? !!(page?.content || page?.chunkNotes || page?.htmlNotes)
-          : !!(hw?.chunkNotes || hw?.htmlNotes || hw?.notes);
-        const hasMcq = isLucent
-          ? (!!(page?.mcqs && page.mcqs.length > 0) || !!(lucentMcqsByPage[`${entry?.id}_${pageIdx}`]?.length))
-          : !!(hw?.parsedMcqs && hw.parsedMcqs.length > 0);
-        const hasPdf  = isLucent ? !!(page as any)?.pdfUrl  : !!hw?.pdfUrl;
-        const hasVideo = isLucent ? !!(page as any)?.videoUrl : !!hw?.videoUrl;
-        const hasAudio = isLucent ? !!(page as any)?.audioUrl : !!hw?.audioUrl;
+        const hasNotes = isCourse
+          ? true // Class 6-12: optimistically show; LessonView handles missing content
+          : isLucent
+            ? !!(page?.content || page?.chunkNotes || page?.htmlNotes)
+            : !!(hw?.chunkNotes || hw?.htmlNotes || hw?.notes);
+        const hasMcq = isCourse
+          ? true // optimistic
+          : isLucent
+            ? (!!(page?.mcqs && page.mcqs.length > 0) || !!(lucentMcqsByPage[`${entry?.id}_${pageIdx}`]?.length))
+            : !!(hw?.parsedMcqs && hw.parsedMcqs.length > 0);
+        const hasPdf  = isCourse ? true : isLucent ? !!(page as any)?.pdfUrl  : !!hw?.pdfUrl;
+        const hasVideo = isCourse ? true : isLucent ? !!(page as any)?.videoUrl : !!hw?.videoUrl;
+        const hasAudio = isCourse ? true : isLucent ? !!(page as any)?.audioUrl : !!hw?.audioUrl;
 
         const dismiss = () => setContentPickerPopup(null);
 
         const openReadingNotes = () => {
           dismiss();
-          if (isLucent) {
+          if (isCourse) {
+            handleLessonOption('PDF'); // sets pdfInitialTab='DEEP_DIVE' internally → Concept/TTS tab
+          } else if (isLucent) {
             lucentInitialTabRef.current = { tab: 'NOTES', viewMode: 'chunk' };
             tryOpenLucentNote(entry, pageIdx);
           } else {
@@ -14700,7 +14769,9 @@ export const StudentDashboard: React.FC<Props> = ({
         };
         const openMakingNotes = () => {
           dismiss();
-          if (isLucent) {
+          if (isCourse) {
+            handleLessonOption('NOTES_PREMIUM');
+          } else if (isLucent) {
             lucentInitialTabRef.current = { tab: 'NOTES', viewMode: 'html' };
             tryOpenLucentNote(entry, pageIdx);
           } else {
@@ -14709,7 +14780,9 @@ export const StudentDashboard: React.FC<Props> = ({
         };
         const openMcq = () => {
           dismiss();
-          if (isLucent) {
+          if (isCourse) {
+            handleLessonOption('MCQ');
+          } else if (isLucent) {
             lucentInitialTabRef.current = { tab: 'MCQS' };
             tryOpenLucentNote(entry, pageIdx);
           } else {
@@ -14719,12 +14792,19 @@ export const StudentDashboard: React.FC<Props> = ({
         };
         const openPdf = () => {
           dismiss();
-          const url = isLucent ? (page as any)?.pdfUrl : hw?.pdfUrl;
-          if (url) window.open(url, '_blank', 'noopener,noreferrer');
+          if (isCourse) {
+            // PDF slot for Class 6-12 → Retention (PREMIUM) tab — styled HTML notes
+            handleLessonOption('NOTES_PREMIUM');
+          } else {
+            const url = isLucent ? (page as any)?.pdfUrl : hw?.pdfUrl;
+            if (url) window.open(url, '_blank', 'noopener,noreferrer');
+          }
         };
         const openVideo = () => {
           dismiss();
-          if (isLucent) {
+          if (isCourse) {
+            handleLessonOption('VIDEO');
+          } else if (isLucent) {
             lucentInitialTabRef.current = { tab: 'VIDEO' };
             tryOpenLucentNote(entry, pageIdx);
           } else {
@@ -14734,8 +14814,9 @@ export const StudentDashboard: React.FC<Props> = ({
         };
         const openAudio = () => {
           dismiss();
-          if (isLucent) {
-            // Lucent audio: open directly if audioUrl exists
+          if (isCourse) {
+            handleLessonOption('AUDIO');
+          } else if (isLucent) {
             const url = (page as any)?.audioUrl;
             if (url) window.open(url, '_blank', 'noopener,noreferrer');
           } else {
@@ -14744,16 +14825,24 @@ export const StudentDashboard: React.FC<Props> = ({
           }
         };
 
-        const title = isLucent
-          ? (page?.pageNo ? `Page ${page.pageNo}` : `Page ${pageIdx + 1}`) + (page?.topicName ? ` — ${page.topicName}` : '')
-          : hw?.title || `Page ${(hw as any)?.pageNo || ''}`;
+        const title = isCourse
+          ? (courseChapter?.title || '')
+          : isLucent
+            ? (page?.pageNo ? `Page ${page.pageNo}` : `Page ${pageIdx + 1}`) + (page?.topicName ? ` — ${page.topicName}` : '')
+            : hw?.title || `Page ${(hw as any)?.pageNo || ''}`;
+
+        const headerLabel = isCourse
+          ? `📚 Class ${activeSessionClass || user.classLevel || ''} — ${selectedSubject?.name || 'Courses'}`
+          : isLucent
+            ? '📘 Lucent Book — ' + (entry?.lessonTitle || '')
+            : '📚 Competition Mode';
 
         type Option = { id: string; icon: string; label: string; sub: string; color: string; bg: string; enabled: boolean; onClick: () => void };
         const options: Option[] = [
           { id: 'read',  icon: '📖', label: 'Reading Notes', sub: hasNotes  ? 'Read Mode — TTS'       : 'Notes nahi hain', color: '#f59e0b', bg: 'rgba(245,158,11,0.13)',  enabled: hasNotes,  onClick: openReadingNotes },
           { id: 'write', icon: '✏️', label: 'Making Notes',  sub: hasNotes  ? 'Write Mode — HTML'    : 'Notes nahi hain', color: '#14b8a6', bg: 'rgba(20,184,166,0.13)',  enabled: hasNotes,  onClick: openMakingNotes  },
           { id: 'mcq',   icon: '🎯', label: 'MCQ Practice',  sub: hasMcq    ? 'Practice questions'   : 'MCQ nahi hain',   color: '#8b5cf6', bg: 'rgba(139,92,246,0.13)', enabled: !!hasMcq,  onClick: openMcq          },
-          { id: 'pdf',   icon: '📄', label: 'PDF',           sub: hasPdf    ? 'PDF available'        : 'PDF nahi hai',    color: '#3b82f6', bg: 'rgba(59,130,246,0.13)',  enabled: hasPdf,    onClick: openPdf          },
+          { id: 'pdf',   icon: isCourse ? '💎' : '📄', label: isCourse ? 'Retention' : 'PDF', sub: hasPdf ? (isCourse ? 'Styled Notes' : 'PDF available') : 'PDF nahi hai', color: isCourse ? '#f43f5e' : '#3b82f6', bg: isCourse ? 'rgba(244,63,94,0.13)' : 'rgba(59,130,246,0.13)', enabled: hasPdf, onClick: openPdf },
           { id: 'video', icon: '🎬', label: 'Video',         sub: hasVideo  ? 'Video lecture'        : 'Video nahi hai',  color: '#ef4444', bg: 'rgba(239,68,68,0.13)',   enabled: hasVideo,  onClick: openVideo        },
           { id: 'audio', icon: '🎧', label: 'Audio',         sub: hasAudio  ? 'Audio lecture'        : 'Audio nahi hai',  color: '#a855f7', bg: 'rgba(168,85,247,0.13)',  enabled: hasAudio,  onClick: openAudio        },
         ];
@@ -14774,7 +14863,7 @@ export const StudentDashboard: React.FC<Props> = ({
               {/* Header */}
               <div className="px-5 pt-2 pb-3 border-b border-white/10">
                 <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.35)' }}>
-                  {isLucent ? '📘 Lucent Book — ' + (entry?.lessonTitle || '') : '📚 Competition Mode'}
+                  {headerLabel}
                 </p>
                 <p className="text-[15px] font-black text-white leading-tight mt-0.5 truncate">{title}</p>
               </div>
@@ -15151,6 +15240,7 @@ export const StudentDashboard: React.FC<Props> = ({
                     /* ── Read Mode: ChunkedNotesReader TTS ── */
                   <ChunkedNotesReader
                     key={`lucent-reader-${entry.id}-${safeIndex}-${autoSyncOn ? 'auto' : 'manual'}-chunk`}
+                    onBack={closeLucentViewer}
                     triggerControlsRef={lucentControlsRef}
                     onMoreOptions={() => setContentPickerPopup({ type: 'LUCENT', entry, pageIdx: safeIndex })}
                     isUltraUser={_isUltraUser}
