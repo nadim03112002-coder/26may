@@ -1,6 +1,6 @@
 import { PwaInstallPrompt } from "./components/PwaInstallPrompt";
 
-import React, { useState, useEffect, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { 
   ClassLevel, Subject, Chapter, AppState, Board, Stream, User, ContentType, SystemSettings, ActivityLogEntry, WeeklyTest, LessonContent, ActiveSubscription, InboxMessage
 } from './types';
@@ -2535,6 +2535,43 @@ const App: React.FC = () => {
       return { ...prev, view: prev.user?.role === 'ADMIN' ? 'ADMIN_DASHBOARD' as any : 'STUDENT_DASHBOARD' as any };
     });
   };
+
+  // --- HARDWARE BACK BUTTON (non-StudentDashboard views) ---
+  // When the user is on LESSON / CHAPTERS / SUBJECTS / BOARDS etc. (outside
+  // StudentDashboard), StudentDashboard's popstate handler is not mounted.
+  // We install our own trap here so the device back button steps through the
+  // content tree one level at a time instead of exiting the app.
+  const goBackRef = useRef(goBack);
+  goBackRef.current = goBack;
+  const appViewRef = useRef(state.view);
+  appViewRef.current = state.view;
+
+  useEffect(() => {
+    const MANAGED_VIEWS = ['LESSON', 'CHAPTERS', 'SUBJECTS', 'CLASSES', 'BOARDS', 'STREAMS'];
+
+    const reTrap = () => {
+      try { window.history.pushState({ __nstTrap: true }, ''); } catch {}
+    };
+
+    const onPopState = () => {
+      const view = appViewRef.current;
+      if (!MANAGED_VIEWS.includes(view as string)) return;
+      goBackRef.current();
+      reTrap();
+    };
+
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
+  // Push an initial trap whenever we enter a managed view so the first back
+  // press is captured rather than falling through to the browser.
+  useEffect(() => {
+    const MANAGED_VIEWS = ['LESSON', 'CHAPTERS', 'SUBJECTS', 'CLASSES', 'BOARDS', 'STREAMS'];
+    if (MANAGED_VIEWS.includes(state.view as string)) {
+      try { window.history.pushState({ __nstTrap: true }, ''); } catch {}
+    }
+  }, [state.view]);
 
   // --- OFFLINE INDICATOR (non-blocking) ---
   // Earlier the entire app was locked behind a full-screen "Internet Not Connected"

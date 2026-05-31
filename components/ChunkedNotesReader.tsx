@@ -171,10 +171,12 @@ interface Props {
   triggerControlsRef?: React.MutableRefObject<(() => void) | null>;
   /** When true, hides the 3-dot button inside the slim sticky bar so the parent's top-bar button is the sole trigger. */
   hideInline3dot?: boolean;
+  /** When provided, shows a back (←) button in the slim READ MODE bar. */
+  onBack?: () => void;
 }
 
 
-export const ChunkedNotesReader: React.FC<Props> = ({ content, className, language = 'hi-IN', topBarLabel, autoStart, onComplete, onReadingStart, hideTopBar, initialIndex, onPositionChange, noteKey, isStarred, onStarToggle, searchQuery, getStarCount, textColorOverride, preferChunkMode, onDesktopModeChange, hideDesktopToggle, suppressStickyControls, htmlContent, isUltraUser, ultraHtmlRemaining, userCredits = 0, htmlUnlockCost = 5, onSpendCredits, onHtmlOpen, onUpgradeClick, isBasicUser = false, basicHtmlRemaining = 0, onHtmlViewChange, onMoreOptions, triggerControlsRef, hideInline3dot }) => {
+export const ChunkedNotesReader: React.FC<Props> = ({ content, className, language = 'hi-IN', topBarLabel, autoStart, onComplete, onReadingStart, hideTopBar, initialIndex, onPositionChange, noteKey, isStarred, onStarToggle, searchQuery, getStarCount, textColorOverride, preferChunkMode, onDesktopModeChange, hideDesktopToggle, suppressStickyControls, htmlContent, isUltraUser, ultraHtmlRemaining, userCredits = 0, htmlUnlockCost = 5, onSpendCredits, onHtmlOpen, onUpgradeClick, isBasicUser = false, basicHtmlRemaining = 0, onHtmlViewChange, onMoreOptions, triggerControlsRef, hideInline3dot, onBack }) => {
   const topics = useMemo(() => splitIntoTopics(content), [content]);
 
   // ── Strips [span_N](start_span) / [span_N](end_span) TTS markers ──
@@ -1022,8 +1024,19 @@ export const ChunkedNotesReader: React.FC<Props> = ({ content, className, langua
       )}
       {!hideTopBar && (
         <div ref={toolbarRef} className="sticky top-0 z-20 bg-white border-b border-slate-200 shadow-sm mb-3">
-          {/* ── Slim bar — title + READ MODE watermark ── */}
+          {/* ── Slim bar — back button + title + READ MODE watermark ── */}
           <div className="flex items-center gap-2 px-2 py-1.5">
+            {onBack && (
+              <button
+                type="button"
+                onClick={onBack}
+                className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-100 border border-slate-200 text-slate-600 active:scale-90 transition shrink-0"
+                title="Back"
+                aria-label="Back"
+              >
+                <ChevronRight size={15} className="rotate-180" />
+              </button>
+            )}
             <div className="flex-1 min-w-0 flex items-center gap-2 overflow-hidden">
               <span className="text-xs font-bold text-slate-700 truncate">
                 {topBarLabel || 'Notes'}

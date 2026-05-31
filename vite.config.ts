@@ -10,6 +10,7 @@ export default defineConfig(({ mode }) => {
         port: 5000,
         host: '0.0.0.0',
         allowedHosts: true,
+        hmr: { overlay: false },
         watch: {
           ignored: ['**/.cache/**', '**/node_modules/**', '**/dist/**'],
         },
@@ -135,7 +136,8 @@ export default defineConfig(({ mode }) => {
         }
       },
       optimizeDeps: {
-        include: ['pdfjs-dist', 'clsx', 'eventemitter3'],
+        exclude: ['pdfjs-dist'],
+        include: ['clsx', 'eventemitter3'],
         esbuildOptions: {
           sourcemap: false,
         },
@@ -143,6 +145,7 @@ export default defineConfig(({ mode }) => {
       resolve: {
         alias: {
           '@': path.resolve(__dirname, '.'),
+          'pdfjs-dist': path.resolve(__dirname, 'node_modules/pdfjs-dist/build/pdf.js'),
         }
       },
       define: {
