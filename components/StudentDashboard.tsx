@@ -721,6 +721,14 @@ export const StudentDashboard: React.FC<Props> = ({
     (tierTheme as any).accentGlowColor, isDarkMode,
   ]);
 
+  // ── Meta theme-color: profile tab → official tier color, others → active theme ──
+  useEffect(() => {
+    const officialTheme = getTierTheme(user);
+    const color = activeTab === 'PROFILE' ? officialTheme.primary : tierTheme.primary;
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', color);
+  }, [activeTab, tierTheme.primary, user.isPremium, user.subscriptionLevel, user.subscriptionEndDate]);
+
   // ── HTML Write-Mode Daily Quota (ALL tiers) ──────────────────────────────
   const _subValid      = SubscriptionEngine.isPremium(user); // true only if not expired
   const _isUltraUser   = _subValid && user.subscriptionLevel === 'ULTRA';
@@ -1661,6 +1669,8 @@ export const StudentDashboard: React.FC<Props> = ({
   const [showLessonModal, setShowLessonModal] = useState(false);
   const [selectedLessonForModal, setSelectedLessonForModal] =
     useState<Chapter | null>(null);
+  const [courseAvailability, setCourseAvailability] = useState<{notes: boolean; readNotes: boolean; writeNotes: boolean; pdf: boolean; video: boolean; mcq: boolean; audio: boolean} | null>(null);
+  const [coursePdfUrl, setCoursePdfUrl] = useState<string | null>(null);
   const [pdfInitialTab, setPdfInitialTab] = useState<'DEEP_DIVE' | 'PREMIUM'>('DEEP_DIVE');
   const [syllabusMode, setSyllabusMode] = useState<"SCHOOL" | "COMPETITION">(
     "SCHOOL",
@@ -2043,6 +2053,45 @@ export const StudentDashboard: React.FC<Props> = ({
     | { type: 'COURSE'; chapter: Chapter }
     | null
   >(null);
+
+  // Fetch real content availability for Class 6-12 chapters when popup opens
+  useEffect(() => {
+    if (!contentPickerPopup || contentPickerPopup.type !== 'COURSE') {
+      setCourseAvailability(null);
+      setCoursePdfUrl(null);
+      return;
+    }
+    const ch = (contentPickerPopup as any).chapter as Chapter;
+    setCourseAvailability(null);
+    setCoursePdfUrl(null);
+    const board = activeSessionBoard || user?.board || 'CBSE';
+    const classLevel = activeSessionClass || user?.classLevel || '10';
+    const streamKey = (classLevel === '11' || classLevel === '12') && user?.stream ? `-${user.stream}` : '';
+    const subjectName = selectedSubject?.name || '';
+    const key = `nst_content_${board}_${classLevel}${streamKey}_${subjectName}_${ch.id}`;
+    (async () => {
+      let data: any = await getChapterData(key);
+      if (!data) {
+        try { const l = localStorage.getItem(key); if (l) data = JSON.parse(l); } catch {}
+      }
+      if (data) {
+        const readNotes = !!(data.freeNotes || data.topicNotes?.length || data.content || data.teachingStrategyNotes || data.chunkNotes || data.notes);
+        const writeNotes = !!(data.freeNotesHtml || data.htmlNotes || data.premiumNotes);
+        const notes = readNotes || writeNotes;
+        const pdf = !!(data.freeLink || data.premiumLink || data.schoolPdfLink || data.competitionPdfLink || data.pdfUrl || data.pdfList?.length);
+        const video = !!(data.videoPlaylist?.length || data.schoolVideoPlaylist?.length || data.topicVideos?.length || data.premiumVideoLink || data.freeVideoLink);
+        const audio = !!(data.audioPlaylist?.length);
+        const mcq = !!(data.manualMcqData?.length || data.weeklyTestMcqData?.length || data.mcqList?.length);
+        const pdfUrl = data.schoolPdfLink || data.freeLink || data.premiumLink || data.competitionPdfLink || data.pdfUrl || null;
+        setCourseAvailability({ notes, readNotes, writeNotes, pdf, video, mcq, audio });
+        setCoursePdfUrl(pdfUrl);
+      } else {
+        setCourseAvailability({ notes: false, readNotes: false, writeNotes: false, pdf: false, video: false, mcq: false, audio: false });
+      }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contentPickerPopup]);
+
   // Ref to pass initial tab/viewMode through the useEffect reset when opening Lucent viewer
   const lucentInitialTabRef = useRef<{ tab?: 'NOTES' | 'MCQS' | 'VIDEO'; viewMode?: 'html' | 'chunk' } | null>(null);
   // Live scroll % for the Lucent reader — drives the gradient progress bar at
@@ -6513,6 +6562,13 @@ export const StudentDashboard: React.FC<Props> = ({
         onUpdateUser: handleUserUpdate,
       };
 
+      const handleCourseMoreOptions = () => {
+        if (selectedChapter) {
+          setSelectedLessonForModal(selectedChapter);
+          setContentPickerPopup({ type: 'COURSE', chapter: selectedChapter });
+        }
+      };
+
       if (type === "VIDEO")
         return (
           <VideoPlaylistView
@@ -6520,6 +6576,7 @@ export const StudentDashboard: React.FC<Props> = ({
             onBack={goBack}
             user={user}
             settings={settings}
+            onMoreOptions={handleCourseMoreOptions}
             {...contentProps}
           />
         );
@@ -6533,10 +6590,7 @@ export const StudentDashboard: React.FC<Props> = ({
             hideHeader={isLandscapeUiHidden}
             onImmersiveChange={(v) => setIsInternalImmersive(v)}
             initialActiveTab={pdfInitialTab}
-            // Lucent-style cross-tab switching: lets the student jump from
-            // Notes (PdfView) → MCQ (McqView) without going back to the modal.
-            onSwitchToMcq={() => handleLessonOption('MCQ')}
-            onSwitchToFlashcard={() => handleLessonOption('FLASHCARD')}
+            onMoreOptions={handleCourseMoreOptions}
             {...contentProps}
           />
         );
@@ -6548,9 +6602,8 @@ export const StudentDashboard: React.FC<Props> = ({
             user={user}
             settings={settings}
             hideHeader={isLandscapeUiHidden}
-            // Lucent-style cross-tab switching: from MCQ → Notes (PdfView).
-            onSwitchToNotes={() => handleLessonOption('PDF')}
             onShareToCommunity={(mcq) => { setMcqCommunityDraft(mcq); setShowMcqCommunityPopup(true); }}
+            onMoreOptions={handleCourseMoreOptions}
             {...contentProps}
           />
         );
@@ -6562,6 +6615,7 @@ export const StudentDashboard: React.FC<Props> = ({
             user={user}
             settings={settings}
             onPlayAudio={setCurrentAudioTrack}
+            onMoreOptions={handleCourseMoreOptions}
             {...contentProps}
           />
         );
@@ -7833,6 +7887,9 @@ export const StudentDashboard: React.FC<Props> = ({
       );
     }
     if (activeTab === "PROFILE") {
+      // Profile page always uses the official tier theme — never changed by user's custom theme
+      // eslint-disable-next-line no-shadow
+      const tierTheme = getTierTheme(user);
       const _pRawScore = user.totalScore || 0;
       const _pTotalScore = (user.role === 'ADMIN' || user.role === 'SUB_ADMIN') ? 999999999 : _pRawScore;
       const _pLvl = getLevelInfo(_pTotalScore);
@@ -7951,23 +8008,60 @@ export const StudentDashboard: React.FC<Props> = ({
       return (
         <div className="animate-in fade-in zoom-in duration-300 pb-28 min-h-screen" data-pw={_pw ? "1" : "0"} style={{ background: _pBg }}>
 
-          {/* ── CARD 1: Identity ── */}
-          <div className="rounded-none overflow-hidden mb-2.5" style={{ background: _pCard, border: _pBdrMain }}>
+          {/* ── HERO BANNER ── */}
+          <div className="relative overflow-hidden" style={{ height: 172 }}>
+            {/* Base gradient */}
+            <div className="absolute inset-0" style={{
+              background: _light
+                ? `linear-gradient(145deg, ${tierTheme.primary}ee 0%, ${tierTheme.mid}cc 60%, ${tierTheme.primary}aa 100%)`
+                : `linear-gradient(145deg, ${tierTheme.primary} 0%, ${tierTheme.mid} 55%, ${tierTheme.primary}cc 100%)`,
+            }} />
+            {/* Radial glow center */}
+            <div className="absolute inset-0" style={{
+              background: `radial-gradient(ellipse 80% 60% at 30% 40%, rgba(255,255,255,0.13) 0%, transparent 70%)`,
+            }} />
+            {/* Dot grid */}
+            <svg className="absolute inset-0 w-full h-full pointer-events-none" xmlns="http://www.w3.org/2000/svg" style={{ opacity: 0.10 }}>
+              <defs><pattern id="bnrdots" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1.1" fill="white" /></pattern></defs>
+              <rect width="100%" height="100%" fill="url(#bnrdots)" />
+            </svg>
+            {/* Bottom fade to card */}
+            <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, transparent 35%, rgba(0,0,0,0.38) 100%)' }} />
+            {/* Top row: Admin badge left + Ultra crown right */}
+            <div className="absolute top-4 left-0 right-0 flex items-center justify-between px-5">
+              {(user.role === 'ADMIN' || user.role === 'SUB_ADMIN') ? (
+                <span className="text-[9px] font-black px-3 py-1.5 rounded-full uppercase tracking-widest text-white"
+                  style={{ background: 'rgba(0,0,0,0.30)', border: '1px solid rgba(255,255,255,0.25)' }}>
+                  ⚙ {user.role === 'ADMIN' ? 'Admin' : 'Sub-Admin'}
+                </span>
+              ) : <span />}
+              {_pIsUltra && (
+                <span className="text-[32px] leading-none" style={{ filter: 'drop-shadow(0 0 16px gold) drop-shadow(0 0 6px #fbbf24)' }}>👑</span>
+              )}
+            </div>
+            {/* App name watermark bottom-left */}
+            <div className="absolute bottom-16 left-5">
+              <p className="text-white/40 text-[10px] font-black uppercase tracking-[0.22em]">Profile</p>
+            </div>
+          </div>
+
+          {/* ── CARD 1: Identity (floating over hero) ── */}
+          <div className="mx-3 -mt-12 rounded-3xl overflow-hidden mb-3" style={{ background: _pCard, border: _pBdrMain, boxShadow: `0 12px 48px ${tierTheme.primary}30, 0 4px 20px rgba(0,0,0,0.42)` }}>
 
             {/* ── Profile Header ── */}
             <div className="relative overflow-hidden" style={{
               background: _light
-                ? `linear-gradient(160deg, ${tierTheme.primary}12 0%, ${tierTheme.primary}06 40%, transparent 100%)`
-                : `linear-gradient(160deg, ${tierTheme.primary}20 0%, ${tierTheme.primary}08 45%, transparent 100%)`,
-              paddingTop: 32,
-              paddingBottom: 24,
+                ? `linear-gradient(160deg, ${tierTheme.primary}10 0%, ${tierTheme.primary}04 50%, transparent 100%)`
+                : `linear-gradient(160deg, ${tierTheme.primary}18 0%, ${tierTheme.primary}06 50%, transparent 100%)`,
+              paddingTop: 28,
+              paddingBottom: 20,
             }}>
 
               {/* Background mesh dots — decorative */}
               {!_light && (
-                <svg className="absolute inset-0 w-full h-full opacity-[0.06] pointer-events-none" xmlns="http://www.w3.org/2000/svg">
+                <svg className="absolute inset-0 w-full h-full opacity-[0.05] pointer-events-none" xmlns="http://www.w3.org/2000/svg">
                   <defs>
-                    <pattern id="pdots" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
+                    <pattern id="pdots" x="0" y="0" width="28" height="28" patternUnits="userSpaceOnUse">
                       <circle cx="2" cy="2" r="1.2" fill={tierTheme.primary} />
                     </pattern>
                   </defs>
@@ -7975,48 +8069,31 @@ export const StudentDashboard: React.FC<Props> = ({
                 </svg>
               )}
 
-              {/* Top-right: Crown for Ultra */}
-              {_pIsUltra && (
-                <div className="absolute top-3 right-4 flex items-center gap-1">
-                  <span className="text-[22px] drop-shadow" style={{ filter: `drop-shadow(0 0 8px gold)` }}>👑</span>
-                </div>
-              )}
-
-              {/* Top-left: Admin chip */}
-              {(user.role === 'ADMIN' || user.role === 'SUB_ADMIN') && (
-                <div className="absolute top-3 left-4">
-                  <span className="text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-widest"
-                    style={{ background: `${tierTheme.primary}22`, color: tierTheme.primary, border: `1px solid ${tierTheme.primary}55` }}>
-                    {user.role === 'ADMIN' ? '⚙ Admin' : '⚙ Sub-Admin'}
-                  </span>
-                </div>
-              )}
-
               {/* ─── Avatar ─── */}
               <div className="flex justify-center mb-4">
                 <div className="relative">
                   {/* Outer glow halo */}
-                  <div className="absolute -inset-1.5 rounded-full pointer-events-none" style={{
-                    background: `conic-gradient(from 0deg, ${tierTheme.primary}00, ${tierTheme.primary}cc, ${tierTheme.primary}00)`,
+                  <div className="absolute -inset-2 rounded-full pointer-events-none" style={{
+                    background: `conic-gradient(from 0deg, ${tierTheme.primary}00, ${tierTheme.primary}bb, ${tierTheme.primary}00)`,
                     animation: !cardFxOff && _displayLvl.level >= 6 ? 'spin 4s linear infinite' : 'none',
                     borderRadius: '50%',
                   }} />
                   {/* Inner ring */}
-                  <div className="absolute -inset-0.5 rounded-full pointer-events-none" style={{
+                  <div className="absolute -inset-1 rounded-full pointer-events-none" style={{
                     background: `${_pCard}`,
                     borderRadius: '50%',
                   }} />
                   {/* Avatar image */}
-                  <div className="relative w-[88px] h-[88px] rounded-full overflow-hidden flex items-center justify-center" style={{
+                  <div className="relative w-[104px] h-[104px] rounded-full overflow-hidden flex items-center justify-center" style={{
                     background: `linear-gradient(145deg, ${tierTheme.primary}40, ${tierTheme.primary}10)`,
-                    border: `2.5px solid ${!cardFxOff && _displayLvl.level >= 4 ? _displayLvl.color + 'cc' : tierTheme.primary + 'cc'}`,
-                    boxShadow: `0 0 0 1px ${tierTheme.primary}30, 0 8px 32px ${tierTheme.primary}40, 0 2px 8px rgba(0,0,0,0.5)`,
+                    border: `3px solid ${!cardFxOff && _displayLvl.level >= 4 ? _displayLvl.color + 'cc' : tierTheme.primary + 'cc'}`,
+                    boxShadow: `0 0 0 1.5px ${tierTheme.primary}28, 0 10px 40px ${tierTheme.primary}44, 0 4px 12px rgba(0,0,0,0.55)`,
                   }}>
                     {user.photoURL && user.avatarChoice === 'gmail'
                       ? <img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" />
                       : settings?.appLogo
                         ? <img src={settings.appLogo} alt="logo" className="w-full h-full object-cover" />
-                        : <span className="text-4xl font-black select-none" style={{ color: !cardFxOff && _displayLvl.level >= 4 ? _displayLvl.color : tierTheme.primary }}>
+                        : <span className="text-5xl font-black select-none" style={{ color: !cardFxOff && _displayLvl.level >= 4 ? _displayLvl.color : tierTheme.primary }}>
                             {(user.name || 'S').charAt(0).toUpperCase()}
                           </span>
                     }
@@ -8025,46 +8102,51 @@ export const StudentDashboard: React.FC<Props> = ({
               </div>
 
               {/* ─── Name row ─── */}
-              <div className="flex items-center justify-center gap-2 px-8 mb-2">
-                <h2 className="font-black text-[22px] leading-none tracking-[0.06em] truncate" style={_nameStyle}>
+              <div className="flex items-center justify-center gap-2.5 px-8 mb-1.5">
+                <h2 className="font-black text-[26px] leading-none tracking-tight truncate" style={_nameStyle}>
                   {(user.name || 'Student').toUpperCase()}
                 </h2>
                 <button
                   onClick={() => { setNewNameInput(user.name); setShowNameChangeModal(true); }}
-                  className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center active:scale-90 transition-all"
+                  className="shrink-0 w-8 h-8 rounded-xl flex items-center justify-center active:scale-90 transition-all"
                   style={{
                     background: _light ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.10)',
-                    border: `1px solid ${_light ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.20)'}`,
+                    border: `1px solid ${_light ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.18)'}`,
                   }}>
-                  <Edit size={11} style={{ color: _light ? '#475569' : '#cbd5e1' }} />
+                  <Edit size={12} style={{ color: _light ? '#475569' : '#cbd5e1' }} />
                 </button>
               </div>
 
               {/* ─── Tier badge ─── */}
-              <div className="flex justify-center mb-3">
-                <span className="inline-flex items-center gap-1.5 px-5 py-[5px] rounded-full text-[11px] font-black tracking-[0.14em] uppercase" style={{
-                  background: _light ? `${tierTheme.primary}20` : tierTheme.pillGrad,
+              <div className="flex justify-center mb-2">
+                <span className="inline-flex items-center gap-2 px-5 py-1.5 rounded-full text-[11px] font-black tracking-[0.16em] uppercase" style={{
+                  background: _light ? `${tierTheme.primary}18` : tierTheme.pillGrad,
                   color: _light ? tierTheme.primary : '#ffffff',
-                  border: `1px solid ${tierTheme.primary}55`,
-                  boxShadow: `0 4px 18px ${tierTheme.primary}44`,
+                  border: `1px solid ${tierTheme.primary}50`,
+                  boxShadow: `0 6px 22px ${tierTheme.primary}3a`,
                 }}>
-                  {tierTheme.emoji}&nbsp;{_pTierLabel}
+                  {tierTheme.emoji} {_pTierLabel}
                 </span>
               </div>
 
-              {/* ─── Join date ─── */}
-              {_pJoinDate && (
-                <div className="flex items-center justify-center gap-1 mb-4" style={{ color: _pTxtSubColor }}>
-                  <span className="text-[11px]">📅</span>
-                  <span className="text-[11px] font-semibold tracking-wide">{_pJoinDate}</span>
-                </div>
-              )}
+              {/* ─── Info row: join date + days ─── */}
+              <div className="flex items-center justify-center gap-3 mb-4" style={{ color: _pTxtSubColor }}>
+                {_pJoinDate && (
+                  <span className="flex items-center gap-1 text-[10px] font-semibold">
+                    <span>📅</span>{_pJoinDate}
+                  </span>
+                )}
+                {_pJoinDate && <span className="text-[10px] opacity-30">·</span>}
+                <span className="flex items-center gap-1 text-[10px] font-semibold">
+                  <span>🔥</span>{_pDaysOnApp} days
+                </span>
+              </div>
 
               {/* ─── Avatar source segmented control ─── */}
               <div className="flex justify-center">
                 <div className="inline-flex rounded-2xl p-[3px]" style={{
                   background: _light ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.07)',
-                  border: `1px solid ${_light ? 'rgba(0,0,0,0.10)' : 'rgba(255,255,255,0.12)'}`,
+                  border: `1px solid ${_light ? 'rgba(0,0,0,0.10)' : 'rgba(255,255,255,0.11)'}`,
                 }}>
                   <button
                     onClick={async () => {
@@ -8077,7 +8159,7 @@ export const StudentDashboard: React.FC<Props> = ({
                     className="px-4 py-1.5 rounded-xl text-[11px] font-bold transition-all active:scale-95 flex items-center gap-1.5"
                     style={{
                       background: user.avatarChoice === 'gmail' && user.photoURL
-                        ? (_light ? '#ffffff' : 'rgba(59,130,246,0.30)')
+                        ? (_light ? '#ffffff' : 'rgba(59,130,246,0.28)')
                         : 'transparent',
                       color: user.avatarChoice === 'gmail' && user.photoURL
                         ? (_light ? '#1d4ed8' : '#93c5fd')
@@ -8096,7 +8178,7 @@ export const StudentDashboard: React.FC<Props> = ({
                     className="px-4 py-1.5 rounded-xl text-[11px] font-bold transition-all active:scale-95 flex items-center gap-1.5"
                     style={{
                       background: !user.photoURL || user.avatarChoice !== 'gmail'
-                        ? (_light ? '#ffffff' : `${tierTheme.primary}30`)
+                        ? (_light ? '#ffffff' : `${tierTheme.primary}28`)
                         : 'transparent',
                       color: !user.photoURL || user.avatarChoice !== 'gmail'
                         ? (_light ? tierTheme.primary : '#e2e8f0')
@@ -8109,90 +8191,98 @@ export const StudentDashboard: React.FC<Props> = ({
               </div>
 
               {/* Bottom shimmer line */}
-              <div className="absolute bottom-0 left-0 right-0 h-[1.5px]" style={{
-                background: `linear-gradient(90deg, transparent 0%, ${tierTheme.primary}80 50%, transparent 100%)`,
+              <div className="absolute bottom-0 left-0 right-0 h-[1px]" style={{
+                background: `linear-gradient(90deg, transparent 0%, ${tierTheme.primary}70 50%, transparent 100%)`,
               }} />
             </div>
 
-            {/* ── LEVEL + ID section ── */}
-            <div className="px-4 pb-4">
-              {/* ── LEVEL ROW ── */}
-              <button
-                onClick={() => setShowScorePanel(true)}
-                className="w-full flex items-center gap-4 px-4 py-4 rounded-xl active:scale-[0.98] transition-transform mb-2.5"
-                style={{ background: _pRowBg, border: `1px solid ${_pLvl.color}40` }}
-              >
-                <Trophy size={22} style={{ color: tierTheme.primary }} className="shrink-0" />
-                <div className="flex-1 min-w-0 text-left">
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <span className={`text-sm font-black ${_pTxt}`}>Level {_pLvl.level} · {_pLvl.label}</span>
-                    {(user.role === 'ADMIN' || user.role === 'SUB_ADMIN') && (
-                      <span className="text-[9px] font-bold text-slate-400">(Admin)</span>
-                    )}
-                    {_pLvl.discount > 0 && (
-                      <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full ml-auto"
-                        style={{ background: `${tierTheme.primary}22`, color: tierTheme.primary, border: `1px solid ${tierTheme.primary}50` }}>
-                        {_pLvl.discount}% OFF
-                      </span>
-                    )}
-                  </div>
-                  <div className="h-2.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
-                    <div className="h-full rounded-full transition-all" style={{ width: `${_pProgress}%`, background: tierTheme.pillGrad }} />
-                  </div>
-                </div>
-                <ChevronRight size={15} className="text-slate-600 shrink-0" />
-              </button>
-
-              {/* ── USER ID + EMAIL ROW ── */}
-              <div className="flex gap-2">
-                {/* User ID */}
-                <button
-                  onClick={() => { try { navigator.clipboard.writeText(user.id); showAlert('User ID copied!', 'SUCCESS'); } catch {} }}
-                  className="flex-1 flex items-center gap-2 px-2.5 py-2 rounded-xl active:scale-95 transition-transform"
-                  style={{ background: _pRowBg, border: _pRowBdr }}
-                >
-                  <span className={`text-[9px] font-black uppercase tracking-wider shrink-0 ${_pTxtSub}`}>ID</span>
-                  <span className={`text-[10px] font-bold truncate font-mono ${_pTxt}`}>{user.id || '—'}</span>
-                  <Copy size={9} className="text-slate-400 shrink-0 ml-auto" />
-                </button>
-                {/* Email */}
-                {user.email && (
-                  <button
-                    onClick={() => { try { navigator.clipboard.writeText(user.email!); showAlert('Email copied!', 'SUCCESS'); } catch {} }}
-                    className="flex-1 flex items-center gap-2 px-2.5 py-2 rounded-xl active:scale-95 transition-transform"
-                    style={{ background: _pRowBg, border: _pRowBdr }}
-                  >
-                    <span className={`text-[9px] font-black uppercase tracking-wider shrink-0 ${_pTxtSub}`}>@</span>
-                    <span className={`text-[10px] font-bold truncate ${_pTxt}`}>{user.email}</span>
-                    <Copy size={9} className="text-slate-400 shrink-0 ml-auto" />
-                  </button>
-                )}
+            {/* ── LEVEL CARD ── */}
+            <button
+              onClick={() => setShowScorePanel(true)}
+              className="w-full flex items-center gap-4 px-5 py-4 active:scale-[0.98] transition-transform"
+              style={{ background: _pRowBg, borderTop: `1px solid ${_pLvl.color}28` }}
+            >
+              {/* Big level badge */}
+              <div className="shrink-0 w-14 h-14 rounded-2xl flex flex-col items-center justify-center" style={{
+                background: `${_pLvl.color}18`,
+                border: `2px solid ${_pLvl.color}55`,
+              }}>
+                <span className="text-lg leading-none">{_displayLvl.emoji}</span>
+                <span className="text-[10px] font-black mt-0.5" style={{ color: _pLvl.color }}>L{_pLvl.level}</span>
               </div>
+              <div className="flex-1 min-w-0 text-left">
+                <div className="flex items-center gap-2 mb-0.5">
+                  <span className={`text-[15px] font-black leading-tight ${_pTxt}`}>{_pLvl.label}</span>
+                  {(user.role === 'ADMIN' || user.role === 'SUB_ADMIN') && (
+                    <span className="text-[8px] font-bold text-slate-400 bg-slate-200/20 px-1.5 py-0.5 rounded-full">Admin</span>
+                  )}
+                  {_pLvl.discount > 0 && (
+                    <span className="text-[9px] font-black px-2 py-0.5 rounded-full ml-auto"
+                      style={{ background: `${tierTheme.primary}20`, color: tierTheme.primary, border: `1px solid ${tierTheme.primary}45` }}>
+                      {_pLvl.discount}% OFF
+                    </span>
+                  )}
+                </div>
+                <p className={`text-[10px] mb-2 ${_pTxtSub}`}>{_pRawScore.toLocaleString('en-IN')} XP</p>
+                <div className="h-2 rounded-full overflow-hidden" style={{ background: _light ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)' }}>
+                  <div className="h-full rounded-full transition-all" style={{ width: `${_pProgress}%`, background: tierTheme.pillGrad }} />
+                </div>
+              </div>
+              <ChevronRight size={16} style={{ color: _pTxtMutedColor }} className="shrink-0" />
+            </button>
+
+            {/* ── USER ID + EMAIL ROW ── */}
+            <div className="flex gap-0 border-t" style={{ borderColor: `${tierTheme.primary}18` }}>
+              <button
+                onClick={() => { try { navigator.clipboard.writeText(user.id); showAlert('User ID copied!', 'SUCCESS'); } catch {} }}
+                className="flex-1 flex items-center gap-2 px-4 py-3 active:scale-95 transition-transform"
+                style={{ borderRight: `1px solid ${tierTheme.primary}15` }}
+              >
+                <span className={`text-[9px] font-black uppercase tracking-widest shrink-0 ${_pTxtMuted}`}>ID</span>
+                <span className={`text-[10px] font-bold truncate font-mono flex-1 ${_pTxt}`}>{user.id || '—'}</span>
+                <Copy size={10} style={{ color: _pTxtMutedColor }} className="shrink-0" />
+              </button>
+              {user.email && (
+                <button
+                  onClick={() => { try { navigator.clipboard.writeText(user.email!); showAlert('Email copied!', 'SUCCESS'); } catch {} }}
+                  className="flex-1 flex items-center gap-2 px-4 py-3 active:scale-95 transition-transform"
+                >
+                  <span className={`text-[9px] font-black uppercase tracking-widest shrink-0 ${_pTxtMuted}`}>@</span>
+                  <span className={`text-[10px] font-bold truncate flex-1 ${_pTxt}`}>{user.email}</span>
+                  <Copy size={10} style={{ color: _pTxtMutedColor }} className="shrink-0" />
+                </button>
+              )}
             </div>
           </div>
 
+          {/* ── ACTIVITY HEADER ── */}
+          <div className="px-5 pt-5 pb-2 flex items-center gap-2">
+            <div className="w-1 h-4 rounded-full" style={{ background: tierTheme.primary }} />
+            <p className="text-[10px] font-black uppercase tracking-[0.18em]" style={{ color: _light ? '#64748b' : 'rgba(255,255,255,0.38)' }}>ACTIVITY</p>
+          </div>
+
           {/* ── STATS ROW ── */}
-          <div className="px-3 grid grid-cols-3 gap-2 mb-2.5">
+          <div className="px-3 grid grid-cols-3 gap-2.5 mb-3">
             {/* Credits */}
-            <div className="rounded-xl py-3 px-2 text-center" style={{ background: _pCardSt, border: `1px solid ${tierTheme.primary}40` }}>
-              <div className="flex items-center justify-center gap-1 mb-0.5">
-                <span className="text-base font-black tabular-nums" style={{ color: tierTheme.primary }}>{(user.credits ?? 0).toLocaleString('en-IN')}</span>
-                <Trophy size={11} style={{ color: tierTheme.primary }} />
-              </div>
+            <div className="rounded-2xl pt-4 pb-3 px-3 text-center" style={{ background: _pCard, border: `1px solid ${tierTheme.primary}35`, boxShadow: `0 4px 16px ${tierTheme.primary}10` }}>
+              <div className="text-[11px] mb-1.5" style={{ color: _pTxtMutedColor }}>💎</div>
+              <div className="text-[22px] font-black tabular-nums leading-none mb-1" style={{ color: tierTheme.primary }}>{(user.credits ?? 0).toLocaleString('en-IN')}</div>
               {(user.bonusCredits ?? 0) > 0 && (
-                <div className="text-[8px] font-black tabular-nums" style={{ color: `${tierTheme.primary}99` }}>{user.bonusCredits?.toLocaleString('en-IN')}</div>
+                <div className="text-[8px] font-black tabular-nums mb-0.5" style={{ color: `${tierTheme.primary}80` }}>+{user.bonusCredits?.toLocaleString('en-IN')}</div>
               )}
-              <div className={`text-[9px] font-bold uppercase tracking-wide mt-0.5 ${_pTxtSub}`}>Credits</div>
+              <div className={`text-[9px] font-bold uppercase tracking-widest ${_pTxtSub}`}>Credits</div>
             </div>
             {/* Streak */}
-            <div onClick={() => setShowStreakPopup(true)} className="rounded-xl py-3 px-2 text-center cursor-pointer active:scale-95 transition-transform" style={{ background: _pCardSt, border: `1px solid ${tierTheme.primary}40` }}>
-              <div className="text-base font-black tabular-nums mb-0.5" style={{ color: tierTheme.primary }}>{user.streak > 0 ? user.streak : '0'}</div>
-              <div className={`text-[9px] font-bold uppercase tracking-wide ${_pTxtSub}`}>Streak</div>
+            <div onClick={() => setShowStreakPopup(true)} className="rounded-2xl pt-4 pb-3 px-3 text-center cursor-pointer active:scale-95 transition-transform" style={{ background: _pCard, border: `1px solid ${tierTheme.primary}35`, boxShadow: `0 4px 16px ${tierTheme.primary}10` }}>
+              <div className="text-[11px] mb-1.5">🔥</div>
+              <div className="text-[22px] font-black tabular-nums leading-none mb-1" style={{ color: tierTheme.primary }}>{user.streak > 0 ? user.streak : '0'}</div>
+              <div className={`text-[9px] font-bold uppercase tracking-widest ${_pTxtSub}`}>Streak</div>
             </div>
-            {/* Days */}
-            <div className="rounded-xl py-3 px-2 text-center" style={{ background: _pCardSt, border: `1px solid ${tierTheme.primary}40` }}>
-              <div className="text-base font-black tabular-nums mb-0.5" style={{ color: tierTheme.primary }}>{_pDaysOnApp}</div>
-              <div className={`text-[9px] font-bold uppercase tracking-wide flex items-center justify-center gap-0.5 ${_pTxtSub}`}>Days <span>🔥</span></div>
+            {/* Total score */}
+            <div className="rounded-2xl pt-4 pb-3 px-3 text-center" style={{ background: _pCard, border: `1px solid ${tierTheme.primary}35`, boxShadow: `0 4px 16px ${tierTheme.primary}10` }}>
+              <div className="text-[11px] mb-1.5">⭐</div>
+              <div className="text-[22px] font-black tabular-nums leading-none mb-1" style={{ color: tierTheme.primary }}>{_pRawScore > 999 ? `${(_pRawScore/1000).toFixed(1)}k` : _pRawScore}</div>
+              <div className={`text-[9px] font-bold uppercase tracking-widest ${_pTxtSub}`}>XP Score</div>
             </div>
           </div>
 
@@ -8207,7 +8297,7 @@ export const StudentDashboard: React.FC<Props> = ({
             const isUrgent = dDays <= 3;
             const cdAccent = isUrgent ? '#ef4444' : tierTheme.primary;
             return (
-              <div className="rounded-none p-4 mb-2.5" style={{ background: _pCard, border: `1px solid ${isUrgent ? 'rgba(239,68,68,0.30)' : tierTheme.primary + '2e'}` }}>
+              <div className="mx-3 rounded-2xl p-4 mb-3" style={{ background: _pCard, border: `1px solid ${isUrgent ? 'rgba(239,68,68,0.30)' : tierTheme.primary + '2e'}` }}>
                 <div className="flex items-center justify-between mb-3">
                   <p className={`text-xs font-black uppercase tracking-wider ${_pTxt}`}>Subscription</p>
                   <span className="text-[10px] font-bold" style={{ color: isUrgent ? '#ef4444' : '#94a3b8' }}>
@@ -8238,7 +8328,7 @@ export const StudentDashboard: React.FC<Props> = ({
             /* ── ADMIN: Full Theme Studio button ── */
             if (_isAdminUser) {
               return (
-                <div className="rounded-none mb-2.5" style={{ background: _pCard, border: _pBdrSoft }}>
+                <div className="mx-3 rounded-2xl mb-3" style={{ background: _pCard, border: _pBdrSoft }}>
                   <button
                     onClick={() => { themeOpenerRef.current = 'PROFILE'; onTabChange('THEME_CUSTOMIZER' as any); }}
                     className={`w-full px-4 py-3.5 flex items-center gap-3 ${_pHovCls} transition-colors`}
@@ -8369,19 +8459,25 @@ export const StudentDashboard: React.FC<Props> = ({
             );
           })()}
 
+          {/* ── SETTINGS HEADER ── */}
+          <div className="px-5 pt-3 pb-2 flex items-center gap-2">
+            <div className="w-1 h-4 rounded-full" style={{ background: tierTheme.mid }} />
+            <p className="text-[10px] font-black uppercase tracking-[0.18em]" style={{ color: _light ? '#64748b' : 'rgba(255,255,255,0.38)' }}>SETTINGS</p>
+          </div>
+
           {/* ── ACTIONS MENU ── */}
-          <div className="rounded-none overflow-hidden mb-2.5" style={{ background: _pCard, border: _pBdrSoft }}>
+          <div className="mx-3 rounded-2xl overflow-hidden mb-3" style={{ background: _pCard, border: _pBdrSoft }}>
 
             {/* Admin Panel */}
             {(user.role === 'ADMIN' || user.role === 'SUB_ADMIN' || isImpersonating) && (
               <button onClick={handleSwitchToAdmin}
-                className={`w-full px-4 py-3.5 flex items-center gap-3 ${_pHovCls} transition-colors`}
+                className={`w-full px-4 py-4 flex items-center gap-3.5 ${_pHovCls} transition-colors`}
                 style={{ borderBottom: _pSep }}>
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${tierTheme.primary}20`, border: `1px solid ${tierTheme.primary}40` }}>
-                  <Layout size={16} style={{ color: tierTheme.primary }} />
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${tierTheme.primary}20`, border: `1px solid ${tierTheme.primary}40` }}>
+                  <Layout size={17} style={{ color: tierTheme.primary }} />
                 </div>
                 <p className={`flex-1 text-sm font-bold text-left ${_pTxt}`}>Admin Panel</p>
-                <ChevronRight size={14} style={{ color: _pTxtMutedColor }} className="shrink-0" />
+                <ChevronRight size={15} style={{ color: _pTxtMutedColor }} className="shrink-0" />
               </button>
             )}
 
@@ -8423,9 +8519,9 @@ export const StudentDashboard: React.FC<Props> = ({
                     }
                   }
                 }}
-                className={`w-full px-4 py-3.5 flex items-center gap-3 ${_pHovCls} transition-colors`}
+                className={`w-full px-4 py-4 flex items-center gap-3.5 ${_pHovCls} transition-colors`}
                 style={{ borderBottom: _pSep }}>
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: _pIconBg, border: _pIconBdr }}>
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: _pIconBg, border: _pIconBdr }}>
                   <span className="text-base leading-none">🔗</span>
                 </div>
                 <div className="flex-1 text-left">
@@ -8470,9 +8566,9 @@ export const StudentDashboard: React.FC<Props> = ({
                       showAlert('❌ Theme setting update nahi hui', 'ERROR');
                     }
                   }}
-                  className={`w-full px-4 py-3.5 flex items-center gap-3 ${_pHovCls} transition-colors`}
+                  className={`w-full px-4 py-4 flex items-center gap-3.5 ${_pHovCls} transition-colors`}
                   style={{ borderBottom: _pSep }}>
-                  <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{
                     background: _adminAllowed ? 'rgba(245,158,11,0.15)' : `${tierTheme.primary}18`,
                     border: `1px solid ${_adminAllowed ? 'rgba(245,158,11,0.40)' : tierTheme.primary + '40'}`,
                   }}>
@@ -8509,9 +8605,9 @@ export const StudentDashboard: React.FC<Props> = ({
                 setNameFxOff(next);
                 try { localStorage.setItem('nst_name_fx_off', next ? '1' : '0'); } catch {}
               }}
-              className={`w-full px-4 py-3.5 flex items-center gap-3 ${_pHovCls} transition-colors`}
+              className={`w-full px-4 py-4 flex items-center gap-3.5 ${_pHovCls} transition-colors`}
               style={{ borderBottom: _pSep }}>
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{
                 background: nameFxOff ? _pIconBg : `${_pLvl.color}22`,
                 border: `1px solid ${nameFxOff ? 'rgba(255,255,255,0.10)' : _pLvl.color + '55'}`,
               }}>
@@ -8543,9 +8639,9 @@ export const StudentDashboard: React.FC<Props> = ({
                 setCardFxOff(next);
                 try { localStorage.setItem('nst_card_fx_off', next ? '1' : '0'); } catch {}
               }}
-              className={`w-full px-4 py-3.5 flex items-center gap-3 ${_pHovCls} transition-colors`}
+              className={`w-full px-4 py-4 flex items-center gap-3.5 ${_pHovCls} transition-colors`}
               style={{ borderBottom: _pSep }}>
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{
                 background: cardFxOff ? _pIconBg : `${_displayLvl.color}22`,
                 border: `1px solid ${cardFxOff ? 'rgba(255,255,255,0.10)' : _displayLvl.color + '55'}`,
               }}>
@@ -8574,9 +8670,9 @@ export const StudentDashboard: React.FC<Props> = ({
             {_pLvl.level >= 2 && (
               <button
                 onClick={() => setShowLevelChooser(true)}
-                className={`w-full px-4 py-3.5 flex items-center gap-3 ${_pHovCls} transition-colors`}
+                className={`w-full px-4 py-4 flex items-center gap-3.5 ${_pHovCls} transition-colors`}
                 style={{ borderBottom: _pSep }}>
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{
                   background: `${_displayLvl.color}22`,
                   border: `1px solid ${_displayLvl.color}55`,
                 }}>
@@ -8605,44 +8701,46 @@ export const StudentDashboard: React.FC<Props> = ({
                 keysToRemove.forEach(k => localStorage.removeItem(k));
                 showAlert('Settings reset ho gayi!', 'SUCCESS');
               }}
-              className={`w-full px-4 py-3.5 flex items-center gap-3 ${_pHovCls} transition-colors`}
+              className={`w-full px-4 py-4 flex items-center gap-3.5 ${_pHovCls} transition-colors`}
               style={{ borderBottom: _pSep }}>
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${tierTheme.primary}18`, border: `1px solid ${tierTheme.primary}35` }}>
-                <RotateCcw size={16} style={{ color: tierTheme.primary }} />
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${tierTheme.primary}18`, border: `1px solid ${tierTheme.primary}35` }}>
+                <RotateCcw size={17} style={{ color: tierTheme.primary }} />
               </div>
               <p className={`flex-1 text-sm font-bold text-left ${_pTxt}`}>Reset Settings</p>
-              <ChevronRight size={14} style={{ color: _pTxtMutedColor }} className="shrink-0" />
+              <ChevronRight size={15} style={{ color: _pTxtMutedColor }} className="shrink-0" />
             </button>
 
             {/* App Guide */}
             <button onClick={() => setShowUserGuide(true)}
-              className={`w-full px-4 py-3.5 flex items-center gap-3 ${_pHovCls} transition-colors`}
-              style={{ borderBottom: _pSep }}>
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.25)' }}>
-                <Smartphone size={16} className="text-blue-400" />
+              className={`w-full px-4 py-4 flex items-center gap-3.5 ${_pHovCls} transition-colors`}>
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.25)' }}>
+                <Smartphone size={17} className="text-blue-400" />
               </div>
               <p className={`flex-1 text-sm font-bold text-left ${_pTxt}`}>App Guide</p>
-              <ChevronRight size={14} style={{ color: _pTxtMutedColor }} className="shrink-0" />
+              <ChevronRight size={15} style={{ color: _pTxtMutedColor }} className="shrink-0" />
             </button>
           </div>
 
           {/* ── LOGOUT ── */}
           {(settings?.isLogoutEnabled !== false || user.role === 'ADMIN' || isImpersonating) && (
-            <div className="rounded-none overflow-hidden mb-3" style={{ background: _pCard, border: '1px solid rgba(239,68,68,0.15)' }}>
+            <div className="mx-3 rounded-2xl overflow-hidden mb-4" style={{ background: _pCard, border: '1px solid rgba(239,68,68,0.20)' }}>
               <button onClick={onLogout}
-                className="w-full px-4 py-3.5 flex items-center gap-3 hover:bg-red-500/8 active:bg-red-500/12 transition-colors">
-                <div className="w-9 h-9 rounded-xl bg-red-500/12 border border-red-500/20 flex items-center justify-center shrink-0">
-                  <LogOut size={16} className="text-red-400" />
+                className="w-full px-4 py-4 flex items-center gap-3.5 hover:bg-red-500/8 active:bg-red-500/12 transition-colors">
+                <div className="w-10 h-10 rounded-xl bg-red-500/12 border border-red-500/22 flex items-center justify-center shrink-0">
+                  <LogOut size={17} className="text-red-400" />
                 </div>
-                <p className="flex-1 text-sm font-bold text-red-400 text-left">Logout</p>
-                <ChevronRight size={14} className="text-red-800 shrink-0" />
+                <div className="flex-1 text-left">
+                  <p className="text-sm font-bold text-red-400">Logout</p>
+                  <p className="text-[10px] text-red-400/50 mt-0.5">Is device se sign out karo</p>
+                </div>
+                <ChevronRight size={15} className="text-red-900/40 shrink-0" />
               </button>
             </div>
           )}
 
           {/* Footer */}
-          <p className={`text-center text-[10px] pb-2 ${_pTxtMuted}`}>
-            v{APP_VERSION} · By {settings?.developerName?.trim() || 'Nadim Anwar'}
+          <p className={`text-center text-[10px] pb-4 ${_pTxtMuted}`}>
+            v{APP_VERSION} · {settings?.developerName?.trim() || 'Nadim Anwar'}
           </p>
 
           {/* ── Level Style Chooser Sheet ── */}
@@ -13530,7 +13628,7 @@ export const StudentDashboard: React.FC<Props> = ({
                           size={22}
                           strokeWidth={tab.isActive ? 2.4 : 2}
                           className="transition-colors duration-300"
-                          style={{ color: tab.isActive ? tierTheme.primary : (_isNavDark ? 'rgba(255,255,255,0.55)' : undefined) }}
+                          style={{ color: tab.isActive ? (_isNavDark ? ((tierTheme as any).navActive || '#60a5fa') : tierTheme.primary) : (_isNavDark ? 'rgba(255,255,255,0.55)' : undefined) }}
                           fill={
                             tab.filledOnActive && tab.isActive && !isLocked
                               ? "currentColor"
@@ -13556,7 +13654,7 @@ export const StudentDashboard: React.FC<Props> = ({
                             ? "font-semibold translate-y-0 opacity-100"
                             : "font-medium translate-y-0 opacity-90"
                         }`}
-                        style={tab.isActive ? { color: tierTheme.primary } : { color: _isNavDark ? 'rgba(255,255,255,0.50)' : '#64748b' }}
+                        style={tab.isActive ? { color: _isNavDark ? ((tierTheme as any).navActive || '#60a5fa') : tierTheme.primary } : { color: _isNavDark ? 'rgba(255,255,255,0.50)' : '#64748b' }}
                       >
                         {tab.label}
                       </span>
@@ -14738,20 +14836,26 @@ export const StudentDashboard: React.FC<Props> = ({
         const page  = isLucent ? entry?.pages?.[pageIdx] : null;
         const courseChapter = isCourse ? (cpp as any).chapter as Chapter : null;
 
-        // Availability checks
-        const hasNotes = isCourse
-          ? true // Class 6-12: optimistically show; LessonView handles missing content
+        // Availability checks — read mode and write mode tracked separately
+        const hasReadNotes = isCourse
+          ? (courseAvailability?.readNotes ?? true)  // null = loading → optimistic true
           : isLucent
-            ? !!(page?.content || page?.chunkNotes || page?.htmlNotes)
-            : !!(hw?.chunkNotes || hw?.htmlNotes || hw?.notes);
+            ? !!(page?.content || page?.chunkNotes)
+            : !!(hw?.chunkNotes || hw?.notes);
+        const hasWriteNotes = isCourse
+          ? (courseAvailability?.writeNotes ?? true)
+          : isLucent
+            ? !!(page?.htmlNotes)
+            : !!(hw?.htmlNotes);
+        const hasNotes = hasReadNotes || hasWriteNotes;
         const hasMcq = isCourse
-          ? true // optimistic
+          ? (courseAvailability?.mcq ?? true)
           : isLucent
             ? (!!(page?.mcqs && page.mcqs.length > 0) || !!(lucentMcqsByPage[`${entry?.id}_${pageIdx}`]?.length))
             : !!(hw?.parsedMcqs && hw.parsedMcqs.length > 0);
-        const hasPdf  = isCourse ? true : isLucent ? !!(page as any)?.pdfUrl  : !!hw?.pdfUrl;
-        const hasVideo = isCourse ? true : isLucent ? !!(page as any)?.videoUrl : !!hw?.videoUrl;
-        const hasAudio = isCourse ? true : isLucent ? !!(page as any)?.audioUrl : !!hw?.audioUrl;
+        const hasPdf  = isCourse ? (courseAvailability?.pdf ?? false) : isLucent ? !!(page as any)?.pdfUrl  : !!hw?.pdfUrl;
+        const hasVideo = isCourse ? (courseAvailability?.video ?? true) : isLucent ? !!(page as any)?.videoUrl : !!hw?.videoUrl;
+        const hasAudio = isCourse ? (courseAvailability?.audio ?? true) : isLucent ? !!(page as any)?.audioUrl : !!hw?.audioUrl;
 
         const dismiss = () => setContentPickerPopup(null);
 
@@ -14793,8 +14897,13 @@ export const StudentDashboard: React.FC<Props> = ({
         const openPdf = () => {
           dismiss();
           if (isCourse) {
-            // PDF slot for Class 6-12 → Retention (PREMIUM) tab — styled HTML notes
-            handleLessonOption('NOTES_PREMIUM');
+            // PDF slot for Class 6-12 → open actual PDF document in new tab
+            if (coursePdfUrl) {
+              window.open(coursePdfUrl, '_blank', 'noopener,noreferrer');
+            } else {
+              // fallback: open Retention/PREMIUM styled notes
+              handleLessonOption('NOTES_PREMIUM');
+            }
           } else {
             const url = isLucent ? (page as any)?.pdfUrl : hw?.pdfUrl;
             if (url) window.open(url, '_blank', 'noopener,noreferrer');
@@ -14839,10 +14948,10 @@ export const StudentDashboard: React.FC<Props> = ({
 
         type Option = { id: string; icon: string; label: string; sub: string; color: string; bg: string; enabled: boolean; onClick: () => void };
         const options: Option[] = [
-          { id: 'read',  icon: '📖', label: 'Reading Notes', sub: hasNotes  ? 'Read Mode — TTS'       : 'Notes nahi hain', color: '#f59e0b', bg: 'rgba(245,158,11,0.13)',  enabled: hasNotes,  onClick: openReadingNotes },
-          { id: 'write', icon: '✏️', label: 'Making Notes',  sub: hasNotes  ? 'Write Mode — HTML'    : 'Notes nahi hain', color: '#14b8a6', bg: 'rgba(20,184,166,0.13)',  enabled: hasNotes,  onClick: openMakingNotes  },
+          { id: 'read',  icon: '📖', label: 'Reading Notes', sub: hasReadNotes  ? 'Read Mode — TTS'    : 'Notes nahi hain', color: '#f59e0b', bg: 'rgba(245,158,11,0.13)',  enabled: hasReadNotes,  onClick: openReadingNotes },
+          { id: 'write', icon: '✏️', label: 'Making Notes',  sub: hasWriteNotes ? 'Write Mode — HTML'  : 'Notes nahi hain', color: '#14b8a6', bg: 'rgba(20,184,166,0.13)',  enabled: hasWriteNotes,  onClick: openMakingNotes  },
           { id: 'mcq',   icon: '🎯', label: 'MCQ Practice',  sub: hasMcq    ? 'Practice questions'   : 'MCQ nahi hain',   color: '#8b5cf6', bg: 'rgba(139,92,246,0.13)', enabled: !!hasMcq,  onClick: openMcq          },
-          { id: 'pdf',   icon: isCourse ? '💎' : '📄', label: isCourse ? 'Retention' : 'PDF', sub: hasPdf ? (isCourse ? 'Styled Notes' : 'PDF available') : 'PDF nahi hai', color: isCourse ? '#f43f5e' : '#3b82f6', bg: isCourse ? 'rgba(244,63,94,0.13)' : 'rgba(59,130,246,0.13)', enabled: hasPdf, onClick: openPdf },
+          { id: 'pdf',   icon: '📄', label: 'PDF', sub: hasPdf ? 'PDF Document' : 'PDF nahi hai', color: '#3b82f6', bg: 'rgba(59,130,246,0.13)', enabled: hasPdf, onClick: openPdf },
           { id: 'video', icon: '🎬', label: 'Video',         sub: hasVideo  ? 'Video lecture'        : 'Video nahi hai',  color: '#ef4444', bg: 'rgba(239,68,68,0.13)',   enabled: hasVideo,  onClick: openVideo        },
           { id: 'audio', icon: '🎧', label: 'Audio',         sub: hasAudio  ? 'Audio lecture'        : 'Audio nahi hai',  color: '#a855f7', bg: 'rgba(168,85,247,0.13)',  enabled: hasAudio,  onClick: openAudio        },
         ];
@@ -14867,6 +14976,15 @@ export const StudentDashboard: React.FC<Props> = ({
                 </p>
                 <p className="text-[15px] font-black text-white leading-tight mt-0.5 truncate">{title}</p>
               </div>
+              {/* Loading indicator for COURSE while fetching availability */}
+              {isCourse && courseAvailability === null && (
+                <div className="px-4 pt-2 pb-2 flex items-center justify-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-white/30 animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <div className="w-3 h-3 rounded-full bg-white/30 animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <div className="w-3 h-3 rounded-full bg-white/30 animate-bounce" style={{ animationDelay: '300ms' }} />
+                  <span className="text-[10px] text-white/30 font-bold ml-1">Loading…</span>
+                </div>
+              )}
               {/* Options grid 3×2 */}
               <div className="px-4 pt-3 pb-8">
                 <div className="grid grid-cols-3 gap-2.5">

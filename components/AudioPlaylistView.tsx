@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Chapter, User, Subject, SystemSettings } from '../types';
-import { Music, Lock, ArrowLeft, Crown, AlertCircle, Headphones, Play, Mic2, BarChart2 } from 'lucide-react';
+import { Music, Lock, ArrowLeft, Crown, AlertCircle, Headphones, Play, Mic2, BarChart2, LayoutGrid } from 'lucide-react';
 import { getChapterData, saveUserToLive } from '../firebase';
 import { applyDeduction, getTotalCredits } from '../utils/creditSystem';
 import { CreditConfirmationModal } from './CreditConfirmationModal';
@@ -19,10 +19,12 @@ interface Props {
   settings?: SystemSettings;
   onPlayAudio: (track: {url: string, title: string}) => void;
   initialSyllabusMode?: 'SCHOOL' | 'COMPETITION';
+  /** Opens the content-type picker popup (More button) from inside the page */
+  onMoreOptions?: () => void;
 }
 
 export const AudioPlaylistView: React.FC<Props> = ({ 
-  chapter, subject, user, board, classLevel, stream, onBack, onUpdateUser, settings, onPlayAudio, initialSyllabusMode 
+  chapter, subject, user, board, classLevel, stream, onBack, onUpdateUser, settings, onPlayAudio, initialSyllabusMode, onMoreOptions
 }) => {
   const [playlist, setPlaylist] = useState<{title: string, url: string, price?: number, access?: string}[]>([]);
   const [syllabusMode, setSyllabusMode] = useState<'SCHOOL' | 'COMPETITION'>(initialSyllabusMode || 'SCHOOL');
@@ -152,6 +154,7 @@ export const AudioPlaylistView: React.FC<Props> = ({
            <div className="flex-1">
                <h3 className="font-bold text-slate-800 leading-tight line-clamp-1">{chapter.title}</h3>
                <div className="flex gap-2 mt-1">
+
                  <button 
                    onClick={() => setSyllabusMode('SCHOOL')}
                    className={`text-[10px] px-2 py-0.5 rounded-full font-bold transition-all ${syllabusMode === 'SCHOOL' ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-100 text-slate-600'}`}
@@ -177,6 +180,15 @@ export const AudioPlaylistView: React.FC<Props> = ({
                  </button>
                </div>
            </div>
+           {onMoreOptions && (
+               <button
+                   onClick={onMoreOptions}
+                   className="p-2 hover:bg-slate-100 rounded-full text-slate-500 shrink-0"
+                   title="More options"
+               >
+                   <LayoutGrid size={16} />
+               </button>
+           )}
            <div className="flex items-center gap-1 bg-blue-50 px-3 py-1 rounded-full border border-blue-100">
                <Crown size={14} className="text-blue-600" />
                <span className="font-black text-blue-800 text-xs">{user.credits} CR</span>

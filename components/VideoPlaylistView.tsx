@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Chapter, User, Subject, SystemSettings } from '../types';
-import { PlayCircle, Lock, ArrowLeft, Crown, AlertCircle, CheckCircle, Youtube, Maximize } from 'lucide-react';
+import { PlayCircle, Lock, ArrowLeft, Crown, AlertCircle, CheckCircle, Youtube, Maximize, LayoutGrid } from 'lucide-react';
 import { getChapterData, saveUserToLive } from '../firebase';
 import { applyDeduction, getTotalCredits } from '../utils/creditSystem';
 import { fireCreditNotify } from '../utils/creditNotify';
@@ -22,10 +22,12 @@ interface Props {
   settings?: SystemSettings;
   customPlaylist?: any[]; // For Universal Playlist
   initialSyllabusMode?: 'SCHOOL' | 'COMPETITION';
+  /** Opens the content-type picker popup (More button) from inside the page */
+  onMoreOptions?: () => void;
 }
 
 export const VideoPlaylistView: React.FC<Props> = ({ 
-  chapter, subject, user, board, classLevel, stream, onBack, onUpdateUser, settings, customPlaylist, initialSyllabusMode 
+  chapter, subject, user, board, classLevel, stream, onBack, onUpdateUser, settings, customPlaylist, initialSyllabusMode, onMoreOptions
 }) => {
   const [playlist, setPlaylist] = useState<{title: string, url: string, price?: number, access?: string}[]>([]);
   const [premiumPlaylist, setPremiumPlaylist] = useState<{title: string, url: string, price?: number, access?: string}[]>([]);
@@ -305,6 +307,7 @@ export const VideoPlaylistView: React.FC<Props> = ({
            <div className="flex-1">
                <h3 className="font-bold text-slate-800 leading-tight line-clamp-1">{chapter.title}</h3>
                <div className="flex gap-2 mt-1">
+
                  <button 
                    onClick={() => {
                      setSyllabusMode('SCHOOL');
@@ -333,6 +336,15 @@ export const VideoPlaylistView: React.FC<Props> = ({
                  </button>
                </div>
            </div>
+           {onMoreOptions && (
+               <button
+                   onClick={onMoreOptions}
+                   className="p-2 hover:bg-slate-100 rounded-full text-slate-500 shrink-0"
+                   title="More options"
+               >
+                   <LayoutGrid size={16} />
+               </button>
+           )}
            <div className="flex items-center gap-1 bg-blue-50 px-3 py-1 rounded-full border border-blue-100">
                <Crown size={14} className="text-blue-600" />
                <span className="font-black text-blue-800 text-xs">{user.credits} CR</span>

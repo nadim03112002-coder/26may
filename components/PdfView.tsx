@@ -42,13 +42,12 @@ interface Props {
   initialSyllabusMode?: 'SCHOOL' | 'COMPETITION';
   initialActiveTab?: 'DEEP_DIVE' | 'PREMIUM';
   directResource?: { url: string, access: string };
-  // NEW: Lucent-style cross-tab switch from Notes (PdfView) → MCQ (McqView).
-  onSwitchToMcq?: () => void;
-  onSwitchToFlashcard?: () => void;
     /** Notify parent that immersive mode changed (used to hide global bottom nav) */
     onImmersiveChange?: (isImmersive: boolean) => void;
   /** When true, hides the sticky top header (used by landscape floating button). */
   hideHeader?: boolean;
+  /** Opens the content-type picker popup (More button) from inside the page */
+  onMoreOptions?: () => void;
 }
 
 // Helper to remove leading/trailing artifacts like quotes, HTML entities, emojis, and dashes from Quick Revision points
@@ -170,7 +169,7 @@ const extractTopicsFromHtml = (html: string): { title: string, content: string }
 };
 
 export const PdfView: React.FC<Props> = ({ 
-    chapter, subject, user, board, classLevel, stream, onBack, onUpdateUser, settings, initialSyllabusMode, initialActiveTab, directResource, onSwitchToMcq, onSwitchToFlashcard, onImmersiveChange, hideHeader
+    chapter, subject, user, board, classLevel, stream, onBack, onUpdateUser, settings, initialSyllabusMode, initialActiveTab, directResource, onImmersiveChange, hideHeader, onMoreOptions
 }) => {
   const [contentData, setContentData] = useState<any>({});
   const [loading, setLoading] = useState(true);
@@ -1628,22 +1627,13 @@ export const PdfView: React.FC<Props> = ({
                        <ArrowLeft size={16} />
                    </button>
                    <h3 className="flex-1 min-w-0 font-bold text-slate-800 leading-tight line-clamp-1 text-[13px]">{chapter.title}</h3>
-                   {onSwitchToMcq && (
+                   {onMoreOptions && (
                        <button
-                           onClick={onSwitchToMcq}
-                           className="text-[11px] px-2.5 py-1 rounded-full font-bold bg-indigo-600 text-white hover:bg-indigo-700 shrink-0 flex items-center gap-1 shadow-sm"
-                           title="Switch to MCQ"
+                           onClick={onMoreOptions}
+                           className="p-1.5 hover:bg-slate-100 rounded-full text-slate-500 shrink-0"
+                           title="More options"
                        >
-                           <HelpCircle size={12} /> MCQ
-                       </button>
-                   )}
-                   {onSwitchToFlashcard && (
-                       <button
-                           onClick={onSwitchToFlashcard}
-                           className="text-[11px] px-2.5 py-1 rounded-full font-bold bg-amber-500 text-white hover:bg-amber-600 shrink-0 flex items-center gap-1 shadow-sm"
-                           title="Switch to Flashcard"
-                       >
-                           <Zap size={12} /> Flash
+                           <Layout size={14} />
                        </button>
                    )}
                </div>
@@ -1655,21 +1645,14 @@ export const PdfView: React.FC<Props> = ({
                    <button onClick={onBack} className="p-1.5 hover:bg-slate-100 rounded-full text-slate-600 shrink-0">
                        <ArrowLeft size={18} />
                    </button>
-                   {onSwitchToMcq && (
-                       <div className="flex-1 flex bg-slate-100 p-0.5 rounded-xl border border-slate-200">
-                           <button
-                               disabled
-                               className="flex-1 py-1 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1 bg-white text-blue-600 shadow-sm"
-                           >
-                               <BookOpen size={12}/> Notes
-                           </button>
-                           <button
-                               onClick={onSwitchToMcq}
-                               className="flex-1 py-1 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1 text-slate-600 hover:bg-white/60 transition-all"
-                           >
-                               <HelpCircle size={12}/> MCQ
-                           </button>
-                       </div>
+                   {onMoreOptions && (
+                       <button
+                           onClick={onMoreOptions}
+                           className="p-1.5 hover:bg-slate-100 rounded-full text-slate-500 shrink-0"
+                           title="More options"
+                       >
+                           <Layout size={14} />
+                       </button>
                    )}
                    {/* Aa font controls also available on Retention so students
                        padhte waqt kabhi bhi font/size badal sakein. */}
@@ -2123,6 +2106,7 @@ export const PdfView: React.FC<Props> = ({
                                                       }}
                                                       hideDesktopToggle={syllabusMode === 'COMPETITION'}
                                                       suppressStickyControls={isImmersive}
+                                                      onMoreOptions={onMoreOptions}
                                                   />
                                               </div>
                                               )

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Chapter, User, Subject, SystemSettings, MCQResult, PerformanceTag } from '../types';
-import { CheckCircle, Lock, ArrowLeft, Crown, PlayCircle, HelpCircle, Trophy, Clock, BrainCircuit, FileText, Layers, BookOpen, Eye, RefreshCw, ChevronDown, ChevronUp, Plus } from 'lucide-react';
+import { CheckCircle, Lock, ArrowLeft, Crown, PlayCircle, HelpCircle, Trophy, Clock, BrainCircuit, FileText, Layers, BookOpen, Eye, RefreshCw, ChevronDown, ChevronUp, Plus, LayoutGrid } from 'lucide-react';
 import { checkFeatureAccess } from '../utils/permissionUtils';
 import { CustomAlert, CustomConfirm } from './CustomDialogs';
 import { getChapterData, saveUserToLive, saveUserHistory, savePublicActivity } from '../firebase';
@@ -156,16 +156,16 @@ interface Props {
   onUpdateUser: (user: User) => void;
   settings?: SystemSettings; // New Prop
   topicFilter?: string; // NEW: Filter by Topic
-  // NEW: Lucent-style cross-tab switch back to Notes (PdfView).
-  onSwitchToNotes?: () => void;
   // NEW: Share MCQ to community popup
   onShareToCommunity?: (mcq: { question: string; options: [string,string,string,string]; correctAnswer: number; explanation: string }) => void;
   /** When true, hides sticky headers for distraction-free focus mode */
   hideHeader?: boolean;
+  /** Opens the content-type picker popup (More button) from inside the page */
+  onMoreOptions?: () => void;
 }
 
 export const McqView: React.FC<Props> = ({ 
-  chapter, subject, user, board, classLevel, stream, onBack, onUpdateUser, settings, topicFilter, onSwitchToNotes, onShareToCommunity, hideHeader
+  chapter, subject, user, board, classLevel, stream, onBack, onUpdateUser, settings, topicFilter, onShareToCommunity, hideHeader, onMoreOptions
 }) => {
   const [loading, setLoading] = useState(false);
   const [viewMode, setViewMode] = useState<'SELECTION' | 'PRACTICE' | 'TEST' | 'FLASHCARD' | 'INTERACTIVE_LIST'>('SELECTION');
@@ -1500,31 +1500,21 @@ export const McqView: React.FC<Props> = ({
                <p className="text-xs text-slate-600">{subject.name} • MCQ Center</p>
            </div>
            
+           {onMoreOptions && (
+               <button
+                   onClick={onMoreOptions}
+                   className="p-2 hover:bg-slate-100 rounded-full text-slate-500 shrink-0"
+                   title="More options"
+               >
+                   <LayoutGrid size={16} />
+               </button>
+           )}
            <div className="flex items-center gap-1 bg-blue-50 px-3 py-1 rounded-full border border-blue-100">
                <Crown size={14} className="text-blue-600" />
                <span className="font-black text-blue-800 text-xs">{user.credits} CR</span>
            </div>
        </div>
 
-       {/* === LUCENT-STYLE NOTES ↔ MCQ TAB SWITCH === */}
-       {onSwitchToNotes && (
-           <div className="px-4 pt-3">
-               <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200">
-                   <button
-                       onClick={onSwitchToNotes}
-                       className="flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 text-slate-600 hover:bg-white/60 transition-all"
-                   >
-                       <BookOpen size={14}/> 📚 Notes
-                   </button>
-                   <button
-                       disabled
-                       className="flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 bg-white text-blue-600 shadow-sm"
-                   >
-                       <HelpCircle size={14}/> 📝 MCQ
-                   </button>
-               </div>
-           </div>
-       )}
 
        {/* === LUCENT-STYLE PRIMARY ENTRY (Start Practice + Flashcard) ===
             The previous 3-pill chooser (MCQ / Q&A / Flashcard) was removed

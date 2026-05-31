@@ -101,6 +101,10 @@ export function ThemeBrowser({ user, settings, isAdmin, onApplyTheme, onSchedule
   const [schedApplyProfile, setSchedApplyProfile] = useState(false);
   const [schedApplyBg, setSchedApplyBg] = useState(false);
   const [schedSaved, setSchedSaved] = useState(false);
+  const [themeForScope, setThemeForScope] = useState<AppTheme | null>(null);
+  const [applyScope, setApplyScope] = useState({
+    topBar: true, background: true, cards: true, navBar: true, buttons: true, text: true, progress: true,
+  });
 
   const userLevel = getLevelInfo(user.totalScore || 0).level;
 
@@ -131,9 +135,21 @@ export function ThemeBrowser({ user, settings, isAdmin, onApplyTheme, onSchedule
 
   const handleApply = useCallback((theme: AppTheme) => {
     if (theme.unlockLevel && userLevel < theme.unlockLevel && !isAdmin) return;
-    setSelectedTheme(null);
-    onApplyTheme?.(theme);
+    if (isAdmin) {
+      setSelectedTheme(null);
+      onApplyTheme?.(theme);
+    } else {
+      setThemeForScope(theme);
+      setApplyScope({ topBar: true, background: true, cards: true, navBar: true, buttons: true, text: true, progress: true });
+    }
   }, [userLevel, isAdmin, onApplyTheme]);
+
+  const confirmApply = useCallback(() => {
+    if (!themeForScope) return;
+    setSelectedTheme(null);
+    setThemeForScope(null);
+    onApplyTheme?.(themeForScope);
+  }, [themeForScope, onApplyTheme]);
 
   const schedDelayMs = (schedDelayDays * 86400 + schedDelayHours * 3600 + schedDelayMins * 60 + schedDelaySecs) * 1000;
   const schedDurMs   = (schedDurDays  * 86400 + schedDurHours  * 3600 + schedDurMins  * 60 + schedDurSecs)  * 1000;
@@ -1309,6 +1325,93 @@ function AdminActionButtons({
             <Calendar size={14} />
             Schedule Karo Abhi
           </button>
+        </div>
+      )}
+
+      {/* ── THEME SCOPE SELECTOR POPUP ── */}
+      {themeForScope && (
+        <div
+          className="fixed inset-0 z-[400] flex items-end justify-center"
+          style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)' }}
+          onClick={() => setThemeForScope(null)}
+        >
+          <div
+            className="w-full max-w-sm rounded-t-3xl overflow-hidden shadow-2xl"
+            style={{ background: '#0a0c1a' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex justify-center pt-3 pb-1">
+              <div className="w-10 h-1 rounded-full bg-white/20" />
+            </div>
+            <div className="px-5 pt-2 pb-4 border-b border-white/10">
+              <div className="flex items-center gap-3 mb-1.5">
+                <span className="text-3xl">{themeForScope.emoji}</span>
+                <div>
+                  <p className="text-base font-black text-white leading-tight">{themeForScope.name}</p>
+                  <p className="text-[9px] font-black uppercase tracking-widest mt-0.5" style={{ color: accentColor }}>Theme Apply Scope</p>
+                </div>
+              </div>
+              <p className="text-[10px] text-white/40">Kya kya badlega choose karo — uncheck karo jo same rehna chahiye</p>
+            </div>
+            <div className="px-4 py-3 space-y-1.5">
+              {([
+                { key: 'topBar',     icon: '🎨', label: 'Top Bar / Header',    sub: 'Header aur status bar ka color' },
+                { key: 'background', icon: '🌑', label: 'App Background',       sub: 'Screen ka background color' },
+                { key: 'cards',      icon: '🃏', label: 'Cards & Panels',       sub: 'Content cards aur section panels' },
+                { key: 'navBar',     icon: '⬛', label: 'Navigation Bar',       sub: 'Bottom navigation bar' },
+                { key: 'buttons',    icon: '🔘', label: 'Buttons & Accents',    sub: 'Buttons, highlights, glow effects' },
+                { key: 'text',       icon: '📝', label: 'Text Colors',          sub: 'Primary aur secondary text' },
+                { key: 'progress',   icon: '📊', label: 'Progress Bars',        sub: 'Level bar, progress indicators' },
+              ] as const).map(item => {
+                const on = applyScope[item.key];
+                return (
+                  <button
+                    key={item.key}
+                    onClick={() => setApplyScope(prev => ({ ...prev, [item.key]: !prev[item.key] }))}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all active:scale-[0.98]"
+                    style={{
+                      background: on ? `${themeForScope.colors.btnStart}14` : 'rgba(255,255,255,0.03)',
+                      border: `1px solid ${on ? themeForScope.colors.btnStart + '45' : 'rgba(255,255,255,0.07)'}`,
+                    }}
+                  >
+                    <span className="text-lg shrink-0">{item.icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[11px] font-black leading-tight" style={{ color: on ? '#ffffff' : 'rgba(255,255,255,0.35)' }}>{item.label}</p>
+                      <p className="text-[8px] mt-0.5" style={{ color: on ? 'rgba(255,255,255,0.38)' : 'rgba(255,255,255,0.18)' }}>{item.sub}</p>
+                    </div>
+                    <div
+                      className="w-5 h-5 rounded-md flex items-center justify-center shrink-0 transition-all"
+                      style={{
+                        background: on ? themeForScope.colors.btnStart : 'rgba(255,255,255,0.06)',
+                        border: `1.5px solid ${on ? themeForScope.colors.btnStart : 'rgba(255,255,255,0.12)'}`,
+                      }}
+                    >
+                      {on && <span className="text-[10px] font-black text-white">✓</span>}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="px-4 pt-1 pb-8 flex gap-3">
+              <button
+                onClick={() => setThemeForScope(null)}
+                className="flex-1 py-3 rounded-2xl text-sm font-black transition-all active:scale-95"
+                style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.50)', border: '1px solid rgba(255,255,255,0.10)' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmApply}
+                className="flex-[2] py-3 rounded-2xl text-sm font-black text-white active:scale-95 transition-transform"
+                style={{
+                  background: `linear-gradient(135deg, ${themeForScope.colors.btnStart}, ${themeForScope.colors.btnEnd})`,
+                  boxShadow: `0 6px 20px ${themeForScope.colors.btnStart}45`,
+                }}
+              >
+                🎨 Apply Karo
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
