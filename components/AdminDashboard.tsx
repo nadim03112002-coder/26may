@@ -587,24 +587,55 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
     txt = txt.replace(/^---+\s*$/gm, '');
     // Drop ### topic headers entirely (they are noise for the parser; topic is auto-derived).
     txt = txt.replace(/^###\s+.+$/gm, '');
-    // **Q 1: ...** → standard Question marker.
+
+    // ── Step 0: Fix double-answer lines ──────────────────────────────────────
+    // Pattern: **सही उत्तर:\n**सही उत्तर:** B) ... → drop the first empty line
+    txt = txt.replace(/\*\*\s*(?:सही\s*उत्तर|Ans(?:wer)?)\s*[:：]\s*\n+\s*(?=\*\*\s*(?:सही\s*उत्तर|Ans(?:wer)?))/gi, '');
+
+    // ── Step 1: Strip [⚡], [🔥], [💡] etc. difficulty/category tags ─────────
+    // These appear at the start of a question line like: [⚡] question text
+    txt = txt.replace(/^\s*\[(?:[⚡🔥💡🎯⭐✨🏆⚠️🌟][^\]]*?|[^\]]{1,10})\]\s*/gm, '');
+
+    // ── Step 2: **कूट:** → strip (it's just a label before options in statement Qs)
+    txt = txt.replace(/^\*\*\s*कूट\s*:?\s*\*?\*?\s*$/gm, '');
+
+    // ── Step 3: **Q 1: ...** → standard Question marker ──────────────────────
     txt = txt.replace(/\*\*Q\s*(\d+)\s*[:.]\s*([\s\S]*?)\*\*/gi, (_m, n, q) => `**Question ${n}**\n❓ Question: ${q.trim()}`);
-    // NEW format: **प्रश्न 1: text?** or **प्रश्न 1. text** → standard Question marker.
-    // Also strips trailing difficulty markers like (Easy) / (Medium) / (Hard) / (Easy/Bihar Special).
-    txt = txt.replace(/\*\*\s*(?:प्रश्न|Question)\s*(\d+)\s*[:.\-]\s*([\s\S]*?)\*\*/gi, (_m, n, q) => {
-      const qClean = String(q).trim().replace(/\s*\((?:Easy|Medium|Hard|आसान|मध्यम|कठिन)[^)]*\)\s*$/i, '').trim();
+
+    // ── Step 4: **प्रश्न N:** / **प्रश्न N. ...** ─────────────────────────────
+    // Key fix: capture text AFTER the closing ** on the same line (rest of line)
+    // because question text is usually: **प्रश्न 1:** question text here
+    txt = txt.replace(/\*\*\s*(?:प्रश्न|Question)\s*(\d+)\s*[:.\-]\s*([\s\S]*?)\*\*([^\n]*)/gi, (_m, n, q, rest) => {
+      // q = text inside bold (usually empty or the question if fully inside bold)
+      // rest = text after closing ** on same line (the actual question in most cases)
+      const combined = (String(q).trim() + ' ' + String(rest).trim()).trim();
+      const qClean = combined
+        .replace(/\*\*$/, '')                                                         // trailing **
+        .replace(/\s*\((?:Easy|Medium|Hard|आसान|मध्यम|कठिन)[^)]*\)\s*$/i, '')       // difficulty tag
+        .replace(/^\[.*?\]\s*/g, '')                                                  // leading [⚡] etc.
+        .trim();
       return `\n**Question ${n}**\n❓ Question: ${qClean}`;
     });
-    // **प्रश्न:** / **Question:** (empty bold, value comes after) → marker.
+
+    // ── Step 5: **प्रश्न:** / **Question:** (no number) → counter-based marker ─
     txt = txt.replace(/\*\*प्रश्न\s*[:：]?\*\*/gi, '__PRASHNA__');
     txt = txt.replace(/\*\*Question\s*[:：]?\*\*/gi, '__PRASHNA__');
+
+    // ── Step 6: Answer lines ─────────────────────────────────────────────────
     // **सही उत्तर: B) text** (answer INSIDE bold) → ✅ Correct Answer: B) text.
     txt = txt.replace(/\*\*\s*(?:सही\s*उत्तर|Ans(?:wer)?)\s*[:：]\s*([^*]+?)\s*\*\*/gi, (_m, val) => `\n✅ Correct Answer: ${String(val).trim()}`);
     // **सही उत्तर:** (empty bold, value follows on same line) → ✅ Correct Answer:
     txt = txt.replace(/\*\*(?:सही\s*उत्तर|Ans(?:wer)?)\s*[:：]?\*\*\s*/gi, '✅ Correct Answer: ');
     txt = txt.replace(/(?:^|\n)\s*(?:Ans(?:wer)?|सही\s*उत्तर)\s*[:：]\s*/gi, '\n✅ Correct Answer: ');
+
+    // ── Step 7: Strip any remaining stray ** bold markers ────────────────────
+    txt = txt.replace(/\*\*/g, '');
+
+    // ── Step 8: Counter-based fallback for __PRASHNA__ ───────────────────────
     let qNum = 0;
     txt = txt.replace(/__PRASHNA__\s*/g, () => { qNum += 1; return `\n**Question ${qNum}**\n❓ Question: `; });
+
+    // ── Step 9: Heuristic fallback (no markers at all) ───────────────────────
     if (qNum === 0) {
       const lines = txt.split('\n');
       const out: string[] = [];
@@ -5726,6 +5757,45 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                                 <div className="w-10 h-10 rounded-xl border-2 border-slate-200 shrink-0" style={{ background: localSettings.themeColor || '#2563eb' }} />
                               </div>
                               <p className="text-[10px] text-slate-400 mt-1.5">⚡ Ye color in sabhi jagahon par apply hoga: Top Bar · Bottom Nav · Profile Card · Chat · Badges · Borders · Buttons</p>
+
+                              {/* ── STATUS BAR COLOR ── */}
+                              <div className="mt-4 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                                <label className="text-xs font-black text-slate-700 uppercase block mb-1">📱 Status Bar Color — Phone Ki Top Strip Ka Color</label>
+                                <p className="text-[10px] text-slate-400 mb-2">By default status bar ka color top bar se match karta hai. Alag color chahiye to yahan set karo.</p>
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="color"
+                                    value={localSettings.statusBarColor || (localSettings.themeColor || '#2563eb')}
+                                    onChange={(e) => setLocalSettings({...localSettings, statusBarColor: e.target.value})}
+                                    className="w-10 h-10 rounded-lg cursor-pointer border border-slate-300 shrink-0"
+                                  />
+                                  <input
+                                    type="text"
+                                    value={localSettings.statusBarColor || ''}
+                                    onChange={(e) => setLocalSettings({...localSettings, statusBarColor: e.target.value})}
+                                    className="flex-1 p-1.5 border rounded-lg text-xs uppercase font-mono bg-white"
+                                    placeholder="Default (Top Bar color se match)"
+                                  />
+                                  <div className="w-10 h-10 rounded-xl border-2 border-slate-200 shrink-0" style={{ background: localSettings.statusBarColor || localSettings.themeColor || '#2563eb' }} />
+                                  {localSettings.statusBarColor && (
+                                    <button
+                                      onClick={() => setLocalSettings({...localSettings, statusBarColor: ''})}
+                                      className="text-[10px] font-black text-red-500 hover:text-red-700 px-2 py-1 rounded-lg border border-red-200 hover:bg-red-50 transition-all"
+                                    >Reset</button>
+                                  )}
+                                </div>
+                                <div className="flex gap-2 mt-2 flex-wrap">
+                                  {['#1e293b','#0f172a','#1d4ed8','#7c3aed','#0d9488','#dc2626','#000000','#ffffff'].map(c => (
+                                    <button
+                                      key={c}
+                                      onClick={() => setLocalSettings({...localSettings, statusBarColor: c})}
+                                      className="w-7 h-7 rounded-lg border-2 transition-all hover:scale-110"
+                                      style={{ background: c, borderColor: (localSettings.statusBarColor||'') === c ? '#7c3aed' : '#e2e8f0' }}
+                                      title={c}
+                                    />
+                                  ))}
+                                </div>
+                              </div>
 
                               {/* ── APP BACKGROUND COLOR ── */}
                               <div className="mt-4 p-3 bg-slate-50 rounded-xl border border-slate-200">

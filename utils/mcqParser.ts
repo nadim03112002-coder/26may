@@ -36,7 +36,7 @@ function extractStatements(questionText: string): { statements: string[], cleane
     const statementStartRegex = /^(?:Statement\s*\d+|कथन\s*\d+|\d+[\)\.])\s*[:\-\.]?(.*)/i;
 
     // Match common ending question phrases after statements
-    const endingQuestionRegex = /^(?:which of the|उपर्युक्त|उपरोक्त|choose the|select the|find the|निम्नलिखित में से|कूट का|उपर्युक्त कथनों)/i;
+    const endingQuestionRegex = /^(?:which of the|उपर्युक्त|उपरोक्त|choose the|select the|find the|निम्नलिखित में से|कूट\b|कूट का|उपर्युक्त कथनों|\*\*\s*कूट)/i;
 
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i].trim();
@@ -217,6 +217,12 @@ export function parseMCQText(text: string): { questions: MCQItem[], notes: {titl
       }
       // Remove any leading numbers like "1. " or "Q1. " just in case they slipped in
       q.question = q.question.replace(/^(?:Q?\d+[\.\)\-]\s*)/i, '');
+      // Strip stray ** bold markers that may have leaked through
+      q.question = q.question.replace(/\*\*/g, '');
+      // Strip leading [⚡] / [🔥] etc. difficulty tags
+      q.question = q.question.replace(/^\[.*?\]\s*/g, '');
+      // Strip trailing/leading कूट: labels
+      q.question = q.question.replace(/\n?\s*कूट\s*:?\s*$/gi, '').trim();
       // Format multiline questions with <br/> for proper rendering
       q.question = q.question.replace(/\n/g, '<br/>');
 

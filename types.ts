@@ -692,6 +692,7 @@ export interface SystemSettings {
   appBackground?: string;
   profileBackground?: string;
   themeColor?: string;
+  statusBarColor?: string;
   darkThemeColor?: string;
   lightThemeColor?: string;
   ultraThemeColor?: string;

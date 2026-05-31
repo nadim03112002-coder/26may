@@ -721,16 +721,20 @@ export const StudentDashboard: React.FC<Props> = ({
     (tierTheme as any).accentGlowColor, isDarkMode,
   ]);
 
-  // ── Meta theme-color: profile tab → official tier color, others → top bar start color ──
+  // ── Meta theme-color: profile tab → official tier color, others → statusBarColor (admin) or top bar start color ──
   useEffect(() => {
     const officialTheme = getTierTheme(user);
     // Extract first hex color from topBarGrad gradient so status bar blends seamlessly with top bar
     const _gradMatch = tierTheme.topBarGrad.match(/#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b/);
     const _topBarStartColor = _gradMatch ? _gradMatch[0] : tierTheme.primary;
-    const color = activeTab === 'PROFILE' ? officialTheme.primary : _topBarStartColor;
+    // Admin can override status bar color separately via statusBarColor setting
+    const _statusBarOverride = settings?.statusBarColor;
+    const color = activeTab === 'PROFILE'
+      ? officialTheme.primary
+      : (_statusBarOverride || _topBarStartColor);
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) meta.setAttribute('content', color);
-  }, [activeTab, tierTheme.primary, tierTheme.topBarGrad, user.isPremium, user.subscriptionLevel, user.subscriptionEndDate]);
+  }, [activeTab, tierTheme.primary, tierTheme.topBarGrad, user.isPremium, user.subscriptionLevel, user.subscriptionEndDate, settings?.statusBarColor]);
 
   // ── HTML Write-Mode Daily Quota (ALL tiers) ──────────────────────────────
   const _subValid      = SubscriptionEngine.isPremium(user); // true only if not expired
@@ -1906,8 +1910,14 @@ export const StudentDashboard: React.FC<Props> = ({
 
       // Ensure swipe only activates if it starts within the top banner area (roughly top 100px)
       const target = e.target as HTMLElement;
-      // Ignore swipe gesture if touching a table, slider, or horizontal scrolling container (like .chnr-table-wrap)
-      if (target.closest('table') || target.closest('.chnr-table-wrap') || target.closest('.table-container') || target.closest('input[type="range"]')) {
+      // Ignore swipe gesture if touching a table, slider, horizontal scrolling container, or any popup panel
+      if (
+        target.closest('table') ||
+        target.closest('.chnr-table-wrap') ||
+        target.closest('.table-container') ||
+        target.closest('input[type="range"]') ||
+        target.closest('[data-no-topbar-swipe]')
+      ) {
         isTouchingTopBar = false;
         return;
       }
@@ -1958,6 +1968,10 @@ export const StudentDashboard: React.FC<Props> = ({
     if (syllabusMode === 'COMPETITION' && inPlayer) {
       setIsLandscapeUiHidden(true);
     } else if (syllabusMode === 'COMPETITION' && !inPlayer) {
+      setIsLandscapeUiHidden(false);
+    }
+    // Always reset landscape-hidden when leaving player so bottom nav reappears
+    if (!inPlayer && syllabusMode !== 'COMPETITION') {
       setIsLandscapeUiHidden(false);
     }
   }, [activeTab, contentViewStep, syllabusMode]);
@@ -9096,7 +9110,7 @@ export const StudentDashboard: React.FC<Props> = ({
         style={{ background: tierTheme.topBarGrad }}
       >
         {/* Main Header Row */}
-        <div className="flex items-center justify-between w-full px-3 pt-2 pb-0.5">
+        <div className="flex items-center justify-between w-full px-3 pt-1.5 pb-1">
           {/* LEFT: hamburger + logo + app name */}
           <div
             className="flex items-center gap-2 shrink-0 cursor-pointer"
@@ -9173,7 +9187,7 @@ export const StudentDashboard: React.FC<Props> = ({
                       onTouchStart={() => setShowDotsMenu(false)}
                     />
                     {/* Dropdown panel */}
-                    <div className="fixed top-[105px] right-2 w-64 bg-white rounded-2xl shadow-2xl border border-slate-100 z-[99999] animate-in fade-in zoom-in-95 duration-150 overflow-hidden max-h-[calc(100dvh-115px)] overflow-y-auto">
+                    <div data-no-topbar-swipe className="fixed top-[105px] right-2 w-64 bg-white rounded-2xl shadow-2xl border border-slate-100 z-[99999] animate-in fade-in zoom-in-95 duration-150 overflow-hidden max-h-[calc(100dvh-185px)] overflow-y-auto">
                       {/* Close button row */}
                       <div className="flex items-center justify-between px-4 pt-3 pb-1">
                         <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Menu</span>
@@ -9274,7 +9288,7 @@ export const StudentDashboard: React.FC<Props> = ({
         </div>
 
         {/* SECOND LINE: greeting + Level / Credits / Subscription pills */}
-        <div className="flex items-center justify-between w-full mt-0 pt-0.5 px-4 pb-1.5">
+        <div className="flex items-center justify-between w-full mt-0 pt-0.5 px-4 pb-1">
 
           {/* Left: two-line greeting */}
           {(() => {
@@ -13818,7 +13832,7 @@ export const StudentDashboard: React.FC<Props> = ({
         return (
           <>
             <div className="fixed inset-0 z-[9998]" onClick={() => setShowSidebar(false)} />
-            <div className="fixed top-[80px] left-2 w-72 bg-white rounded-2xl shadow-2xl border border-slate-100 z-[9999] animate-in fade-in zoom-in-95 duration-150 origin-top-left max-h-[80vh] overflow-y-auto">
+            <div data-no-topbar-swipe className="fixed top-[80px] left-2 w-72 bg-white rounded-2xl shadow-2xl border border-slate-100 z-[9999] animate-in fade-in zoom-in-95 duration-150 origin-top-left max-h-[calc(100dvh-155px)] overflow-y-auto">
 
               {/* User Profile */}
               <div className="px-4 pt-4 pb-3 border-b border-slate-100">
@@ -15174,6 +15188,7 @@ export const StudentDashboard: React.FC<Props> = ({
         };
 
         return (
+          <>
           <div className="fixed inset-0 z-[200] flex flex-col animate-in fade-in" style={{ background: '#ffffff' }}>
             {/* Reading progress bar — same gradient style as Sar Sangrah / Speedy */}
             <div className="absolute top-0 left-0 right-0 h-1 bg-slate-200/60 z-[60] pointer-events-none">
@@ -15240,7 +15255,37 @@ export const StudentDashboard: React.FC<Props> = ({
                 };
                 return (
                   <div className="flex items-center gap-1.5 shrink-0 relative">
-                    {/* 3-dot menu — read mode (chunk): opens ChunkedNotesReader bottom-sheet */}
+                    {/* A− / % / A+ group — both modes */}
+                    <div className="flex items-center rounded-xl overflow-hidden border border-white/25" style={{ background: 'rgba(255,255,255,0.12)' }}>
+                      <button onClick={zoomOut} className="w-7 h-7 flex items-center justify-center text-white text-[11px] font-black active:scale-90 transition-all hover:bg-white/15">A−</button>
+                      <span className="px-1 text-white/70 text-[10px] font-bold tabular-nums border-x border-white/20">{Math.round(noteZoom * 100)}%</span>
+                      <button onClick={zoomIn} className="w-7 h-7 flex items-center justify-center text-white text-[11px] font-black active:scale-90 transition-all hover:bg-white/15">A+</button>
+                    </div>
+                    {/* Rotate — both modes */}
+                    <button
+                      onClick={handleRotate}
+                      className={`w-8 h-8 flex items-center justify-center rounded-xl border transition-all active:scale-90 shrink-0 ${isLandscape ? 'bg-emerald-500/30 border-emerald-400/50 text-emerald-300' : 'bg-white/15 border-white/25 text-white'}`}
+                      title="Rotate Screen"
+                    >
+                      <RotateCcw size={14} />
+                    </button>
+                    {/* Save Offline — both modes */}
+                    <button
+                      onClick={_handleSaveOffline}
+                      className={`w-8 h-8 flex items-center justify-center rounded-xl border transition-all active:scale-90 shrink-0 ${lucentSaved ? 'bg-emerald-500/30 border-emerald-400/50 text-emerald-300' : 'bg-white/15 border-white/25 text-white'}`}
+                      title={lucentSaved ? 'Saved!' : 'Save Offline'}
+                    >
+                      <WifiOff size={14} />
+                    </button>
+                    {/* More Options — both modes */}
+                    <button
+                      onClick={() => setContentPickerPopup({ type: 'LUCENT', entry, pageIdx: safeIndex })}
+                      className="w-8 h-8 flex items-center justify-center rounded-xl bg-white/15 border border-white/25 text-white active:scale-90 transition-all shrink-0"
+                      title="More Options"
+                    >
+                      <LayoutGrid size={14} />
+                    </button>
+                    {/* 3-dot controls — read mode only (opens ChunkedNotesReader bottom-sheet) */}
                     {!_isWriteMode && (
                       <button
                         onClick={() => lucentControlsRef.current?.()}
@@ -15249,41 +15294,6 @@ export const StudentDashboard: React.FC<Props> = ({
                       >
                         <MoreVertical size={15} />
                       </button>
-                    )}
-                    {/* Write mode: inline top-bar controls */}
-                    {_isWriteMode && (
-                      <>
-                        {/* A− / % / A+ group */}
-                        <div className="flex items-center rounded-xl overflow-hidden border border-white/25" style={{ background: 'rgba(255,255,255,0.12)' }}>
-                          <button onClick={zoomOut} className="w-7 h-7 flex items-center justify-center text-white text-[11px] font-black active:scale-90 transition-all hover:bg-white/15">A−</button>
-                          <span className="px-1 text-white/70 text-[10px] font-bold tabular-nums border-x border-white/20">{Math.round(noteZoom * 100)}%</span>
-                          <button onClick={zoomIn} className="w-7 h-7 flex items-center justify-center text-white text-[11px] font-black active:scale-90 transition-all hover:bg-white/15">A+</button>
-                        </div>
-                        {/* Rotate */}
-                        <button
-                          onClick={handleRotate}
-                          className={`w-8 h-8 flex items-center justify-center rounded-xl border transition-all active:scale-90 shrink-0 ${isLandscape ? 'bg-emerald-500/30 border-emerald-400/50 text-emerald-300' : 'bg-white/15 border-white/25 text-white'}`}
-                          title="Rotate Screen"
-                        >
-                          <RotateCcw size={14} />
-                        </button>
-                        {/* Save Offline */}
-                        <button
-                          onClick={_handleSaveOffline}
-                          className={`w-8 h-8 flex items-center justify-center rounded-xl border transition-all active:scale-90 shrink-0 ${lucentSaved ? 'bg-emerald-500/30 border-emerald-400/50 text-emerald-300' : 'bg-white/15 border-white/25 text-white'}`}
-                          title={lucentSaved ? 'Saved!' : 'Save Offline'}
-                        >
-                          <WifiOff size={14} />
-                        </button>
-                        {/* More Options */}
-                        <button
-                          onClick={() => setContentPickerPopup({ type: 'LUCENT', entry, pageIdx: safeIndex })}
-                          className="w-8 h-8 flex items-center justify-center rounded-xl bg-white/15 border border-white/25 text-white active:scale-90 transition-all shrink-0"
-                          title="More Options"
-                        >
-                          <LayoutGrid size={14} />
-                        </button>
-                      </>
                     )}
                   </div>
                 );
@@ -15312,7 +15322,7 @@ export const StudentDashboard: React.FC<Props> = ({
               const _pgHasVideo = !!(currentPage as any)?.videoUrl;
               if (!_pgHasNotes && !_pgHasVideo) return null;
               return (
-                <div className={`shrink-0 bg-white border-b border-slate-100 px-4 py-2 flex items-center gap-2 ${(isLandscapeUiHidden || lucentImmersive) ? 'hidden' : ''}`}>
+                <div className={`shrink-0 bg-white px-4 py-2 flex items-center gap-2 ${(isLandscapeUiHidden || lucentImmersive) ? 'hidden' : ''}`}>
                   {_pgHasNotes && (
                     <button
                       onClick={() => { setLucentActiveTab('NOTES'); }}
@@ -16117,58 +16127,27 @@ RULES:
               </button>
             </div>
 
-            {/* Lucent FAB — Focus Mode + More + Back to Top */}
-            {lucentFabOpen && (
-              <div className="fixed inset-0 z-[9998]" onClick={() => setLucentFabOpen(false)} />
-            )}
-            {lucentFabOpen && (
-              <div className="fixed flex flex-col gap-2 items-end z-[9999]" style={{ bottom: lucentImmersive ? '80px' : '88px', right: '16px' }}>
-                {/* Back to Top — only when scrolled */}
-                {lucentScrollProgress > 30 && (
-                  <button
-                    onClick={() => { const n = lucentScrollContainerRef.current; if (n) n.scrollTo({ top: 0, behavior: 'smooth' }); setLucentFabOpen(false); }}
-                    className="flex items-center gap-2 bg-slate-800 text-white px-3 py-2 rounded-full text-xs font-black shadow-xl active:scale-95 transition-all whitespace-nowrap"
-                  >
-                    ↑ Top pe jao
-                  </button>
-                )}
-                {/* Focus Mode toggle */}
-                <button
-                  onClick={() => { setLucentImmersive(v => !v); setLucentFabOpen(false); }}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-full text-xs font-black shadow-xl active:scale-95 transition-all whitespace-nowrap ${lucentImmersive ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-white'}`}
-                >
-                  {lucentImmersive ? '↩ Focus Mode Band' : '🎯 Focus Mode'}
-                </button>
-                {/* More options */}
-                <button
-                  onClick={() => { setContentPickerPopup({ type: 'LUCENT', entry, pageIdx: safeIndex }); setLucentFabOpen(false); }}
-                  className="flex items-center gap-2 bg-violet-700 text-white px-3 py-2 rounded-full text-xs font-black shadow-xl active:scale-95 transition-all whitespace-nowrap"
-                >
-                  <LayoutGrid size={12} /> More
-                </button>
-              </div>
-            )}
-            <button
-              onClick={() => setLucentFabOpen(v => !v)}
-              className={`fixed z-[9999] w-12 h-12 rounded-full shadow-xl flex items-center justify-center text-white transition-all overflow-hidden border-2 ${lucentFabOpen ? 'bg-indigo-600 border-indigo-400' : lucentImmersive ? 'bg-indigo-700 border-indigo-400' : 'bg-[rgba(15,23,42,0.88)] border-white/40'}`}
-              style={{ backdropFilter: 'blur(10px)', bottom: lucentImmersive ? '16px' : '72px', right: '16px' }}
-              title={lucentFabOpen ? 'Close menu' : 'Options'}
-            >
-              {lucentFabOpen ? (
-                <X size={20} style={{ pointerEvents: 'none' }} />
-              ) : lucentImmersive ? (
-                <Minimize2 size={18} style={{ pointerEvents: 'none' }} />
-              ) : lucentSaved ? (
-                <CloudOff size={20} style={{ pointerEvents: 'none', color: '#34d399' }} />
-              ) : settings?.appLogo ? (
-                <img src={settings.appLogo} alt="App" style={{ width: '38px', height: '38px', objectFit: 'contain', borderRadius: '50%', pointerEvents: 'none' }} />
-              ) : (
-                <span style={{ fontSize: '18px', fontWeight: 900, letterSpacing: '-0.5px', pointerEvents: 'none' }}>
-                  {(settings?.appShortName || settings?.appName || 'A').charAt(0)}
-                </span>
-              )}
-            </button>
           </div>
+          {/* Lucent FAB — tap to directly toggle Focus Mode (no submenu) */}
+          <button
+            onClick={() => { setLucentImmersive(v => !v); }}
+            className={`fixed z-[9999] w-12 h-12 rounded-full shadow-xl flex flex-col items-center justify-center text-white transition-all overflow-hidden border-2 ${lucentImmersive ? 'bg-indigo-700 border-indigo-400' : 'bg-[rgba(15,23,42,0.88)] border-white/40'}`}
+            style={{ backdropFilter: 'blur(10px)', bottom: lucentImmersive ? '16px' : '72px', right: '16px' }}
+            title={lucentImmersive ? 'Focus Mode band karo' : 'Focus Mode'}
+          >
+            {lucentImmersive ? (
+              <>
+                <Minimize2 size={16} style={{ pointerEvents: 'none' }} />
+                <span style={{ fontSize: '7px', fontWeight: 900, letterSpacing: '0.02em', pointerEvents: 'none', lineHeight: 1, marginTop: '2px' }}>EXIT</span>
+              </>
+            ) : (
+              <>
+                <span style={{ fontSize: '15px', pointerEvents: 'none', lineHeight: 1 }}>🎯</span>
+                <span style={{ fontSize: '7px', fontWeight: 900, letterSpacing: '0.02em', pointerEvents: 'none', lineHeight: 1, marginTop: '2px' }}>FOCUS</span>
+              </>
+            )}
+          </button>
+          </>
         );
       })()}
 
@@ -17991,7 +17970,8 @@ RULES:
       })()}
 
       {/* FLOATING APP LOGO BUTTON — Sirf Notes/MCQ content player mein visible. Tapping focus mode toggle karta hai. Draggable. */}
-      {!activeExternalApp && !hwActiveHwId && contentViewStep === "PLAYER" && (
+      {/* Hidden when Lucent viewer is open — Lucent has its own FAB; this button overlaps it and causes accidental top-bar hide */}
+      {!activeExternalApp && !hwActiveHwId && contentViewStep === "PLAYER" && !lucentNoteViewer && (
         <button
           ref={floatLogoBtnRef}
           onClick={() => { if (!floatLogoMoved.current) setIsLandscapeUiHidden(prev => { const next = !prev; setIsTopBarHidden(next); return next; }); }}
