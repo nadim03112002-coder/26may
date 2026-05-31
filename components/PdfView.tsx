@@ -4,7 +4,7 @@ import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
 import { Chapter, User, Subject, SystemSettings, HtmlModule, PremiumNoteSlot, DeepDiveEntry, AdditionalNoteEntry } from '../types';
-import { FileText, Lock, ArrowLeft, Crown, Star, CheckCircle, AlertCircle, Globe, Maximize, Minimize, Layers, HelpCircle, Minus, Plus, Volume2, VolumeX, Square, Zap, Headphones, BookOpen, Music, Play, Pause, SkipForward, SkipBack, Book, List, Layout, ExternalLink, GraduationCap, ChevronRight, Sparkles, RotateCw, RotateCcw, Palette, Type, Monitor, LayoutGrid } from 'lucide-react';
+import { FileText, Lock, ArrowLeft, Crown, Star, CheckCircle, AlertCircle, Globe, Maximize, Minimize, Layers, HelpCircle, Minus, Plus, Volume2, VolumeX, Square, Zap, Headphones, BookOpen, Music, Play, Pause, SkipForward, SkipBack, Book, List, Layout, ExternalLink, GraduationCap, ChevronRight, Sparkles, RotateCw, RotateCcw, Palette, Type, Monitor } from 'lucide-react';
 import { ReadingStylePopover } from './ReadingStylePopover';
 import { CustomAlert } from './CustomDialogs';
 import { getChapterData, saveUserToLive } from '../firebase';
@@ -45,8 +45,6 @@ interface Props {
   // NEW: Lucent-style cross-tab switch from Notes (PdfView) → MCQ (McqView).
   onSwitchToMcq?: () => void;
   onSwitchToFlashcard?: () => void;
-  /** Opens the content-type picker popup (same as competition/lucent LayoutGrid button). */
-  onMoreOptions?: () => void;
     /** Notify parent that immersive mode changed (used to hide global bottom nav) */
     onImmersiveChange?: (isImmersive: boolean) => void;
   /** When true, hides the sticky top header (used by landscape floating button). */
@@ -172,7 +170,7 @@ const extractTopicsFromHtml = (html: string): { title: string, content: string }
 };
 
 export const PdfView: React.FC<Props> = ({ 
-    chapter, subject, user, board, classLevel, stream, onBack, onUpdateUser, settings, initialSyllabusMode, initialActiveTab, directResource, onSwitchToMcq, onSwitchToFlashcard, onMoreOptions, onImmersiveChange, hideHeader
+    chapter, subject, user, board, classLevel, stream, onBack, onUpdateUser, settings, initialSyllabusMode, initialActiveTab, directResource, onSwitchToMcq, onSwitchToFlashcard, onImmersiveChange, hideHeader
 }) => {
   const [contentData, setContentData] = useState<any>({});
   const [loading, setLoading] = useState(true);
@@ -1646,15 +1644,6 @@ export const PdfView: React.FC<Props> = ({
                            title="Switch to Flashcard"
                        >
                            <Zap size={12} /> Flash
-                       </button>
-                   )}
-                   {onMoreOptions && (
-                       <button
-                           onClick={onMoreOptions}
-                           className="p-1.5 rounded-full text-slate-500 hover:bg-slate-100 shrink-0"
-                           title="Content options"
-                       >
-                           <LayoutGrid size={15} />
                        </button>
                    )}
                </div>
