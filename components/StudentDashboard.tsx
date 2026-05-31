@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { FeatureHints } from "./FeatureHints";
+import { FeatureHints, FeatureTipsList } from "./FeatureHints";
 import { TopBarEffectsLayer } from "../utils/topBarEffects";
 import { getLevelInfo, getNextLevelInfo, getLevelProgress, LEVEL_INFO, ACTIVITY_SCORES, getLevelTopBarEffects, getLevelLimitBonus, getLevelDailyLimits, getLevelDailyLimitsWithOverride, getEffectiveDailyLimit, UNLIMITED } from "../utils/levelSystem";
 import { tryEarnScore, awardMilestone, getDailyScoreEarned, DAILY_SCORE_LIMIT, getDailyScoreLimit, getActiveBoost } from "../utils/scoreSystem";
@@ -7987,9 +7987,19 @@ export const StudentDashboard: React.FC<Props> = ({
       // _light reuses the early detection (already computed above for _nameStyle)
       const _light    = _profileIsLight;
 
-      const _pBg      = _pw ? '#f0f4f8' : tierTheme.profileBg;
-      const _pCard    = _pw ? '#ffffff' : tierTheme.profileCardBg;
-      const _pCardSt  = _pw ? '#f1f5f9' : tierTheme.profileCardBg;
+      // Admin-set profile page theme override
+      const _adminProfileTheme = (() => {
+        const pt = (settings as any)?.profilePageThemes;
+        if (!pt) return null;
+        const userTierKey = !user.isPremium ? 'free' : (user.subscriptionLevel === 'ULTRA' ? 'ultra' : 'basic');
+        const entry = pt[userTierKey] || pt['free'];
+        if (!entry) return null;
+        if (entry.expiresAt && new Date(entry.expiresAt) <= new Date()) return null;
+        return entry as { bgColor?: string; cardColor?: string; accentColor?: string };
+      })();
+      const _pBg      = _pw ? '#f0f4f8' : (_adminProfileTheme?.bgColor || tierTheme.profileBg);
+      const _pCard    = _pw ? '#ffffff' : (_adminProfileTheme?.cardColor || tierTheme.profileCardBg);
+      const _pCardSt  = _pw ? '#f1f5f9' : (_adminProfileTheme?.cardColor || tierTheme.profileCardBg);
       const _pSep     = `1px solid ${tierTheme.primary}${_light ? '30' : '18'}`;
       const _pBdrMain = `1px solid ${tierTheme.primary}${_light ? '40' : '2e'}`;
       const _pBdrSoft = `1px solid ${tierTheme.primary}${_light ? '28' : '18'}`;
@@ -8008,45 +8018,8 @@ export const StudentDashboard: React.FC<Props> = ({
       return (
         <div className="animate-in fade-in zoom-in duration-300 pb-28 min-h-screen" data-pw={_pw ? "1" : "0"} style={{ background: _pBg }}>
 
-          {/* ── HERO BANNER ── */}
-          <div className="relative overflow-hidden" style={{ height: 172 }}>
-            {/* Base gradient */}
-            <div className="absolute inset-0" style={{
-              background: _light
-                ? `linear-gradient(145deg, ${tierTheme.primary}ee 0%, ${tierTheme.mid}cc 60%, ${tierTheme.primary}aa 100%)`
-                : `linear-gradient(145deg, ${tierTheme.primary} 0%, ${tierTheme.mid} 55%, ${tierTheme.primary}cc 100%)`,
-            }} />
-            {/* Radial glow center */}
-            <div className="absolute inset-0" style={{
-              background: `radial-gradient(ellipse 80% 60% at 30% 40%, rgba(255,255,255,0.13) 0%, transparent 70%)`,
-            }} />
-            {/* Dot grid */}
-            <svg className="absolute inset-0 w-full h-full pointer-events-none" xmlns="http://www.w3.org/2000/svg" style={{ opacity: 0.10 }}>
-              <defs><pattern id="bnrdots" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1.1" fill="white" /></pattern></defs>
-              <rect width="100%" height="100%" fill="url(#bnrdots)" />
-            </svg>
-            {/* Bottom fade to card */}
-            <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, transparent 35%, rgba(0,0,0,0.38) 100%)' }} />
-            {/* Top row: Admin badge left + Ultra crown right */}
-            <div className="absolute top-4 left-0 right-0 flex items-center justify-between px-5">
-              {(user.role === 'ADMIN' || user.role === 'SUB_ADMIN') ? (
-                <span className="text-[9px] font-black px-3 py-1.5 rounded-full uppercase tracking-widest text-white"
-                  style={{ background: 'rgba(0,0,0,0.30)', border: '1px solid rgba(255,255,255,0.25)' }}>
-                  ⚙ {user.role === 'ADMIN' ? 'Admin' : 'Sub-Admin'}
-                </span>
-              ) : <span />}
-              {_pIsUltra && (
-                <span className="text-[32px] leading-none" style={{ filter: 'drop-shadow(0 0 16px gold) drop-shadow(0 0 6px #fbbf24)' }}>👑</span>
-              )}
-            </div>
-            {/* App name watermark bottom-left */}
-            <div className="absolute bottom-16 left-5">
-              <p className="text-white/40 text-[10px] font-black uppercase tracking-[0.22em]">Profile</p>
-            </div>
-          </div>
-
-          {/* ── CARD 1: Identity (floating over hero) ── */}
-          <div className="mx-3 -mt-12 rounded-3xl overflow-hidden mb-3" style={{ background: _pCard, border: _pBdrMain, boxShadow: `0 12px 48px ${tierTheme.primary}30, 0 4px 20px rgba(0,0,0,0.42)` }}>
+          {/* ── CARD 1: Identity ── */}
+          <div className="mx-3 mt-3 rounded-3xl overflow-hidden mb-3" style={{ background: _pCard, border: _pBdrMain, boxShadow: `0 12px 48px ${tierTheme.primary}30, 0 4px 20px rgba(0,0,0,0.42)` }}>
 
             {/* ── Profile Header ── */}
             <div className="relative overflow-hidden" style={{
@@ -8721,6 +8694,13 @@ export const StudentDashboard: React.FC<Props> = ({
             </button>
           </div>
 
+          {/* ── FEATURE TIPS ── */}
+          <div className="mx-3 mb-4 rounded-3xl overflow-hidden" style={{ background: _pCard, border: _pBdrSoft }}>
+            <div className="px-4 pt-4 pb-2">
+              <FeatureTipsList />
+            </div>
+          </div>
+
           {/* ── LOGOUT ── */}
           {(settings?.isLogoutEnabled !== false || user.role === 'ADMIN' || isImpersonating) && (
             <div className="mx-3 rounded-2xl overflow-hidden mb-4" style={{ background: _pCard, border: '1px solid rgba(239,68,68,0.20)' }}>
@@ -9243,7 +9223,7 @@ export const StudentDashboard: React.FC<Props> = ({
               return (
                 <button
                   onClick={() => { setShowScorePanel(true); setScorePanelTab('DAILY'); }}
-                  className="inline-flex items-center gap-[3px] px-[7.5px] py-[3px] rounded-full text-[8px] font-black bg-white/20 text-white border border-white/35 whitespace-nowrap shrink-0 active:scale-95 transition-all shadow-sm"
+                  className="inline-flex items-center gap-[3px] px-[7.5px] py-[3px] rounded-full text-[8px] font-black text-white whitespace-nowrap shrink-0 active:scale-95 transition-all"
                   title="View my level"
                   style={{ boxShadow: `0 0 8px ${_li.glowColor}` }}
                 >
@@ -9259,7 +9239,7 @@ export const StudentDashboard: React.FC<Props> = ({
                 {((settings?.specialDiscountEvent?.enabled && isDiscountCooldown) ? topBarCreditFlip : false) ? (
                   <button
                     onClick={() => { if (getLevelInfo(user.totalScore || 0).level <= 4) { const todayStr = new Date().toISOString().split('T')[0]; const k = `nst_store_visits_${user.id}_${todayStr}`; try { localStorage.setItem(k, String(parseInt(localStorage.getItem(k) || '0', 10) + 1)); } catch {} } onTabChange("STORE"); }}
-                    className="inline-flex items-center gap-[2px] px-2 py-[3px] rounded-full text-[8px] font-black bg-white/20 text-white border border-white/35 whitespace-nowrap shrink-0 active:scale-95 transition-all shadow-sm"
+                    className="inline-flex items-center gap-[2px] px-2 py-[3px] rounded-full text-[8px] font-black text-white whitespace-nowrap shrink-0 active:scale-95 transition-all"
                     title="Cooldown Timer"
                   >
                     <Timer size={9} />
@@ -9268,7 +9248,7 @@ export const StudentDashboard: React.FC<Props> = ({
                 ) : ((settings?.specialDiscountEvent?.enabled && isDiscountLive) ? topBarCreditFlip : false) ? (
                   <button
                     onClick={() => { if (getLevelInfo(user.totalScore || 0).level <= 4) { const todayStr = new Date().toISOString().split('T')[0]; const k = `nst_store_visits_${user.id}_${todayStr}`; try { localStorage.setItem(k, String(parseInt(localStorage.getItem(k) || '0', 10) + 1)); } catch {} } onTabChange("STORE"); }}
-                    className="inline-flex items-center gap-[2px] px-2 py-[3px] rounded-full text-[8px] font-black bg-white/20 text-white border border-white/35 whitespace-nowrap shrink-0 active:scale-95 transition-all shadow-sm"
+                    className="inline-flex items-center gap-[2px] px-2 py-[3px] rounded-full text-[8px] font-black text-white whitespace-nowrap shrink-0 active:scale-95 transition-all"
                     title="Discount"
                   >
                     <Ticket size={9} />
@@ -9284,7 +9264,7 @@ export const StudentDashboard: React.FC<Props> = ({
                       }
                       onTabChange("STORE");
                     }}
-                    className="inline-flex items-center gap-[2px] px-2 py-[3px] rounded-full text-[8px] font-black bg-white/20 text-white border border-white/35 whitespace-nowrap shrink-0 active:scale-95 transition-all shadow-sm"
+                    className="inline-flex items-center gap-[2px] px-2 py-[3px] rounded-full text-[8px] font-black text-white whitespace-nowrap shrink-0 active:scale-95 transition-all"
                     title="Credits"
                   >
                     <Crown size={9} />
@@ -14309,34 +14289,6 @@ export const StudentDashboard: React.FC<Props> = ({
 
                 return (
                   <div className="space-y-2">
-                    {/* PLAN COMPARISON TABLE */}
-                    <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-                      <div className="px-3 pt-3 pb-2 flex items-center gap-2 border-b border-slate-100">
-                        <span className="text-base">🏆</span>
-                        <p className="font-black text-sm text-slate-800">Plan Comparison — Free / Basic / Ultra</p>
-                      </div>
-                      {/* Header row */}
-                      <div className="grid grid-cols-4 bg-slate-50 border-b border-slate-100 text-[9px] font-black uppercase tracking-wider text-slate-500">
-                        <div className="px-3 py-2">Feature</div>
-                        <div className="px-2 py-2 text-center text-slate-500">🆓 Free</div>
-                        <div className="px-2 py-2 text-center text-sky-600">🔵 Basic</div>
-                        <div className="px-2 py-2 text-center text-violet-600">⚡ Ultra</div>
-                      </div>
-                      {planRows.map((row, i) => (
-                        <div key={i} className={`grid grid-cols-4 text-[10px] border-b border-slate-50 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}`}>
-                          <div className="px-3 py-2.5 flex items-center gap-1.5 font-bold text-slate-700">
-                            <span>{row.icon}</span>
-                            <span className="truncate">{row.label}</span>
-                          </div>
-                          <div className="px-2 py-2.5 text-center font-bold text-slate-500">{row.free}</div>
-                          <div className="px-2 py-2.5 text-center font-bold text-sky-700">{row.basic}</div>
-                          <div className="px-2 py-2.5 text-center font-bold text-violet-700">{row.ultra}</div>
-                        </div>
-                      ))}
-                      <div className="px-3 py-2 text-[10px] text-slate-400 font-medium">
-                        📌 Upgrade karo Store mein jaake → ⚡ Ultra / 🔵 Basic
-                      </div>
-                    </div>
 
                     {/* WRITE MODE DETAIL CARD */}
                     <div className="bg-teal-50 border border-teal-200 rounded-2xl p-3.5 space-y-2">
@@ -14949,7 +14901,7 @@ export const StudentDashboard: React.FC<Props> = ({
         type Option = { id: string; icon: string; label: string; sub: string; color: string; bg: string; enabled: boolean; onClick: () => void };
         const options: Option[] = [
           { id: 'read',  icon: '📖', label: 'Reading Notes', sub: hasReadNotes  ? 'Read Mode — TTS'    : 'Notes nahi hain', color: '#f59e0b', bg: 'rgba(245,158,11,0.13)',  enabled: hasReadNotes,  onClick: openReadingNotes },
-          { id: 'write', icon: '✏️', label: 'Making Notes',  sub: hasWriteNotes ? 'Write Mode — HTML'  : 'Notes nahi hain', color: '#14b8a6', bg: 'rgba(20,184,166,0.13)',  enabled: hasWriteNotes,  onClick: openMakingNotes  },
+          { id: 'write', icon: '✏️', label: 'Writing Page',  sub: hasWriteNotes ? 'Write Mode — HTML'  : 'Notes nahi hain', color: '#14b8a6', bg: 'rgba(20,184,166,0.13)',  enabled: hasWriteNotes,  onClick: openMakingNotes  },
           { id: 'mcq',   icon: '🎯', label: 'MCQ Practice',  sub: hasMcq    ? 'Practice questions'   : 'MCQ nahi hain',   color: '#8b5cf6', bg: 'rgba(139,92,246,0.13)', enabled: !!hasMcq,  onClick: openMcq          },
           { id: 'pdf',   icon: '📄', label: 'PDF', sub: hasPdf ? 'PDF Document' : 'PDF nahi hai', color: '#3b82f6', bg: 'rgba(59,130,246,0.13)', enabled: hasPdf, onClick: openPdf },
           { id: 'video', icon: '🎬', label: 'Video',         sub: hasVideo  ? 'Video lecture'        : 'Video nahi hai',  color: '#ef4444', bg: 'rgba(239,68,68,0.13)',   enabled: hasVideo,  onClick: openVideo        },

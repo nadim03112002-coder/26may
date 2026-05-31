@@ -679,7 +679,19 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
     const [showGlobalNowPopup, setShowGlobalNowPopup] = useState(false);
     const [globalNowTier, setGlobalNowTier] = useState<'ALL' | 'ULTRA' | 'BASIC' | 'FREE'>('ALL');
     const [globalNowHours, setGlobalNowHours] = useState<number>(24);
+    const [globalNowPermanent, setGlobalNowPermanent] = useState<boolean>(false);
     const [globalNowSaving, setGlobalNowSaving] = useState(false);
+
+    /* ── ADMIN PROFILE THEME STATE ── */
+    const [showProfileThemePopup, setShowProfileThemePopup] = useState(false);
+    const [profileThemeTier, setProfileThemeTier] = useState<'free' | 'basic' | 'ultra' | 'all'>('all');
+    const [profileThemeBg, setProfileThemeBg] = useState<string>('#0d0f1a');
+    const [profileThemeCard, setProfileThemeCard] = useState<string>('#1a1f35');
+    const [profileThemeAccent, setProfileThemeAccent] = useState<string>('#6366f1');
+    const [profileThemePermanent, setProfileThemePermanent] = useState<boolean>(true);
+    const [profileThemeDurationUnit, setProfileThemeDurationUnit] = useState<'hours' | 'days' | 'months' | 'years'>('days');
+    const [profileThemeDurationVal, setProfileThemeDurationVal] = useState<number>(7);
+    const [profileThemeSaving, setProfileThemeSaving] = useState(false);
 
     /* ── USER HISTORY STATE ── */
     const [userThemeSaving, setUserThemeSaving]       = useState(false);
@@ -903,9 +915,11 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
         setGlobalNowSaving(true);
         setShowGlobalNowPopup(false);
         const themeObj = buildThemeObj();
-        const expiresAt = globalNowHours > 0
-            ? new Date(Date.now() + globalNowHours * 3600000).toISOString()
-            : undefined;
+        const expiresAt = globalNowPermanent
+            ? null
+            : globalNowHours > 0
+                ? new Date(Date.now() + globalNowHours * 3600000).toISOString()
+                : null;
         const tierVal = globalNowTier === 'ALL' ? 'all'
             : globalNowTier === 'ULTRA' ? 'ultra'
             : globalNowTier === 'BASIC' ? 'basic'
@@ -913,7 +927,7 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
         const adminAppliedTheme = {
             theme: themeObj,
             targetTier: tierVal as 'all' | 'ultra' | 'basic' | 'free',
-            expiresAt: expiresAt ?? null,
+            expiresAt: expiresAt,
             appliedAt: new Date().toISOString(),
         };
         const newSettings = { ...(settings || {}), adminAppliedTheme };
@@ -921,11 +935,57 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
             await saveSystemSettings(newSettings as any);
             onUpdateSettings?.(newSettings as any);
             setLiveAdminTheme(adminAppliedTheme as any);
-            alert(`✅ Theme abhi apply ho gayi!\n👥 ${globalNowTier === 'ALL' ? 'Sabhi users' : globalNowTier}\n⏱ ${globalNowHours}h ke liye`);
+            alert(`✅ Theme abhi apply ho gayi!\n👥 ${globalNowTier === 'ALL' ? 'Sabhi users' : globalNowTier}\n⏱ ${globalNowPermanent ? 'Permanent' : globalNowHours + 'h ke liye'}`);
         } catch {
             alert('❌ Error — dobara try karo.');
         }
         setGlobalNowSaving(false);
+    };
+
+    const doApplyProfileTheme = async () => {
+        setProfileThemeSaving(true);
+        setShowProfileThemePopup(false);
+        let expiresAt: string | null = null;
+        if (!profileThemePermanent) {
+            const ms = profileThemeDurationUnit === 'years' ? profileThemeDurationVal * 365 * 24 * 3600000
+                : profileThemeDurationUnit === 'months' ? profileThemeDurationVal * 30 * 24 * 3600000
+                : profileThemeDurationUnit === 'days'   ? profileThemeDurationVal * 24 * 3600000
+                : profileThemeDurationVal * 3600000;
+            expiresAt = new Date(Date.now() + ms).toISOString();
+        }
+        const entry = { bgColor: profileThemeBg, cardColor: profileThemeCard, accentColor: profileThemeAccent, expiresAt, appliedAt: new Date().toISOString() };
+        const prev = (settings as any)?.profilePageThemes || {};
+        const updated = profileThemeTier === 'all'
+            ? { free: entry, basic: entry, ultra: entry }
+            : { ...prev, [profileThemeTier]: entry };
+        const newSettings = { ...(settings || {}), profilePageThemes: updated };
+        try {
+            await saveSystemSettings(newSettings as any);
+            onUpdateSettings?.(newSettings as any);
+            alert(`✅ Profile page theme apply ho gayi!\n👥 ${profileThemeTier === 'all' ? 'Sabhi tiers' : profileThemeTier.toUpperCase()}\n⏱ ${profileThemePermanent ? 'Permanent' : profileThemeDurationVal + ' ' + profileThemeDurationUnit}`);
+        } catch {
+            alert('❌ Error — dobara try karo.');
+        }
+        setProfileThemeSaving(false);
+    };
+
+    const doRemoveProfileTheme = async (tier: 'free' | 'basic' | 'ultra' | 'all') => {
+        if (!confirm(`Profile theme hatana chahte ho? (${tier === 'all' ? 'Sabhi tiers' : tier.toUpperCase()})`)) return;
+        const prev = (settings as any)?.profilePageThemes || {};
+        let updated: any;
+        if (tier === 'all') {
+            updated = {};
+        } else {
+            updated = { ...prev };
+            delete updated[tier];
+        }
+        const newSettings = { ...(settings || {}), profilePageThemes: updated };
+        try {
+            await saveSystemSettings(newSettings as any);
+            onUpdateSettings?.(newSettings as any);
+        } catch {
+            alert('❌ Error — dobara try karo.');
+        }
     };
 
     const doRemoveGlobal = async () => {
@@ -2075,6 +2135,40 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
                                 );
                             })}
                         </div>
+
+                        {/* Profile Page Theme Button */}
+                        <button
+                            onClick={() => setShowProfileThemePopup(true)}
+                            disabled={profileThemeSaving}
+                            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl font-black text-xs text-white active:scale-95 transition-all disabled:opacity-60 border"
+                            style={{ background: 'rgba(236,72,153,0.10)', borderColor: 'rgba(236,72,153,0.25)' }}
+                        >
+                            <span>🎨</span>
+                            <span className="text-pink-400">Profile Page Ka Alag Theme Set Karo</span>
+                        </button>
+                        {/* Profile theme status badges */}
+                        {(() => {
+                            const pt = (settings as any)?.profilePageThemes || {};
+                            const tiers = ['free','basic','ultra'] as const;
+                            const any = tiers.some(t => !!pt[t]);
+                            if (!any) return null;
+                            return (
+                                <div className="grid grid-cols-3 gap-1.5">
+                                    {tiers.map(t => {
+                                        const e = pt[t];
+                                        const active = !!e && (!e.expiresAt || new Date(e.expiresAt) > new Date());
+                                        const colors = { ultra: '#7c3aed', basic: '#2563eb', free: '#0ea5e9' };
+                                        return (
+                                            <div key={t} className="rounded-xl px-2 py-1.5 flex items-center gap-1.5" style={{ background: active ? `${colors[t]}18` : 'rgba(255,255,255,0.04)', border: `1px solid ${active ? colors[t] + '40' : 'rgba(255,255,255,0.08)'}` }}>
+                                                <div className="w-2 h-2 rounded-full shrink-0" style={{ background: active ? e?.accentColor || colors[t] : 'rgba(255,255,255,0.15)' }} />
+                                                <p className="text-[9px] font-bold flex-1" style={{ color: active ? '#fff' : 'rgba(255,255,255,0.3)' }}>P-{t.toUpperCase()}</p>
+                                                {active && <button onClick={() => doRemoveProfileTheme(t)} className="text-[8px] text-red-400 font-bold">✕</button>}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            );
+                        })()}
                     </div>
                 )}
 
@@ -2132,38 +2226,56 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
                         </div>
                         {/* Duration */}
                         <div>
-                            <p className="text-white/60 text-xs font-bold mb-2">⏱ Kitne Ghante Ke Liye?</p>
-                            <div className="grid grid-cols-5 gap-1.5 mb-2">
-                                {[1, 6, 12, 24, 48].map(h => (
-                                    <button key={h} onClick={() => setGlobalNowHours(h)}
-                                        className="py-2 rounded-xl text-[10px] font-bold transition-all active:scale-95"
-                                        style={{
-                                            background: globalNowHours === h ? `linear-gradient(135deg,${theme.btnStart},${theme.btnEnd})` : 'rgba(255,255,255,0.06)',
-                                            color: globalNowHours === h ? '#fff' : 'rgba(255,255,255,0.5)',
-                                            border: `1px solid ${globalNowHours === h ? theme.btnStart + '80' : 'transparent'}`,
-                                        }}
-                                    >{h}h</button>
-                                ))}
-                            </div>
-                            <div className="flex items-center gap-2 rounded-xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}>
-                                <button className="w-10 h-9 flex items-center justify-center text-white/50 text-lg font-bold active:scale-90" onClick={() => setGlobalNowHours(h => Math.max(1, h - 1))}>−</button>
-                                <input type="number" min={1} max={720} value={globalNowHours}
-                                    onChange={e => setGlobalNowHours(Math.max(1, Math.min(720, parseInt(e.target.value) || 1)))}
-                                    className="flex-1 text-center text-sm font-black text-white outline-none bg-transparent py-2"
-                                />
-                                <span className="text-white/40 text-xs pr-2">ghante</span>
-                                <button className="w-10 h-9 flex items-center justify-center text-white/50 text-lg font-bold active:scale-90" onClick={() => setGlobalNowHours(h => Math.min(720, h + 1))}>+</button>
-                            </div>
+                            <p className="text-white/60 text-xs font-bold mb-2">⏱ Kitne Time Ke Liye?</p>
+                            {/* Permanent toggle */}
+                            <button
+                                onClick={() => setGlobalNowPermanent(p => !p)}
+                                className="w-full py-2.5 rounded-xl font-black text-[11px] mb-2 transition-all active:scale-95 flex items-center justify-center gap-2"
+                                style={{
+                                    background: globalNowPermanent ? 'linear-gradient(135deg,#7c3aed,#6366f1)' : 'rgba(255,255,255,0.06)',
+                                    border: `1.5px solid ${globalNowPermanent ? '#7c3aed' : 'transparent'}`,
+                                    color: globalNowPermanent ? '#fff' : 'rgba(255,255,255,0.5)',
+                                }}
+                            >
+                                <span>♾️</span> {globalNowPermanent ? 'Permanent ✓ — Koi expiry nahi' : 'Permanent Karo'}
+                            </button>
+                            {!globalNowPermanent && (
+                                <>
+                                    <div className="grid grid-cols-5 gap-1.5 mb-2">
+                                        {[1, 6, 12, 24, 48].map(h => (
+                                            <button key={h} onClick={() => setGlobalNowHours(h)}
+                                                className="py-2 rounded-xl text-[10px] font-bold transition-all active:scale-95"
+                                                style={{
+                                                    background: globalNowHours === h ? `linear-gradient(135deg,${theme.btnStart},${theme.btnEnd})` : 'rgba(255,255,255,0.06)',
+                                                    color: globalNowHours === h ? '#fff' : 'rgba(255,255,255,0.5)',
+                                                    border: `1px solid ${globalNowHours === h ? theme.btnStart + '80' : 'transparent'}`,
+                                                }}
+                                            >{h}h</button>
+                                        ))}
+                                    </div>
+                                    <div className="flex items-center gap-2 rounded-xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                        <button className="w-10 h-9 flex items-center justify-center text-white/50 text-lg font-bold active:scale-90" onClick={() => setGlobalNowHours(h => Math.max(1, h - 1))}>−</button>
+                                        <input type="number" min={1} value={globalNowHours}
+                                            onChange={e => setGlobalNowHours(Math.max(1, parseInt(e.target.value) || 1))}
+                                            className="flex-1 text-center text-sm font-black text-white outline-none bg-transparent py-2"
+                                        />
+                                        <span className="text-white/40 text-xs pr-2">ghante</span>
+                                        <button className="w-10 h-9 flex items-center justify-center text-white/50 text-lg font-bold active:scale-90" onClick={() => setGlobalNowHours(h => h + 1)}>+</button>
+                                    </div>
+                                </>
+                            )}
                         </div>
                         {/* Summary */}
                         <div className="rounded-2xl p-3" style={{ background: `${theme.btnStart}12`, border: `1px solid ${theme.btnStart}25` }}>
                             <p className="text-[10px] text-white/50 font-bold uppercase tracking-wide mb-1">Summary</p>
                             <p className="text-xs text-white font-bold">
-                                👥 {globalNowTier === 'ALL' ? 'Sabhi users' : globalNowTier} · ⏱ {globalNowHours}h ke liye
+                                👥 {globalNowTier === 'ALL' ? 'Sabhi users' : globalNowTier} · ⏱ {globalNowPermanent ? 'Permanent (koi expiry nahi)' : `${globalNowHours}h ke liye`}
                             </p>
-                            <p className="text-[10px] text-white/40 mt-0.5">
-                                Expires: {new Date(Date.now() + globalNowHours * 3600000).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
-                            </p>
+                            {!globalNowPermanent && (
+                                <p className="text-[10px] text-white/40 mt-0.5">
+                                    Expires: {new Date(Date.now() + globalNowHours * 3600000).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+                                </p>
+                            )}
                         </div>
                         {/* Buttons */}
                         <div className="flex gap-2">
@@ -2176,6 +2288,111 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
                                 style={{ background: `linear-gradient(135deg,${theme.btnStart},${theme.btnEnd})`, boxShadow: `0 4px 16px ${theme.btnStart}40` }}
                             >
                                 {globalNowSaving ? 'Applying...' : '🌐 Abhi Apply Karo'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {/* ══════════════════════════════════════════════════
+            ADMIN PROFILE PAGE THEME POPUP
+        ══════════════════════════════════════════════════ */}
+        {showProfileThemePopup && (
+            <div className="fixed inset-0 z-[300] flex items-end justify-center pb-6 px-4" style={{ background: 'rgba(0,0,0,0.82)', backdropFilter: 'blur(6px)' }}>
+                <div className="w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl" style={{ background: '#0d0f1a', border: '1px solid rgba(236,72,153,0.40)' }}>
+                    <div className="px-5 py-4 flex items-center gap-3" style={{ background: 'linear-gradient(135deg,rgba(236,72,153,0.25),rgba(168,85,247,0.15))', borderBottom: '1px solid rgba(236,72,153,0.25)' }}>
+                        <div className="w-9 h-9 rounded-xl flex items-center justify-center text-xl" style={{ background: 'rgba(236,72,153,0.20)' }}>🎨</div>
+                        <div className="flex-1">
+                            <p className="text-white font-black text-sm">Profile Page Theme</p>
+                            <p className="text-[10px] text-pink-300/70">Alag tier ke liye alag profile colors</p>
+                        </div>
+                        <button onClick={() => setShowProfileThemePopup(false)} className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center"><X size={13} className="text-white/70" /></button>
+                    </div>
+                    <div className="p-5 pb-8 flex flex-col gap-4 overflow-y-auto max-h-[78vh]">
+                        {/* Tier */}
+                        <div>
+                            <p className="text-white/60 text-xs font-bold mb-2">👥 Kis Tier Ke Liye?</p>
+                            <div className="grid grid-cols-4 gap-1.5">
+                                {(['all','ultra','basic','free'] as const).map(t => {
+                                    const cols: Record<string,string> = { all:'#ec4899', ultra:'#7c3aed', basic:'#2563eb', free:'#0ea5e9' };
+                                    const emojis: Record<string,string> = { all:'🌐', ultra:'💎', basic:'⭐', free:'🎓' };
+                                    const sel = profileThemeTier === t;
+                                    return (
+                                        <button key={t} onClick={() => setProfileThemeTier(t)}
+                                            className="py-2.5 rounded-2xl flex flex-col items-center gap-0.5 text-[10px] font-black transition-all active:scale-95"
+                                            style={{ background: sel ? `${cols[t]}30` : 'rgba(255,255,255,0.05)', border: `2px solid ${sel ? cols[t]+'80' : 'transparent'}`, color: sel ? '#fff' : 'rgba(255,255,255,0.35)' }}>
+                                            <span className="text-base">{emojis[t]}</span>
+                                            {t === 'all' ? 'Sabhi' : t.toUpperCase()}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                        {/* Color Pickers */}
+                        <div>
+                            <p className="text-white/60 text-xs font-bold mb-2">🎨 Colors</p>
+                            <div className="flex flex-col gap-2">
+                                {[
+                                    { label: 'Profile Background', key: 'bg' as const, val: profileThemeBg, set: setProfileThemeBg },
+                                    { label: 'Card Background', key: 'card' as const, val: profileThemeCard, set: setProfileThemeCard },
+                                    { label: 'Accent Color', key: 'accent' as const, val: profileThemeAccent, set: setProfileThemeAccent },
+                                ].map(({ label, val, set }) => (
+                                    <div key={label} className="flex items-center gap-3 rounded-xl px-3 py-2.5" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                        <div className="w-8 h-8 rounded-lg overflow-hidden border border-white/20 shrink-0">
+                                            <input type="color" value={val} onChange={e => set(e.target.value)} className="w-12 h-12 -m-2 cursor-pointer border-none outline-none bg-transparent" style={{ appearance: 'none' }} />
+                                        </div>
+                                        <p className="text-[11px] font-bold text-white/70 flex-1">{label}</p>
+                                        <span className="text-[10px] font-mono text-white/40">{val.toUpperCase()}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        {/* Duration */}
+                        <div>
+                            <p className="text-white/60 text-xs font-bold mb-2">⏱ Kitne Time Ke Liye?</p>
+                            <button
+                                onClick={() => setProfileThemePermanent(p => !p)}
+                                className="w-full py-2.5 rounded-xl font-black text-[11px] mb-2 flex items-center justify-center gap-2 transition-all active:scale-95"
+                                style={{ background: profileThemePermanent ? 'linear-gradient(135deg,#7c3aed,#ec4899)' : 'rgba(255,255,255,0.06)', border: `1.5px solid ${profileThemePermanent ? '#7c3aed' : 'transparent'}`, color: profileThemePermanent ? '#fff' : 'rgba(255,255,255,0.5)' }}
+                            >♾️ {profileThemePermanent ? 'Permanent ✓' : 'Permanent Karo'}</button>
+                            {!profileThemePermanent && (
+                                <div className="flex gap-2">
+                                    <div className="flex items-center gap-1.5 rounded-xl overflow-hidden flex-1" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)' }}>
+                                        <button className="w-9 h-9 flex items-center justify-center text-white/50 font-bold" onClick={() => setProfileThemeDurationVal(v => Math.max(1, v-1))}>−</button>
+                                        <input type="number" min={1} value={profileThemeDurationVal} onChange={e => setProfileThemeDurationVal(Math.max(1, parseInt(e.target.value)||1))} className="flex-1 text-center text-sm font-black text-white outline-none bg-transparent py-2" />
+                                        <button className="w-9 h-9 flex items-center justify-center text-white/50 font-bold" onClick={() => setProfileThemeDurationVal(v => v+1)}>+</button>
+                                    </div>
+                                    <div className="grid grid-cols-4 gap-1">
+                                        {(['hours','days','months','years'] as const).map(u => (
+                                            <button key={u} onClick={() => setProfileThemeDurationUnit(u)}
+                                                className="py-1.5 rounded-lg text-[9px] font-black transition-all active:scale-95"
+                                                style={{ background: profileThemeDurationUnit === u ? '#ec4899' : 'rgba(255,255,255,0.06)', color: profileThemeDurationUnit === u ? '#fff' : 'rgba(255,255,255,0.4)' }}>
+                                                {u === 'hours' ? 'Hrs' : u === 'days' ? 'Days' : u === 'months' ? 'Mon' : 'Yrs'}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                        {/* Preview */}
+                        <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.10)' }}>
+                            <div className="px-4 py-3 flex items-center gap-3" style={{ background: profileThemeBg }}>
+                                <div className="w-10 h-10 rounded-full flex items-center justify-center font-black text-white" style={{ background: profileThemeAccent }}>A</div>
+                                <div>
+                                    <p className="text-[12px] font-black" style={{ color: profileThemeAccent }}>Profile Preview</p>
+                                    <p className="text-[10px]" style={{ color: profileThemeAccent + '80' }}>Bg + Accent preview</p>
+                                </div>
+                            </div>
+                            <div className="p-3" style={{ background: profileThemeCard }}>
+                                <div className="h-6 rounded-lg w-3/4" style={{ background: profileThemeAccent + '30' }} />
+                            </div>
+                        </div>
+                        {/* Buttons */}
+                        <div className="flex gap-2">
+                            <button onClick={() => setShowProfileThemePopup(false)} className="flex-1 py-3 rounded-2xl font-bold text-sm text-white/40 border border-white/10 active:scale-95" style={{ background: 'rgba(255,255,255,0.04)' }}>Cancel</button>
+                            <button onClick={doApplyProfileTheme} disabled={profileThemeSaving} className="flex-1 py-3 rounded-2xl font-black text-sm text-white active:scale-95 disabled:opacity-40" style={{ background: 'linear-gradient(135deg,#ec4899,#a855f7)', boxShadow: '0 4px 16px rgba(236,72,153,0.40)' }}>
+                                {profileThemeSaving ? 'Applying...' : '🎨 Apply Karo'}
                             </button>
                         </div>
                     </div>

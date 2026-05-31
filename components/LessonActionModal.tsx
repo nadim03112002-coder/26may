@@ -56,7 +56,7 @@ export const LessonActionModal: React.FC<Props> = ({ chapter, onClose, onSelect,
                             <div className="w-9 h-9 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors">
                                 <FileText size={16} />
                             </div>
-                            <span className="font-bold text-slate-600 text-[11px] group-hover:text-blue-600">Notes</span>
+                            <span className="font-bold text-slate-600 text-[11px] group-hover:text-blue-600">Reading Notes</span>
                         </button>
 
                         <button
@@ -75,7 +75,7 @@ export const LessonActionModal: React.FC<Props> = ({ chapter, onClose, onSelect,
                                 {isPremiumUser ? <FileText size={16} /> : <Lock size={16} />}
                             </div>
                             <span className={`font-bold text-[11px] ${isPremiumUser ? 'text-slate-600 group-hover:text-amber-600' : 'text-amber-600'}`}>
-                                Premium PDF
+                                PDF
                             </span>
                             {!isPremiumUser && (
                                 <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-amber-500 rounded-full flex items-center justify-center">

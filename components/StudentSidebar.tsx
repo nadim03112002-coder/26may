@@ -1,6 +1,7 @@
-import React from 'react';
-import { X, Gift, Gamepad2, CreditCard, Crown, History, BrainCircuit, Award, Trophy, Mail, User, ChevronRight, LogOut, FileClock, Download, Palette } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, Gift, Gamepad2, CreditCard, Crown, History, BrainCircuit, Award, Trophy, Mail, User, ChevronRight, LogOut, FileClock, Download, Palette, Sparkles, ChevronDown, ChevronUp } from 'lucide-react';
 import { StudentTab, User as UserType, SystemSettings } from '../types';
+import { FeatureTipsList } from './FeatureHints';
 
 interface Props {
     isOpen: boolean;
@@ -12,6 +13,8 @@ interface Props {
 }
 
 export const StudentSidebar: React.FC<Props> = ({ isOpen, onClose, onNavigate, user, onLogout, settings }) => {
+    const [showFeatureTips, setShowFeatureTips] = useState(false);
+    const isImpersonating = !!(user as any)._impersonating;
 
     const rawItems: { id: StudentTab, icon: any, label: string, color: string, featureId?: string, category?: string }[] = [
         // --- LEARNING & PROGRESS ---
@@ -118,6 +121,25 @@ export const StudentSidebar: React.FC<Props> = ({ isOpen, onClose, onNavigate, u
                             </div>
                         );
                     })}
+                </div>
+
+                {/* Feature Tips Section */}
+                <div className="mx-1 rounded-2xl overflow-hidden" style={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.08)' }}>
+                    <button
+                        onClick={() => setShowFeatureTips(v => !v)}
+                        className="w-full flex items-center justify-between px-4 py-3 active:bg-white/5 transition-all"
+                    >
+                        <div className="flex items-center gap-2">
+                            <Sparkles size={16} className="text-yellow-400" />
+                            <span className="font-black text-sm text-white">Feature Tips</span>
+                        </div>
+                        {showFeatureTips ? <ChevronUp size={15} className="text-white/40" /> : <ChevronDown size={15} className="text-white/40" />}
+                    </button>
+                    {showFeatureTips && (
+                        <div className="px-3 pb-3">
+                            <FeatureTipsList onTabChange={t => { onNavigate(t as any); onClose(); }} onClose={onClose} />
+                        </div>
+                    )}
                 </div>
 
                 {/* Footer Actions */}
