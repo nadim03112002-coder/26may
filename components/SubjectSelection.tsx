@@ -82,6 +82,7 @@ const getSubjectStats = (
 
   const prefix = `nst_content_${board}_${classLevel}_`;
   const subjectNameLower = subject.name.toLowerCase().replace(/\s+/g, '_');
+  const subjectIdLower = subject.id.toLowerCase().replace(/\s+/g, '_');
   let notes = 0, pdf = 0, video = 0, audio = 0, mcq = 0;
 
   Object.entries(contentIndex).forEach(([key, entry]) => {
@@ -89,8 +90,8 @@ const getSubjectStats = (
     const rest = key.slice(prefix.length);
     const restLower = rest.toLowerCase();
     const storedSubject = (entry.subject || '').toLowerCase().replace(/\s+/g, '_');
-    if (!storedSubject && !restLower.startsWith(subjectNameLower + '_')) return;
-    if (storedSubject && storedSubject !== subjectNameLower) return;
+    if (!storedSubject && !restLower.startsWith(subjectNameLower + '_') && !restLower.startsWith(subjectIdLower + '_')) return;
+    if (storedSubject && storedSubject !== subjectNameLower && storedSubject !== subjectIdLower) return;
     if (entry.notes)  notes++;
     if (entry.pdf)    pdf++;
     if (entry.video)  video++;

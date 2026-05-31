@@ -125,6 +125,7 @@ import {
   CheckSquare,
   Menu,
   LayoutGrid,
+  Minimize2,
   Compass,
   User as UserIconOutline,
   MessageSquare,
@@ -2466,6 +2467,7 @@ export const StudentDashboard: React.FC<Props> = ({
   const [lucentOptionsOpen, setLucentOptionsOpen] = useState(false);
   const [hwOptionsOpen, setHwOptionsOpen] = useState(false);
   const [lucentFabOpen, setLucentFabOpen] = useState(false);
+  const [lucentImmersive, setLucentImmersive] = useState(false);
   // Reset both tabs + view mode when page or note changes
   // Honours lucentInitialTabRef if set by the content-picker popup
   useEffect(() => {
@@ -6539,15 +6541,17 @@ export const StudentDashboard: React.FC<Props> = ({
                     setLoadingChapters(false);
                   });
                 }
-              }} className={`${cat.color.split(' ')[0]} border-2 ${cat.color.split(' ')[0].replace('bg-', 'border-').replace('50', '200')} p-4 rounded-2xl flex items-center gap-4 hover:shadow-md transition-all active:scale-95 text-left`}>
-                <div className={`w-12 h-12 rounded-xl ${cat.color} flex items-center justify-center text-xl font-black`}>
+              }} className="bg-white p-4 rounded-2xl flex items-center gap-4 hover:shadow-md transition-all active:scale-95 text-left border-2"
+                style={{ borderColor: `${tierTheme.primary}55` }}>
+                <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl font-black border-2"
+                  style={{ background: `${tierTheme.primary}18`, borderColor: `${tierTheme.primary}40`, color: tierTheme.primary }}>
                   {cat.name.charAt(0)}
                 </div>
                 <div className="flex-1">
-                  <p className={`font-black text-base ${cat.color.split(' ')[1]}`}>{cat.name.split('(')[1]?.replace(')', '') || cat.name}</p>
+                  <p className="font-black text-base text-slate-800">{cat.name.split('(')[1]?.replace(')', '') || cat.name}</p>
                   <p className="text-xs text-slate-500">{cat.name.split('(')[0].trim()}</p>
                 </div>
-                <ChevronRight size={18} className="text-slate-400" />
+                <ChevronRight size={18} style={{ color: tierTheme.primary }} />
               </button>
             ))}
           </div>
@@ -9092,7 +9096,7 @@ export const StudentDashboard: React.FC<Props> = ({
         style={{ background: tierTheme.topBarGrad }}
       >
         {/* Main Header Row */}
-        <div className="flex items-center justify-between w-full px-3 pt-2 pb-1.5">
+        <div className="flex items-center justify-between w-full px-3 pt-2 pb-0.5">
           {/* LEFT: hamburger + logo + app name */}
           <div
             className="flex items-center gap-2 shrink-0 cursor-pointer"
@@ -9270,7 +9274,7 @@ export const StudentDashboard: React.FC<Props> = ({
         </div>
 
         {/* SECOND LINE: greeting + Level / Credits / Subscription pills */}
-        <div className="flex items-center justify-between w-full mt-0.5 pt-1 px-4 pb-1.5">
+        <div className="flex items-center justify-between w-full mt-0 pt-0.5 px-4 pb-1.5">
 
           {/* Left: two-line greeting */}
           {(() => {
@@ -9301,10 +9305,10 @@ export const StudentDashboard: React.FC<Props> = ({
               return (
                 <button
                   onClick={() => { setShowScorePanel(true); setScorePanelTab('DAILY'); }}
-                  className={`inline-flex items-center gap-[3px] text-[11px] font-black text-white whitespace-nowrap shrink-0 active:scale-95 transition-all${topBarBtnGlow ? ' nst-topbar-btn-glow' : ''}`}
+                  className={`inline-flex items-center gap-[2px] font-black text-white whitespace-nowrap shrink-0 active:scale-95 transition-all${topBarBtnGlow ? ' nst-topbar-btn-glow' : ''}`}
                   title="View my level"
                 >
-                  <span>Level {_li.level}</span>
+                  <span className="text-[14px]">Level</span><span className="text-[13px]"> {_li.level}</span>
                 </button>
               );
             })()}
@@ -14792,10 +14796,11 @@ export const StudentDashboard: React.FC<Props> = ({
         return (
           <div className="fixed inset-0 z-[190] flex flex-col animate-in fade-in" style={{ background: 'var(--bg, #f8fafc)' }}>
             {/* Header */}
-            <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-200 bg-white shrink-0 shadow-sm">
+            <div className="flex items-center gap-3 px-4 py-3 border-b shrink-0 shadow-sm" style={{ background: tierTheme.profileCardBg || '#fff', borderColor: `${tierTheme.primary}33` }}>
               <button
                 onClick={() => setLucentPageListViewer(null)}
-                className="p-2 rounded-full bg-slate-100 text-slate-600 active:scale-95 transition-all"
+                className="p-2 rounded-full active:scale-95 transition-all"
+                style={{ background: `${tierTheme.primary}18`, color: tierTheme.primary }}
               >
                 <ChevronLeft size={18} />
               </button>
@@ -14806,7 +14811,7 @@ export const StudentDashboard: React.FC<Props> = ({
                   {topicNames.length > 0 ? ` · ${topicNames.length} topic${topicNames.length > 1 ? 's' : ''}` : ''}
                 </p>
               </div>
-              <span className="text-[10px] font-black bg-violet-100 text-violet-600 px-2 py-1 rounded-full shrink-0">
+              <span className="text-[10px] font-black px-2 py-1 rounded-full shrink-0" style={{ background: `${tierTheme.primary}20`, color: tierTheme.primary }}>
                 📘 Pages
               </span>
             </div>
@@ -14821,16 +14826,17 @@ export const StudentDashboard: React.FC<Props> = ({
                   <button
                     key={idx}
                     onClick={() => setContentPickerPopup({ type: 'LUCENT', entry: plEntry, pageIdx: idx })}
-                    className="w-full text-left bg-white border border-slate-200 rounded-2xl px-4 py-3 flex items-center gap-3 active:scale-[0.98] hover:shadow-md transition-all"
+                    className="w-full text-left bg-white rounded-2xl px-4 py-3 flex items-center gap-3 active:scale-[0.98] hover:shadow-md transition-all border"
+                    style={{ borderColor: `${tierTheme.primary}33` }}
                   >
-                    <div className="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center shrink-0">
-                      <span className="text-[11px] font-black text-violet-600">{idx + 1}</span>
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${tierTheme.primary}20` }}>
+                      <span className="text-[11px] font-black" style={{ color: tierTheme.primary }}>{idx + 1}</span>
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-xs font-black text-slate-700">{pgNo}</span>
                         {topic && (
-                          <span className="text-[10px] font-bold bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full">
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: `${tierTheme.primary}15`, color: tierTheme.primary }}>
                             📌 {topic}
                           </span>
                         )}
@@ -14844,7 +14850,7 @@ export const StudentDashboard: React.FC<Props> = ({
                         <p className="text-[11px] text-slate-400 mt-1 truncate">{preview}…</p>
                       )}
                     </div>
-                    <ChevronRight size={16} className="text-slate-400 shrink-0" />
+                    <ChevronRight size={16} className="shrink-0" style={{ color: tierTheme.primary }} />
                   </button>
                 );
               })}
@@ -15191,7 +15197,7 @@ export const StudentDashboard: React.FC<Props> = ({
               </button>
             )}
             {/* Header */}
-            <div className={`text-white px-4 py-3 flex items-center gap-2 shrink-0 ${isLandscapeUiHidden ? 'hidden' : ''}`} style={{ background: tierTheme.topBarGrad }}>
+            <div className={`text-white px-4 py-3 flex items-center gap-2 shrink-0 ${(isLandscapeUiHidden || lucentImmersive) ? 'hidden' : ''}`} style={{ background: tierTheme.topBarGrad }}>
               <button onClick={closeLucentViewer} className="bg-white/20 hover:bg-white/30 p-2 rounded-full shrink-0 transition-colors">
                 <ChevronRight size={18} className="rotate-180" />
               </button>
@@ -15306,7 +15312,7 @@ export const StudentDashboard: React.FC<Props> = ({
               const _pgHasVideo = !!(currentPage as any)?.videoUrl;
               if (!_pgHasNotes && !_pgHasVideo) return null;
               return (
-                <div className={`shrink-0 bg-white border-b border-slate-100 px-4 py-2 flex items-center gap-2 ${isLandscapeUiHidden ? 'hidden' : ''}`}>
+                <div className={`shrink-0 bg-white border-b border-slate-100 px-4 py-2 flex items-center gap-2 ${(isLandscapeUiHidden || lucentImmersive) ? 'hidden' : ''}`}>
                   {_pgHasNotes && (
                     <button
                       onClick={() => { setLucentActiveTab('NOTES'); }}
@@ -16090,7 +16096,7 @@ RULES:
 
             {/* Fixed bottom nav — at first/last page, Prev/Next jump to
                 previous / next Lucent lesson automatically. */}
-            <div className={`fixed bottom-0 left-0 right-0 z-[210] pb-safe border-t border-slate-100 bg-white px-4 py-3 flex items-center gap-3 ${isLandscapeUiHidden ? 'hidden' : ''}`}>
+            <div className={`fixed bottom-0 left-0 right-0 z-[210] pb-safe border-t border-slate-100 bg-white px-4 py-3 flex items-center gap-3 ${(isLandscapeUiHidden || lucentImmersive) ? 'hidden' : ''}`}>
               <button onClick={() => { stopSpeech(); goPrev(); }} disabled={!canGoPrev}
                 title={safeIndex <= 0 && prevLesson ? `Previous lesson: ${prevLesson.lessonTitle}` : 'Previous page'}
                 className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-2xl font-bold text-sm border-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
@@ -16111,28 +16117,47 @@ RULES:
               </button>
             </div>
 
-            {/* Lucent FAB — Back to Top only (Save moved to top bar / 3-dot) */}
+            {/* Lucent FAB — Focus Mode + More + Back to Top */}
             {lucentFabOpen && (
               <div className="fixed inset-0 z-[9998]" onClick={() => setLucentFabOpen(false)} />
             )}
-            {lucentFabOpen && lucentScrollProgress > 30 && (
-              <div className="fixed flex flex-col gap-2 items-end z-[9999]" style={{ bottom: '88px', right: '16px' }}>
+            {lucentFabOpen && (
+              <div className="fixed flex flex-col gap-2 items-end z-[9999]" style={{ bottom: lucentImmersive ? '80px' : '88px', right: '16px' }}>
+                {/* Back to Top — only when scrolled */}
+                {lucentScrollProgress > 30 && (
+                  <button
+                    onClick={() => { const n = lucentScrollContainerRef.current; if (n) n.scrollTo({ top: 0, behavior: 'smooth' }); setLucentFabOpen(false); }}
+                    className="flex items-center gap-2 bg-slate-800 text-white px-3 py-2 rounded-full text-xs font-black shadow-xl active:scale-95 transition-all whitespace-nowrap"
+                  >
+                    ↑ Top pe jao
+                  </button>
+                )}
+                {/* Focus Mode toggle */}
                 <button
-                  onClick={() => { const n = lucentScrollContainerRef.current; if (n) n.scrollTo({ top: 0, behavior: 'smooth' }); setLucentFabOpen(false); }}
-                  className="flex items-center gap-2 bg-slate-800 text-white px-3 py-2 rounded-full text-xs font-black shadow-xl active:scale-95 transition-all whitespace-nowrap"
+                  onClick={() => { setLucentImmersive(v => !v); setLucentFabOpen(false); }}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-full text-xs font-black shadow-xl active:scale-95 transition-all whitespace-nowrap ${lucentImmersive ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-white'}`}
                 >
-                  ↑ Top pe jao
+                  {lucentImmersive ? '↩ Focus Mode Band' : '🎯 Focus Mode'}
+                </button>
+                {/* More options */}
+                <button
+                  onClick={() => { setContentPickerPopup({ type: 'LUCENT', entry, pageIdx: safeIndex }); setLucentFabOpen(false); }}
+                  className="flex items-center gap-2 bg-violet-700 text-white px-3 py-2 rounded-full text-xs font-black shadow-xl active:scale-95 transition-all whitespace-nowrap"
+                >
+                  <LayoutGrid size={12} /> More
                 </button>
               </div>
             )}
             <button
               onClick={() => setLucentFabOpen(v => !v)}
-              className={`fixed bottom-[72px] right-4 z-[9999] w-12 h-12 rounded-full shadow-xl flex items-center justify-center text-white transition-all overflow-hidden border-2 ${lucentFabOpen ? 'bg-indigo-600 border-indigo-400' : 'bg-[rgba(15,23,42,0.88)] border-white/40'}`}
-              style={{ backdropFilter: 'blur(10px)' }}
+              className={`fixed z-[9999] w-12 h-12 rounded-full shadow-xl flex items-center justify-center text-white transition-all overflow-hidden border-2 ${lucentFabOpen ? 'bg-indigo-600 border-indigo-400' : lucentImmersive ? 'bg-indigo-700 border-indigo-400' : 'bg-[rgba(15,23,42,0.88)] border-white/40'}`}
+              style={{ backdropFilter: 'blur(10px)', bottom: lucentImmersive ? '16px' : '72px', right: '16px' }}
               title={lucentFabOpen ? 'Close menu' : 'Options'}
             >
               {lucentFabOpen ? (
                 <X size={20} style={{ pointerEvents: 'none' }} />
+              ) : lucentImmersive ? (
+                <Minimize2 size={18} style={{ pointerEvents: 'none' }} />
               ) : lucentSaved ? (
                 <CloudOff size={20} style={{ pointerEvents: 'none', color: '#34d399' }} />
               ) : settings?.appLogo ? (

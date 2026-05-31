@@ -2230,20 +2230,6 @@ export const PdfView: React.FC<Props> = ({
                                                                       />
                                                                   ))}
                                                                   <div className="flex-1"></div>
-                                                                  <div className="flex items-center gap-1">
-                                                                       <button
-                                                                           onClick={(e) => { e.stopPropagation(); stopSpeech(); setIsAutoPlaying(false); setDeepDiveViewMode('chunk'); }}
-                                                                           className={`flex items-center gap-0.5 px-2 py-0.5 rounded-md text-[9px] font-black transition-all border ${deepDiveViewMode === 'chunk' ? 'bg-amber-400 text-white border-amber-400 shadow-sm' : 'bg-slate-100/50 text-slate-500 border-slate-200 hover:bg-slate-200'}`}
-                                                                       >
-                                                                           <Volume2 size={9} /> Read
-                                                                       </button>
-                                                                       <button
-                                                                           onClick={(e) => { e.stopPropagation(); handleWriteModeClick(); }}
-                                                                           className={`flex items-center gap-0.5 px-2 py-0.5 rounded-md text-[9px] font-black transition-all border ${deepDiveViewMode === 'html' ? 'bg-teal-400 text-white border-teal-400 shadow-sm' : 'bg-slate-100/50 text-slate-500 border-slate-200 hover:bg-slate-200'}`}
-                                                                       >
-                                                                           <FileText size={9} /> Write
-                                                                       </button>
-                                                                  </div>
                                                               </div>
 
                                                               {/* CHUNKED CONTENT — each Hindi-danda sentence /

@@ -364,7 +364,7 @@ export const LessonView: React.FC<Props> = ({
           >
             {isImmersive ? '↩ Exit Focus' : '🎯 Focus Mode'}
           </button>
-          {_modeToggleFn.current && (
+          {isHtml && (
             <button
               onClick={() => { _modeToggleFn.current?.(notesViewMode === 'readable' ? 'styled' : 'readable'); setFabOpen(false); }}
               style={{ display: 'flex', alignItems: 'center', gap: '6px', background: notesViewMode === 'styled' ? '#0f766e' : '#6366f1', color: '#fff', border: 'none', borderRadius: '24px', padding: '8px 14px', fontSize: '12px', fontWeight: 900, boxShadow: '0 4px 16px rgba(0,0,0,0.25)', cursor: 'pointer', whiteSpace: 'nowrap' }}
