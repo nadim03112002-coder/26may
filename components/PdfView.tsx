@@ -4,7 +4,7 @@ import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
 import { Chapter, User, Subject, SystemSettings, HtmlModule, PremiumNoteSlot, DeepDiveEntry, AdditionalNoteEntry } from '../types';
-import { FileText, Lock, ArrowLeft, Crown, Star, CheckCircle, AlertCircle, Globe, Maximize, Minimize, Layers, HelpCircle, Minus, Plus, Volume2, VolumeX, Square, Zap, Headphones, BookOpen, Music, Play, Pause, SkipForward, SkipBack, Book, List, Layout, ExternalLink, GraduationCap, ChevronRight, Sparkles, RotateCw, RotateCcw, Palette, Type, Monitor } from 'lucide-react';
+import { FileText, Lock, ArrowLeft, Crown, Star, CheckCircle, AlertCircle, Globe, Maximize, Minimize, Layers, HelpCircle, Minus, Plus, Volume2, VolumeX, Square, Zap, Headphones, BookOpen, Music, Play, Pause, SkipForward, SkipBack, Book, List, LayoutGrid, ExternalLink, GraduationCap, ChevronRight, Sparkles, RotateCw, RotateCcw, Palette, Type, Monitor } from 'lucide-react';
 import { ReadingStylePopover } from './ReadingStylePopover';
 import { CustomAlert } from './CustomDialogs';
 import { getChapterData, saveUserToLive } from '../firebase';
@@ -41,6 +41,7 @@ interface Props {
   settings?: SystemSettings;
   initialSyllabusMode?: 'SCHOOL' | 'COMPETITION';
   initialActiveTab?: 'DEEP_DIVE' | 'PREMIUM';
+  initialDeepDiveViewMode?: 'chunk' | 'html';
   directResource?: { url: string, access: string };
     /** Notify parent that immersive mode changed (used to hide global bottom nav) */
     onImmersiveChange?: (isImmersive: boolean) => void;
@@ -169,7 +170,7 @@ const extractTopicsFromHtml = (html: string): { title: string, content: string }
 };
 
 export const PdfView: React.FC<Props> = ({ 
-    chapter, subject, user, board, classLevel, stream, onBack, onUpdateUser, settings, initialSyllabusMode, initialActiveTab, directResource, onImmersiveChange, hideHeader, onMoreOptions
+    chapter, subject, user, board, classLevel, stream, onBack, onUpdateUser, settings, initialSyllabusMode, initialActiveTab, initialDeepDiveViewMode, directResource, onImmersiveChange, hideHeader, onMoreOptions
 }) => {
   const [contentData, setContentData] = useState<any>({});
   const [loading, setLoading] = useState(true);
@@ -431,7 +432,7 @@ export const PdfView: React.FC<Props> = ({
   const [isAutoPlaying, setIsAutoPlaying] = useState(false);
   const [topicSpeakingState, setTopicSpeakingState] = useState<number | null>(null); // Index of topic currently speaking
   // Read Mode = ChunkedNotesReader (TTS), Write Mode = HTML rendered view
-  const [deepDiveViewMode, setDeepDiveViewMode] = useState<'chunk' | 'html'>('chunk');
+  const [deepDiveViewMode, setDeepDiveViewMode] = useState<'chunk' | 'html'>(initialDeepDiveViewMode || 'chunk');
   const [htmlTtsTopicIdx, setHtmlTtsTopicIdx] = useState<number | null>(null);
   const [writeModePendingCost, setWriteModePendingCost] = useState<number>(0);
     const [isImmersive, setIsImmersive] = useState(false);
@@ -1633,7 +1634,7 @@ export const PdfView: React.FC<Props> = ({
                            className="p-1.5 hover:bg-slate-100 rounded-full text-slate-500 shrink-0"
                            title="More options"
                        >
-                           <Layout size={14} />
+                           <LayoutGrid size={15} />
                        </button>
                    )}
                </div>
@@ -1651,7 +1652,7 @@ export const PdfView: React.FC<Props> = ({
                            className="p-1.5 hover:bg-slate-100 rounded-full text-slate-500 shrink-0"
                            title="More options"
                        >
-                           <Layout size={14} />
+                           <LayoutGrid size={15} />
                        </button>
                    )}
                    {/* Aa font controls also available on Retention so students
@@ -1729,9 +1730,9 @@ export const PdfView: React.FC<Props> = ({
                        /* "Extended" tab hata diya — ab Additional Notes Concept tab ke
                           andar "Read More" button ke through dikhenge taaki student ke liye
                           sirf 2 main pages rahe (Concept + Retention). */
-                       { id: 'DEEP_DIVE', label: 'Concept', icon: BookOpen, show: true },
+                       { id: 'DEEP_DIVE', label: 'Concept', icon: BookOpen, show: !['6','7','8','9','10','11','12'].includes(classLevel) },
                        { id: 'PREMIUM', label: 'Retention', icon: Crown, show: true },
-                       { id: 'TEACHER', label: 'Teaching Strategy', icon: BookOpen, show: user.role === 'TEACHER' || !!user.teacherCode || user.role === 'ADMIN' }
+                       { id: 'TEACHER', label: 'Teaching Strategy', icon: BookOpen, show: !['6','7','8','9','10','11','12'].includes(classLevel) && (user.role === 'TEACHER' || !!user.teacherCode || user.role === 'ADMIN') }
                            ].filter(t => t.show).map(tab => {
                                const { hasAccess, cost } = getTabAccess(tab.id);
                                const isLocked = !hasAccess;
@@ -1897,11 +1898,22 @@ export const PdfView: React.FC<Props> = ({
                                            <p className={`text-[9px] font-bold uppercase tracking-wider leading-none ${deepDiveViewMode === 'html' ? 'text-amber-400' : 'text-teal-600'}`}>DEEP DIVE {deepDiveViewMode === 'html' ? '✦ WRITE' : ''}</p>
                                            <p className={`text-sm font-black truncate leading-snug ${deepDiveViewMode === 'html' ? 'text-white' : 'text-slate-800'}`}>{chapter.title}</p>
                                        </div>
-                                       <span className={`shrink-0 text-[10px] font-bold ${deepDiveViewMode === 'html' ? 'text-white/40' : 'text-slate-400'}`}>{deepDiveTopics.length} Sections</span>
+                                                       <span className={`shrink-0 text-[10px] font-bold ${deepDiveViewMode === 'html' ? 'text-white/40' : 'text-slate-400'}`}>{deepDiveTopics.length} Sections</span>
+                                       {onMoreOptions && (
+                                           <button
+                                               onClick={onMoreOptions}
+                                               className={`shrink-0 p-1.5 rounded-full transition-colors ${deepDiveViewMode === 'html' ? 'text-white/60 hover:bg-white/10 active:bg-white/15' : 'text-slate-500 hover:bg-slate-100 active:bg-slate-200'}`}
+                                               title="More options"
+                                               aria-label="Switch mode"
+                                           >
+                                               <LayoutGrid size={15} />
+                                           </button>
+                                       )}
                                    </div>
                                    {/* Row 2: action buttons */}
                                    {!(syllabusMode === 'COMPETITION' && isImmersive) && (
                                    <div className="flex items-center gap-1 px-3 pb-2">
+                                       {!['6','7','8','9','10','11','12'].includes(classLevel) && (<>
                                        <button
                                            onClick={() => { stopSpeech(); setIsAutoPlaying(false); setDeepDiveViewMode('chunk'); }}
                                            className={`flex items-center gap-0.5 px-2 py-1 rounded-lg text-[10px] font-black transition-all border ${deepDiveViewMode === 'chunk' ? 'bg-amber-400 text-white border-amber-400 shadow-sm' : deepDiveViewMode === 'html' ? 'bg-white/8 text-white/60 border-white/15 hover:bg-white/15' : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200'}`}
@@ -1916,6 +1928,7 @@ export const PdfView: React.FC<Props> = ({
                                            <FileText size={11} /> Write
                                            {!user.subscriptionLevel && deepDiveViewMode !== 'html' && <span className="text-[8px] bg-amber-200 text-amber-800 px-1 rounded ml-0.5">5CR</span>}
                                        </button>
+                                       </>)}
                                        <div className={`flex items-center gap-0 rounded-lg overflow-hidden shrink-0 ${deepDiveViewMode === 'html' ? 'bg-white/8 border border-white/15' : 'bg-slate-100 border border-slate-200'}`}>
                                             <button onClick={() => setWriteZoom(Math.max(0.5, writeZoom - 0.1))} className={`px-1.5 py-1 text-[11px] font-black transition-colors ${deepDiveViewMode === 'html' ? 'text-white/60 hover:bg-white/12' : 'text-slate-600 hover:bg-slate-200'}`} title="Zoom Out">A-</button>
                                             <span className={`px-0.5 text-[9px] font-bold min-w-[24px] text-center ${deepDiveViewMode === 'html' ? 'text-white/40' : 'text-slate-500'}`}>{Math.round(writeZoom * 100)}%</span>
@@ -2022,29 +2035,9 @@ export const PdfView: React.FC<Props> = ({
                                               : `bg-white shadow-sm ${isActive ? 'border-teal-400 ring-2 ring-teal-100 scale-[1.01] sm:scale-100' : isLastReadCard ? 'border-indigo-300 ring-1 ring-indigo-100' : 'border-transparent'}`
                                           }`}
                                       >
-                                          {/* Compact card header — section badge + title + lightweight
-                                              icon-only PDF/Audio buttons. Earlier the badge + Read All +
-                                              View PDF + Premium Audio + ChunkedNotesReader's own bar
-                                              stacked to ~120px above any actual notes. */}
-                                          <div className="flex justify-between items-center mb-2 gap-2">
-                                              <div className="min-w-0 flex items-center gap-2 flex-wrap">
-                                                  {isLastReadCard && (
-                                                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0 border ${deepDiveViewMode === 'html' ? 'text-amber-300 bg-amber-500/15 border-amber-500/30' : 'text-indigo-600 bg-indigo-50 border-indigo-200'}`}>
-                                                          ↩ Last Read
-                                                      </span>
-                                                  )}
-                                                  {idx === 0 && topic.title !== "Introduction" && (
-                                                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0 ${deepDiveViewMode === 'html' ? 'text-amber-400 bg-amber-500/12 border border-amber-500/25' : 'text-teal-600 bg-teal-50'}`}>
-                                                          DEEP DIVE
-                                                      </span>
-                                                  )}
-                                                  {idx > 0 && (
-                                                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0 ${deepDiveViewMode === 'html' ? 'text-violet-300 bg-violet-500/12 border border-violet-500/25' : 'text-purple-600 bg-purple-50'}`}>
-                                                          T{idx}
-                                                      </span>
-                                                  )}
-                                                  <h4 className={`text-base sm:text-lg font-black leading-tight truncate ${deepDiveViewMode === 'html' ? 'text-white' : 'text-slate-800'}`}>{topic.title}</h4>
-                                              </div>
+                                          {/* Compact card header — icon-only PDF/Audio buttons (section badge + title hidden) */}
+                                          <div className="flex justify-end items-center mb-1 gap-2">
+                                              <div className="min-w-0 flex items-center gap-2 flex-wrap hidden"></div>
                                               <div className="flex gap-1 items-center shrink-0">
                                                   {topic.pdfLink && (
                                                       <button
@@ -2105,7 +2098,7 @@ export const PdfView: React.FC<Props> = ({
                                                           }
                                                       }}
                                                       hideDesktopToggle={syllabusMode === 'COMPETITION'}
-                                                      suppressStickyControls={isImmersive}
+                                                      suppressStickyControls
                                                       onMoreOptions={onMoreOptions}
                                                   />
                                               </div>

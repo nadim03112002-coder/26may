@@ -70,7 +70,6 @@ import { Store } from "./Store";
 import { AppStore } from "./AppStore";
 import {
   Globe,
-  Layout,
   Gift,
   Cloud,
   CloudOff,
@@ -1672,6 +1671,7 @@ export const StudentDashboard: React.FC<Props> = ({
   const [courseAvailability, setCourseAvailability] = useState<{notes: boolean; readNotes: boolean; writeNotes: boolean; pdf: boolean; video: boolean; mcq: boolean; audio: boolean} | null>(null);
   const [coursePdfUrl, setCoursePdfUrl] = useState<string | null>(null);
   const [pdfInitialTab, setPdfInitialTab] = useState<'DEEP_DIVE' | 'PREMIUM'>('DEEP_DIVE');
+  const [pdfInitialDeepDiveMode, setPdfInitialDeepDiveMode] = useState<'chunk' | 'html'>('chunk');
   const [syllabusMode, setSyllabusMode] = useState<"SCHOOL" | "COMPETITION">(
     "SCHOOL",
   );
@@ -6652,6 +6652,7 @@ export const StudentDashboard: React.FC<Props> = ({
             hideHeader={isLandscapeUiHidden}
             onImmersiveChange={(v) => setIsInternalImmersive(v)}
             initialActiveTab={pdfInitialTab}
+            initialDeepDiveViewMode={pdfInitialDeepDiveMode}
             onMoreOptions={handleCourseMoreOptions}
             {...contentProps}
           />
@@ -6760,7 +6761,7 @@ export const StudentDashboard: React.FC<Props> = ({
           {
             id: "TEACHER_STORE_MENU",
             label: user.role === 'TEACHER' ? "Teacher Store" : "Become a Teacher",
-            icon: Layout,
+            icon: LayoutGrid,
             color: "violet",
             action: () => {
               onTabChange('TEACHER_STORE' as any);
@@ -8509,7 +8510,7 @@ export const StudentDashboard: React.FC<Props> = ({
                 className={`w-full px-4 py-4 flex items-center gap-3.5 ${_pHovCls} transition-colors`}
                 style={{ borderBottom: _pSep }}>
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${tierTheme.primary}20`, border: `1px solid ${tierTheme.primary}40` }}>
-                  <Layout size={17} style={{ color: tierTheme.primary }} />
+                  <LayoutGrid size={17} style={{ color: tierTheme.primary }} />
                 </div>
                 <p className={`flex-1 text-sm font-bold text-left ${_pTxt}`}>Admin Panel</p>
                 <ChevronRight size={15} style={{ color: _pTxtMutedColor }} className="shrink-0" />
@@ -8522,7 +8523,7 @@ export const StudentDashboard: React.FC<Props> = ({
                 className={`w-full px-4 py-3.5 flex items-center gap-3 ${_pHovCls} transition-colors`}
                 style={{ borderBottom: _pSep }}>
                 <div className="w-9 h-9 rounded-xl bg-violet-500/15 border border-violet-500/25 flex items-center justify-center shrink-0">
-                  <Layout size={16} className="text-violet-400" />
+                  <LayoutGrid size={16} className="text-violet-400" />
                 </div>
                 <p className={`flex-1 text-sm font-bold text-left ${_pTxt}`}>Teacher Store</p>
                 <ChevronRight size={14} style={{ color: _pTxtMutedColor }} className="shrink-0" />
@@ -8754,13 +8755,6 @@ export const StudentDashboard: React.FC<Props> = ({
               <p className={`flex-1 text-sm font-bold text-left ${_pTxt}`}>App Guide</p>
               <ChevronRight size={15} style={{ color: _pTxtMutedColor }} className="shrink-0" />
             </button>
-          </div>
-
-          {/* ── FEATURE TIPS ── */}
-          <div className="mx-3 mb-4 rounded-3xl overflow-hidden" style={{ background: _pCard, border: _pBdrSoft }}>
-            <div className="px-4 pt-4 pb-2">
-              <FeatureTipsList />
-            </div>
           </div>
 
           {/* ── LOGOUT ── */}
@@ -9063,7 +9057,7 @@ export const StudentDashboard: React.FC<Props> = ({
             onClick={handleSwitchToAdmin}
             className="bg-slate-900 text-white p-4 rounded-full shadow-2xl border-2 border-slate-700 hover:scale-110 transition-transform flex items-center gap-2 animate-bounce-slow"
           >
-            <Layout size={20} className="text-yellow-400" />
+            <LayoutGrid size={20} className="text-yellow-400" />
             <span className="font-bold text-xs">Admin Panel</span>
           </button>
         </div>
@@ -9252,6 +9246,9 @@ export const StudentDashboard: React.FC<Props> = ({
 
           </div>
         </div>
+
+        {/* DIVIDER LINE between Line 1 and Line 2 */}
+        <div className="h-px mx-4" style={{ background: 'rgba(255,255,255,0.22)' }} />
 
         {/* SECOND LINE: greeting + Level / Credits / Subscription pills */}
         <div className="flex items-center justify-between w-full mt-0.5 pt-1 px-4 pb-1.5">
@@ -14874,7 +14871,8 @@ export const StudentDashboard: React.FC<Props> = ({
         const openReadingNotes = () => {
           dismiss();
           if (isCourse) {
-            handleLessonOption('PDF'); // sets pdfInitialTab='DEEP_DIVE' internally → Concept/TTS tab
+            setPdfInitialDeepDiveMode('chunk');
+            handleLessonOption('PDF');
           } else if (isLucent) {
             lucentInitialTabRef.current = { tab: 'NOTES', viewMode: 'chunk' };
             tryOpenLucentNote(entry, pageIdx);
@@ -14886,7 +14884,8 @@ export const StudentDashboard: React.FC<Props> = ({
         const openMakingNotes = () => {
           dismiss();
           if (isCourse) {
-            handleLessonOption('NOTES_PREMIUM');
+            setPdfInitialDeepDiveMode('html');
+            handleLessonOption('PDF');
           } else if (isLucent) {
             lucentInitialTabRef.current = { tab: 'NOTES', viewMode: 'html' };
             tryOpenLucentNote(entry, pageIdx);
@@ -14909,13 +14908,9 @@ export const StudentDashboard: React.FC<Props> = ({
         const openPdf = () => {
           dismiss();
           if (isCourse) {
-            // PDF slot for Class 6-12 → open actual PDF document in new tab
-            if (coursePdfUrl) {
-              window.open(coursePdfUrl, '_blank', 'noopener,noreferrer');
-            } else {
-              // fallback: open Retention/PREMIUM styled notes
-              handleLessonOption('NOTES_PREMIUM');
-            }
+            // Class 6-12 PDF button → open Retention (PREMIUM) tab directly
+            setPdfInitialTab('PREMIUM');
+            handleLessonOption('PDF');
           } else {
             const url = isLucent ? (page as any)?.pdfUrl : hw?.pdfUrl;
             if (url) window.open(url, '_blank', 'noopener,noreferrer');
@@ -14960,12 +14955,12 @@ export const StudentDashboard: React.FC<Props> = ({
 
         type Option = { id: string; icon: string; label: string; sub: string; color: string; bg: string; enabled: boolean; onClick: () => void };
         const options: Option[] = [
-          { id: 'read',  icon: '📖', label: 'Reading Notes', sub: hasReadNotes  ? 'Read Mode — TTS'    : 'Notes nahi hain', color: '#f59e0b', bg: 'rgba(245,158,11,0.13)',  enabled: hasReadNotes,  onClick: openReadingNotes },
-          { id: 'write', icon: '✏️', label: 'Writing Page',  sub: hasWriteNotes ? 'Write Mode — HTML'  : 'Notes nahi hain', color: '#14b8a6', bg: 'rgba(20,184,166,0.13)',  enabled: hasWriteNotes,  onClick: openMakingNotes  },
-          { id: 'mcq',   icon: '🎯', label: 'MCQ Practice',  sub: hasMcq    ? 'Practice questions'   : 'MCQ nahi hain',   color: '#8b5cf6', bg: 'rgba(139,92,246,0.13)', enabled: !!hasMcq,  onClick: openMcq          },
-          { id: 'pdf',   icon: '📄', label: 'PDF', sub: hasPdf ? 'PDF Document' : 'PDF nahi hai', color: '#3b82f6', bg: 'rgba(59,130,246,0.13)', enabled: hasPdf, onClick: openPdf },
-          { id: 'video', icon: '🎬', label: 'Video',         sub: hasVideo  ? 'Video lecture'        : 'Video nahi hai',  color: '#ef4444', bg: 'rgba(239,68,68,0.13)',   enabled: hasVideo,  onClick: openVideo        },
-          { id: 'audio', icon: '🎧', label: 'Audio',         sub: hasAudio  ? 'Audio lecture'        : 'Audio nahi hai',  color: '#a855f7', bg: 'rgba(168,85,247,0.13)',  enabled: hasAudio,  onClick: openAudio        },
+          { id: 'read',  icon: '📖', label: 'Reading Notes', sub: 'Read Mode — TTS',    color: '#f59e0b', bg: 'rgba(245,158,11,0.13)',  enabled: isCourse ? true : hasReadNotes,  onClick: openReadingNotes },
+          { id: 'write', icon: '✏️', label: 'Writing Page',  sub: 'Write Mode — HTML',  color: '#14b8a6', bg: 'rgba(20,184,166,0.13)',  enabled: isCourse ? true : hasWriteNotes,  onClick: openMakingNotes  },
+          { id: 'mcq',   icon: '🎯', label: 'MCQ Practice',  sub: 'Practice questions', color: '#8b5cf6', bg: 'rgba(139,92,246,0.13)', enabled: isCourse ? true : !!hasMcq,  onClick: openMcq          },
+          { id: 'pdf',   icon: '📄', label: 'PDF',           sub: 'PDF Document',       color: '#3b82f6', bg: 'rgba(59,130,246,0.13)', enabled: isCourse ? true : hasPdf, onClick: openPdf },
+          { id: 'video', icon: '🎬', label: 'Video',         sub: 'Video lecture',      color: '#ef4444', bg: 'rgba(239,68,68,0.13)',   enabled: isCourse ? true : hasVideo,  onClick: openVideo        },
+          { id: 'audio', icon: '🎧', label: 'Audio',         sub: 'Audio lecture',      color: '#a855f7', bg: 'rgba(168,85,247,0.13)',  enabled: isCourse ? true : hasAudio,  onClick: openAudio        },
         ];
 
         return (

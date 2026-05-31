@@ -139,7 +139,8 @@ type AdminTab =
   | 'TRENDING_NOTES_MANAGER' // NEW: Live trending important notes
   | 'GLOBAL_CHAT' // NEW: Chat moderation
   | 'ADMIN_HELP'
-  | 'ERROR_LOGS'; // Error Notice Board
+  | 'ERROR_LOGS' // Error Notice Board
+  | 'CONTENT_HISTORY'; // Content addition history log
 
 interface ContentConfig {
     freeLink?: string;
@@ -387,6 +388,24 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
       setKeyStatus(statuses);
       setIsTestingKeys(false);
   };
+
+  // CONTENT HISTORY LOADER
+  useEffect(() => {
+      if (activeTab === 'CONTENT_HISTORY') {
+          const histRef = ref(rtdb, 'nst_content_history');
+          const unsub = onValue(histRef, (snap) => {
+              if (snap.exists()) {
+                  const data = snap.val();
+                  const entries = Object.values(data) as any[];
+                  entries.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+                  setContentHistoryLog(entries);
+              } else {
+                  setContentHistoryLog([]);
+              }
+          });
+          return () => unsub();
+      }
+  }, [activeTab]);
 
   // UNIVERSAL PLAYLIST LOADER
   useEffect(() => {
@@ -825,6 +844,8 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
   const [editingChapterId, setEditingChapterId] = useState<string | null>(null);
   const [syllabusMode, setSyllabusMode] = useState<'SCHOOL' | 'COMPETITION'>('SCHOOL');
   const [managerMode, setManagerMode] = useState<'SCHOOL' | 'COMPETITION'>('SCHOOL'); // New State for AI Notes Manager
+  const [fromSubjectsMgr, setFromSubjectsMgr] = useState(false);
+  const [contentHistoryLog, setContentHistoryLog] = useState<any[]>([]);
   const [whatsappStatus, setWhatsappStatus] = useState<'CONNECTED' | 'DISCONNECTED' | 'SCAN_QR'>('DISCONNECTED');
   const [whatsappQr, setWhatsappQr] = useState('');
   const [notesStatusMap, setNotesStatusMap] = useState<Record<string, any>>({});
@@ -1179,15 +1200,22 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
           finalContent = editConfig.premiumNotesHtml || '';
       }
 
+      // Default title to chapter name if empty
+      const _chapterTitleForDefault = selChapters.find(c => c.id === editingChapterId)?.title || 'Chapter';
+      const _videoPlaylistFinal = videoPlaylist.map(v => ({ ...v, title: v.title?.trim() || _chapterTitleForDefault }));
+      const _premiumVideoPlaylistFinal = (premiumVideoPlaylist || []).map((v: any) => ({ ...v, title: v.title?.trim() || _chapterTitleForDefault }));
+      const _audioPlaylistFinal = audioPlaylist.map(a => ({ ...a, title: a.title?.trim() || _chapterTitleForDefault }));
+      const _premiumNoteSlotsF = premiumNoteSlots.map(p => ({ ...p, title: (p as any).title?.trim() || _chapterTitleForDefault }));
+
       const newData = {
           ...existingData,
           ...editConfig,
           
           // DYNAMIC SAVE: Save current UI arrays to the correct mode-specific field
-          [syllabusMode === 'SCHOOL' ? 'schoolVideoPlaylist' : 'competitionVideoPlaylist']: videoPlaylist,
-          [syllabusMode === 'SCHOOL' ? 'schoolPremiumVideoPlaylist' : 'competitionPremiumVideoPlaylist']: premiumVideoPlaylist,
-          [syllabusMode === 'SCHOOL' ? 'schoolAudioPlaylist' : 'competitionAudioPlaylist']: audioPlaylist,
-          [syllabusMode === 'SCHOOL' ? 'schoolPdfPremiumSlots' : 'competitionPdfPremiumSlots']: premiumNoteSlots,
+          [syllabusMode === 'SCHOOL' ? 'schoolVideoPlaylist' : 'competitionVideoPlaylist']: _videoPlaylistFinal,
+          [syllabusMode === 'SCHOOL' ? 'schoolPremiumVideoPlaylist' : 'competitionPremiumVideoPlaylist']: _premiumVideoPlaylistFinal,
+          [syllabusMode === 'SCHOOL' ? 'schoolAudioPlaylist' : 'competitionAudioPlaylist']: _audioPlaylistFinal,
+          [syllabusMode === 'SCHOOL' ? 'schoolPdfPremiumSlots' : 'competitionPdfPremiumSlots']: _premiumNoteSlotsF,
           [syllabusMode === 'SCHOOL' ? 'schoolFreeNotesList' : 'competitionFreeNotesList']: freeNotesList,
           [syllabusMode === 'SCHOOL' ? 'schoolPremiumNotesList' : 'competitionPremiumNotesList']: premiumNotesList,
 
@@ -1206,9 +1234,9 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
               additionalNotes: additionalNotes // Fallback
           } : {}),
           ...(syllabusMode === 'SCHOOL' ? {
-              videoPlaylist: videoPlaylist,
-              audioPlaylist: audioPlaylist,
-              premiumNoteSlots: premiumNoteSlots
+              videoPlaylist: _videoPlaylistFinal,
+              audioPlaylist: _audioPlaylistFinal,
+              premiumNoteSlots: _premiumNoteSlotsF
           } : {}),
 
           // For MCQ Data, we might need separation too if requested later, but currently user asked for content (Notes/Video/Audio)
@@ -1244,6 +1272,31 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
               timestamp: new Date().toISOString()
           };
           push(ref(rtdb, 'universal_updates'), updateMsg);
+
+          // CONTENT HISTORY LOG - Lifetime record of what was added
+          try {
+              const chapterTitle = selChapters.find(c => c.id === editingChapterId)?.title || 'Chapter';
+              const historyEntry = {
+                  timestamp: new Date().toISOString(),
+                  board: selBoard,
+                  classLevel: selClass,
+                  subject: selSubject?.name || '',
+                  chapterId: editingChapterId,
+                  chapterTitle,
+                  mode: syllabusMode,
+                  contentTypes: {
+                      mcq: editingMcqs.length,
+                      video: videoPlaylist.length + (premiumVideoPlaylist || []).length,
+                      audio: audioPlaylist.length,
+                      pdf: (premiumNotesList || []).length + (freeNotesList || []).length,
+                      notes: (topicNotes || []).length,
+                  },
+                  stream: selStream || null,
+              };
+              push(ref(rtdb, 'nst_content_history'), historyEntry);
+          } catch (histErr) {
+              console.warn('History log failed:', histErr);
+          }
 
           // Send inbox notification to all students (auto-expires in 7 days)
           try {
@@ -2427,7 +2480,16 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
   };
 
   const loadChapterContent = async (chId: string) => {
-      setEditingChapterId(chId); 
+      setEditingChapterId(chId);
+
+      // Compute the correct mode BEFORE any async/state-update call
+      // so applyContentData always gets the right mode (avoids stale state bug)
+      const effectiveMode: 'SCHOOL' | 'COMPETITION' =
+          ['6','7','8','9','10','11','12'].includes(selClass)
+              ? 'COMPETITION'
+              : syllabusMode;
+      setSyllabusMode(effectiveMode);
+
       setIsContentLoading(true); // Lock inputs
       
       // STRICT KEY MATCHING (Must match VideoPlaylistView logic)
@@ -2437,7 +2499,7 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
       // 1. Try Local First (Instant Load)
       const stored = await storage.getItem(key);
       if (stored) {
-          applyContentData(stored);
+          applyContentData(stored, effectiveMode);
       } else {
           // Default State
           setEditConfig({ freeLink: '', premiumLink: '', price: 5 });
@@ -2458,21 +2520,23 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
               if (cloudData) {
                   // Update Storage & State with Cloud Data (Source of Truth)
                   await storage.setItem(key, cloudData);
-                  applyContentData(cloudData);
+                  applyContentData(cloudData, effectiveMode);
               }
           } catch(e) { console.error("Cloud Fetch Error", e); }
       }
       setIsContentLoading(false); // Unlock inputs
   };
 
-  const applyContentData = (data: any) => {
+  const applyContentData = (data: any, overrideMode?: 'SCHOOL' | 'COMPETITION') => {
       setEditConfig(data);
       setEditingMcqs(data.manualMcqData || []);
       setEditingTestMcqs(data.weeklyTestMcqData || []);
       
+      // Use overrideMode if passed (avoids stale state), else fall back to current syllabusMode
+      const effectiveMode = overrideMode || syllabusMode;
       // Load based on CURRENT mode (default SCHOOL)
       // STRICT SEPARATION: Only fallback to legacy for SCHOOL mode
-      if (syllabusMode === 'SCHOOL') {
+      if (effectiveMode === 'SCHOOL') {
           setVideoPlaylist(data.schoolVideoPlaylist || data.videoPlaylist || []);
           setPremiumVideoPlaylist(data.schoolPremiumVideoPlaylist || []);
           setAudioPlaylist(data.schoolAudioPlaylist || data.audioPlaylist || []); 
@@ -3633,6 +3697,22 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                   </div>
                 );
               })()}
+
+              {/* CONTENT HISTORY QUICK ACCESS */}
+              <div className="mt-4 bg-emerald-50 rounded-2xl border border-emerald-200 p-4 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                          <Activity size={18} />
+                      </div>
+                      <div>
+                          <p className="font-black text-slate-800 text-sm">Content History</p>
+                          <p className="text-[10px] text-emerald-700">Kab kya add hua — lifetime log</p>
+                      </div>
+                  </div>
+                  <button onClick={() => setActiveTab('CONTENT_HISTORY')} className="bg-emerald-600 text-white px-4 py-2 rounded-xl font-bold text-xs hover:bg-emerald-700 transition-all whitespace-nowrap">
+                      View Log →
+                  </button>
+              </div>
 
               <div className="mt-4 flex justify-end">
                   <button onClick={() => onNavigate('STUDENT_DASHBOARD')} className="bg-slate-800 text-white px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-slate-900 transition-all shadow-md text-xs">
@@ -6819,6 +6899,7 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                                   <button 
                                       onClick={() => {
                                           loadChapterContent(ch.id);
+                                          setFromSubjectsMgr(true);
                                           setActiveTab('CONTENT_PDF'); // Switch to editor view directly
                                       }}
                                       className="px-3 py-1.5 bg-blue-100 text-blue-700 text-[10px] font-bold rounded hover:bg-blue-200 whitespace-nowrap"
@@ -6879,7 +6960,7 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
       {['CONTENT_PDF', 'CONTENT_VIDEO', 'CONTENT_AUDIO', 'CONTENT_MCQ', 'CONTENT_TEST'].includes(activeTab) && (
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-right">
               <div className="flex items-center gap-4 mb-6 border-b pb-4">
-                  <button onClick={() => setActiveTab('DASHBOARD')} className="bg-slate-100 p-2 rounded-full hover:bg-slate-200"><ArrowLeft size={20} /></button>
+                  <button onClick={() => { if (fromSubjectsMgr) { setFromSubjectsMgr(false); setActiveTab('SUBJECTS_MGR'); } else { setActiveTab('DASHBOARD'); } }} className="bg-slate-100 p-2 rounded-full hover:bg-slate-200"><ArrowLeft size={20} /></button>
                   <h3 className="text-xl font-black text-slate-800">
                       {activeTab === 'CONTENT_PDF' ? 'PDF Study Material' : activeTab === 'CONTENT_VIDEO' ? 'Video Lectures' : activeTab === 'CONTENT_AUDIO' ? 'Audio Library' : activeTab === 'CONTENT_MCQ' ? 'Practice MCQs' : 'Weekly Tests - Multi-Subject'}
                   </h3>
@@ -7116,6 +7197,8 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
                           </div>
 
                           {/* SYLLABUS MODE TOGGLE - GLOBAL FOR CONTENT EDITOR */}
+                          {/* Class 6-12 ke liye sirf Competition Mode use hoti hai */}
+                          {!['6','7','8','9','10','11','12'].includes(selClass) && (
                           <div className="flex gap-2 mb-6 p-1 bg-slate-100 rounded-2xl w-fit border border-slate-200 shadow-inner">
                                 <button 
                                     onClick={() => handleModeSwitch('SCHOOL')}
@@ -7130,6 +7213,13 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
                                     Competition Mode
                                 </button>
                           </div>
+                          )}
+                          {['6','7','8','9','10','11','12'].includes(selClass) && (
+                              <div className="flex items-center gap-2 mb-4 px-3 py-2 bg-indigo-50 rounded-xl border border-indigo-200 w-fit">
+                                  <GraduationCap size={14} className="text-indigo-600" />
+                                  <span className="text-xs font-black text-indigo-700">Class {selClass} — Competition Content Mode</span>
+                              </div>
+                          )}
 
                       {/* PDF & AI NOTES EDITOR */}
                       {activeTab === 'CONTENT_PDF' && (
@@ -17945,6 +18035,70 @@ Statement 2"
                       {isSettingsSaving ? 'Saving...' : 'Save Visibility Settings'}
                   </button>
               </div>
+          </div>
+      )}
+
+      {/* CONTENT HISTORY TAB */}
+      {activeTab === 'CONTENT_HISTORY' && (
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-right">
+              <div className="flex items-center gap-4 mb-6 border-b pb-4">
+                  <button onClick={() => setActiveTab('DASHBOARD')} className="bg-slate-100 p-2 rounded-full hover:bg-slate-200"><ArrowLeft size={20} /></button>
+                  <div>
+                      <h3 className="text-xl font-black text-slate-800 flex items-center gap-2">
+                          <Activity size={22} className="text-emerald-600" /> Content History Log
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-0.5">Lifetime record — kab kya content add hua</p>
+                  </div>
+              </div>
+
+              {contentHistoryLog.length === 0 ? (
+                  <div className="text-center py-16 text-slate-400">
+                      <Activity size={40} className="mx-auto mb-4 opacity-30" />
+                      <p className="font-bold text-slate-500">Abhi koi content history nahi hai</p>
+                      <p className="text-xs mt-1">Jab bhi content save hoga, yahan record aayega</p>
+                  </div>
+              ) : (
+                  <div className="space-y-3 max-h-[75vh] overflow-y-auto pr-1">
+                      {contentHistoryLog.map((entry, idx) => {
+                          const ts = entry.timestamp ? new Date(entry.timestamp) : null;
+                          const dateStr = ts ? ts.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+                          const timeStr = ts ? ts.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '';
+                          const ct = entry.contentTypes || {};
+                          const tags: { label: string; color: string }[] = [];
+                          if (ct.mcq > 0) tags.push({ label: `${ct.mcq} MCQ`, color: 'bg-green-100 text-green-700' });
+                          if (ct.video > 0) tags.push({ label: `${ct.video} Video`, color: 'bg-purple-100 text-purple-700' });
+                          if (ct.audio > 0) tags.push({ label: `${ct.audio} Audio`, color: 'bg-blue-100 text-blue-700' });
+                          if (ct.pdf > 0) tags.push({ label: `${ct.pdf} PDF/Notes`, color: 'bg-yellow-100 text-yellow-700' });
+                          if (ct.notes > 0) tags.push({ label: `${ct.notes} Topic Notes`, color: 'bg-orange-100 text-orange-700' });
+                          return (
+                              <div key={idx} className="flex gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-200 hover:border-emerald-200 transition-all">
+                                  <div className="shrink-0 w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-700 font-black text-sm">
+                                      {entry.classLevel || '?'}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                                          <span className="font-black text-slate-800 text-sm truncate">{entry.chapterTitle || entry.chapterId || 'Unknown'}</span>
+                                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${entry.board === 'CBSE' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>{entry.board || ''}</span>
+                                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-600">Class {entry.classLevel}{entry.stream ? ` (${entry.stream})` : ''}</span>
+                                      </div>
+                                      <p className="text-xs text-slate-500 mb-2">{entry.subject || '—'} {entry.mode ? `• ${entry.mode} Mode` : ''}</p>
+                                      <div className="flex flex-wrap gap-1">
+                                          {tags.length > 0 ? tags.map((t, ti) => (
+                                              <span key={ti} className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${t.color}`}>{t.label}</span>
+                                          )) : (
+                                              <span className="text-[10px] text-slate-400">Content saved</span>
+                                          )}
+                                      </div>
+                                  </div>
+                                  <div className="shrink-0 text-right">
+                                      <p className="text-[11px] font-bold text-slate-700">{dateStr}</p>
+                                      <p className="text-[10px] text-slate-400">{timeStr}</p>
+                                  </div>
+                              </div>
+                          );
+                      })}
+                  </div>
+              )}
           </div>
       )}
 
