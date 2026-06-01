@@ -168,11 +168,6 @@ import { hapticLight, hapticMedium, hapticStrong } from "../utils/haptic";
 import { splitIntoTopics } from "../utils/notesSplitter";
 import { SubjectSelection } from "./SubjectSelection";
 import { BannerCarousel } from "./BannerCarousel";
-import { ChapterSelection } from "./ChapterSelection"; // Imported for Video Flow
-import { VideoPlaylistView } from "./VideoPlaylistView"; // Imported for Video Flow
-import { AudioPlaylistView } from "./AudioPlaylistView"; // Imported for Audio Flow
-import { PdfView } from "./PdfView"; // Imported for PDF Flow
-import { McqView } from "./McqView"; // Imported for MCQ Flow
 import { MiniPlayer } from "./MiniPlayer"; // Imported for Audio Flow
 import { MistakePracticeView } from "./MistakePracticeView"; // My Mistake home page practice
 import { HistoryPage } from "./HistoryPage";
@@ -1680,6 +1675,7 @@ export const StudentDashboard: React.FC<Props> = ({
   const [coursePdfUrl, setCoursePdfUrl] = useState<string | null>(null);
   const [pdfInitialTab, setPdfInitialTab] = useState<'DEEP_DIVE' | 'PREMIUM'>('DEEP_DIVE');
   const [pdfInitialDeepDiveMode, setPdfInitialDeepDiveMode] = useState<'chunk' | 'html'>('chunk');
+  const [pdfTabKey, setPdfTabKey] = useState(0);
   const [syllabusMode, setSyllabusMode] = useState<"SCHOOL" | "COMPETITION">(
     "SCHOOL",
   );
@@ -2061,6 +2057,7 @@ export const StudentDashboard: React.FC<Props> = ({
     } catch {}
   }, []);
   const [homeworkSubjectView, setHomeworkSubjectView] = useState<string | null>(null);
+  const [class612SubjectView, setClass612SubjectView] = useState<{ classLevel: string; subject: Subject } | null>(null);
   // Real-time content stats from Firebase content_index: key = "{board}_{classLevel}"
   const [classContentStats, setClassContentStats] = useState<Record<string, ContentTypeStats>>({});
   // Full raw index per class for subject-level breakdown: key = "{board}_{classLevel}"
@@ -4404,6 +4401,7 @@ export const StudentDashboard: React.FC<Props> = ({
     // content-tree state
     initialParentSubject,
     homeworkSubjectView,
+    class612SubjectView: !!class612SubjectView,
     lucentCategoryView,
     activeSessionClass,
   });
@@ -4438,6 +4436,7 @@ export const StudentDashboard: React.FC<Props> = ({
     showInbox,
     initialParentSubject,
     homeworkSubjectView,
+    class612SubjectView: !!class612SubjectView,
     lucentCategoryView,
     activeSessionClass,
   };
@@ -4543,6 +4542,8 @@ export const StudentDashboard: React.FC<Props> = ({
           setHomeworkSubjectView(null);
         } else if (s.initialParentSubject) {
           setInitialParentSubject(null);
+        } else if (s.class612SubjectView) {
+          setClass612SubjectView(null);
         } else if (s.homeworkSubjectView) {
           setHomeworkSubjectView(null);
         } else if (s.lucentCategoryView) {
@@ -4813,27 +4814,6 @@ export const StudentDashboard: React.FC<Props> = ({
     });
   };
 
-  const handleLessonOption = (
-    type: "VIDEO" | "PDF" | "MCQ" | "AUDIO" | "NOTES_PREMIUM" | any,
-  ) => {
-    if (!selectedLessonForModal) return;
-    setShowLessonModal(false);
-
-    if (type === 'NOTES_PREMIUM') {
-      onTabChange('PDF');
-      setSelectedChapter(selectedLessonForModal);
-      setContentViewStep("PLAYER");
-      setFullScreen(true);
-      setPdfInitialTab('PREMIUM');
-      return;
-    }
-
-    // Update Tab and State for Player
-    onTabChange(type as any);
-    setSelectedChapter(selectedLessonForModal);
-    setContentViewStep("PLAYER");
-    setFullScreen(true);
-  };
 
   const handleExternalAppClick = (app: any) => {
     if (app.isLocked) {
@@ -4907,6 +4887,113 @@ export const StudentDashboard: React.FC<Props> = ({
         }
       }
     };
+
+    // CLASS 6-12 SUBJECT LESSON LIST (admin Lucent-style notes for that class+subject)
+    if (class612SubjectView && contentViewStep === "SUBJECTS") {
+      const { classLevel: cv, subject: sv } = class612SubjectView;
+      const _allLucent = (settings?.lucentNotes || []) as LucentNoteEntry[];
+      const classLessons = _allLucent
+        .filter(n => String(n.classLevel) === String(cv) && String(n.subject) === String(sv.id))
+        .sort((a, b) => (a.lessonTitle || '').localeCompare(b.lessonTitle || ''));
+
+      return (
+        <div className={`flex-1 flex flex-col min-h-0 ${isDarkMode ? 'bg-slate-900' : 'bg-slate-50'}`}>
+          {/* Header */}
+          <div className={`shrink-0 flex items-center gap-3 px-4 py-3 border-b ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+            <button
+              onClick={() => setClass612SubjectView(null)}
+              className={`p-2 rounded-full ${isDarkMode ? 'bg-slate-700 text-slate-200 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+            >
+              <ArrowLeft size={20} />
+            </button>
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: tierTheme.primary }}>CLASS {cv}</p>
+              <h2 className={`text-lg font-black leading-tight ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{sv.name}</h2>
+            </div>
+            <span className="text-[11px] font-bold px-2 py-1 rounded-full" style={{ background: `${tierTheme.primary}18`, color: tierTheme.primary }}>
+              {classLessons.length} Lesson{classLessons.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+
+          {/* Lesson list */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            {classLessons.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 gap-4">
+                <span className="text-5xl">📚</span>
+                <p className={`text-base font-black ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Koi lesson nahi mila</p>
+                <p className={`text-xs text-center ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>Admin ne is subject ke liye abhi koi lesson add nahi kiya hai.</p>
+              </div>
+            ) : (
+              classLessons.map(entry => {
+                const topicNames = [...new Set((entry.pages || []).map(p => (p.topicName || '').trim()).filter(Boolean))];
+                const hasMcqs = entry.pages.some(p => p.mcqs && p.mcqs.length > 0);
+                const hasPdf = entry.pages.some(p => !!(p as any).pdfUrl);
+                const hasVideo = entry.pages.some(p => !!(p as any).videoUrl);
+                const _isLocked = _lucentIsLocked(entry);
+                return (
+                  <div
+                    key={entry.id}
+                    className={`rounded-2xl overflow-hidden border-2 transition-all hover:shadow-md ${_isLocked ? 'opacity-75' : ''}`}
+                    style={{ background: tierTheme.profileCardBg, borderColor: _isLocked ? '#ef4444' : tierTheme.primary }}
+                  >
+                    <button
+                      onClick={() => {
+                        if (_isLocked) {
+                          showAlert('🔒 Yeh lesson locked hai! Admin se Redeem Code maangein aur Profile → Redeem tab mein enter karein.', 'INFO');
+                          return;
+                        }
+                        setLucentPageListViewer(entry);
+                      }}
+                      className="w-full p-3 text-left active:scale-[0.98] flex items-center gap-3"
+                    >
+                      <div
+                        className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${_isLocked ? 'bg-red-100 text-red-500' : ''}`}
+                        style={_isLocked ? {} : { background: `${tierTheme.primary}18`, color: tierTheme.primary }}
+                      >
+                        {_isLocked ? <span className="text-xl">🔒</span> : <BookOpen size={20} />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-black truncate ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{entry.lessonTitle}</p>
+                        {_isLocked ? (
+                          <p className="text-[11px] text-red-500 font-black mt-0.5">🔒 Locked — Redeem Code se unlock karein</p>
+                        ) : (
+                          <p className={`text-[11px] font-bold mt-0.5 flex flex-wrap gap-1.5 items-center ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                            <span>{entry.pages.length} page{entry.pages.length !== 1 ? 's' : ''}</span>
+                            {topicNames.length > 0 && <span>• {topicNames.length} topic{topicNames.length > 1 ? 's' : ''}</span>}
+                            {hasMcqs && <span className="px-1.5 py-0.5 rounded text-[9px] font-black" style={{ background: `${tierTheme.primary}18`, color: tierTheme.primary }}>MCQ</span>}
+                            {hasPdf && <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-blue-100 text-blue-700">PDF</span>}
+                            {hasVideo && <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-red-100 text-red-600">VIDEO</span>}
+                          </p>
+                        )}
+                      </div>
+                      <ChevronRight size={18} className={isDarkMode ? 'text-slate-400' : 'text-slate-400'} />
+                    </button>
+                    {topicNames.length > 0 && !_isLocked && (
+                      <button
+                        onClick={() => { setLucentLessonCompare(entry); setLucentLessonCompareTab('topics'); }}
+                        className={`w-full border-t px-3 py-2 flex items-center gap-2 active:scale-[0.99] transition-all ${isDarkMode ? 'border-slate-700 bg-slate-800/50' : 'border-slate-100 bg-slate-50'}`}
+                      >
+                        <GitCompare size={13} style={{ color: tierTheme.primary }} />
+                        <span className="text-[11px] font-black" style={{ color: tierTheme.primary }}>📌 {topicNames.length} Topic{topicNames.length > 1 ? 's' : ''} — Compare karein</span>
+                      </button>
+                    )}
+                    {user.role === 'ADMIN' && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); openContentCodeModal(entry.id, entry.lessonTitle); }}
+                        className={`w-full border-t px-3 py-2 flex items-center gap-2 bg-amber-50 active:scale-[0.99] transition-all ${isDarkMode ? 'border-slate-700' : 'border-slate-100'}`}
+                      >
+                        <span className="text-[11px]">🎫</span>
+                        <span className="text-[11px] font-black text-amber-700">Redeem Code Generate karein</span>
+                      </button>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      );
+    }
 
     // HOMEWORK SUBJECT VIEW (MCQ, Sar Sangrah, Speedy Social Science, Speedy Science, custom books)
     if (homeworkSubjectView && contentViewStep === "SUBJECTS") {
@@ -6594,139 +6681,6 @@ export const StudentDashboard: React.FC<Props> = ({
       );
     }
 
-    if (contentViewStep === "CHAPTERS") {
-      return (
-        <ChapterSelection
-          chapters={chapters}
-          subject={
-            selectedSubject || {
-              id: "all",
-              name: "All Subjects",
-              icon: "Book",
-              color: "bg-slate-100",
-            }
-          }
-          classLevel={activeSessionClass || user.classLevel || "10"}
-          loading={loadingChapters}
-          user={user}
-          settings={settings}
-          onSelect={(chapter) => {
-            // Admin-added Lucent lessons → open page-wise notes viewer
-            if (chapter.id && chapter.id.startsWith('lucent_admin_')) {
-              const noteId = chapter.id.replace('lucent_admin_', '');
-              const entry = (settings?.lucentNotes || []).find(n => n.id === noteId);
-              if (entry) {
-                if (_lucentIsLocked(entry)) {
-                  showAlert('🔒 Yeh lesson locked hai! Admin se Redeem Code maangein aur Profile → Redeem tab mein enter karein.', 'INFO');
-                  return;
-                }
-                setLucentPageListViewer(entry);
-                return;
-              }
-            }
-            if (directActionTarget) {
-              // Bypass popup and directly open target
-              let targetTab = directActionTarget;
-              if (
-                directActionTarget === "DEEP_DIVE" ||
-                directActionTarget === "PREMIUM"
-              ) {
-                targetTab = "PDF";
-              }
-              setSelectedChapter(chapter);
-              setContentViewStep("PLAYER");
-              onTabChange(targetTab as any);
-            } else if (contentTypePref !== "ALL") {
-              // BYPASS MODAL - user picked a specific content type on home page
-              setSelectedChapter(chapter);
-              setContentViewStep("PLAYER");
-              onTabChange(contentTypePref as any);
-              setFullScreen(true);
-            } else {
-              // OPEN CONTENT PICKER POPUP (same dark popup as Lucent/Competition)
-              setSelectedLessonForModal(chapter);
-              setContentPickerPopup({ type: 'COURSE', chapter });
-            }
-          }}
-          onBack={goBack}
-        />
-      );
-    }
-
-    if (contentViewStep === "PLAYER" && selectedChapter) {
-      const contentProps = {
-        subject: selectedSubject || {
-          id: "all",
-          name: "All Subjects",
-          icon: "Book",
-          color: "bg-slate-100",
-        },
-        board: activeSessionBoard || user.board || "CBSE",
-        classLevel: activeSessionClass || user.classLevel || "10",
-        stream: user.stream || "Science",
-        onUpdateUser: handleUserUpdate,
-      };
-
-      const handleCourseMoreOptions = () => {
-        if (selectedChapter) {
-          setSelectedLessonForModal(selectedChapter);
-          setContentPickerPopup({ type: 'COURSE', chapter: selectedChapter });
-        }
-      };
-
-      if (type === "VIDEO")
-        return (
-          <VideoPlaylistView
-            chapter={selectedChapter}
-            onBack={goBack}
-            user={user}
-            settings={settings}
-            onMoreOptions={handleCourseMoreOptions}
-            {...contentProps}
-          />
-        );
-      if (type === "PDF")
-        return (
-          <PdfView
-            chapter={selectedChapter}
-            onBack={goBack}
-            user={user}
-            settings={settings}
-            hideHeader={isLandscapeUiHidden}
-            onImmersiveChange={(v) => setIsInternalImmersive(v)}
-            initialActiveTab={pdfInitialTab}
-            initialDeepDiveViewMode={pdfInitialDeepDiveMode}
-            onMoreOptions={handleCourseMoreOptions}
-            {...contentProps}
-          />
-        );
-      if (type === "MCQ")
-        return (
-          <McqView
-            chapter={selectedChapter}
-            onBack={goBack}
-            user={user}
-            settings={settings}
-            hideHeader={isLandscapeUiHidden}
-            onShareToCommunity={(mcq) => { setMcqCommunityDraft(mcq); setShowMcqCommunityPopup(true); }}
-            onMoreOptions={handleCourseMoreOptions}
-            {...contentProps}
-          />
-        );
-      if (type === "AUDIO")
-        return (
-          <AudioPlaylistView
-            chapter={selectedChapter}
-            onBack={goBack}
-            user={user}
-            settings={settings}
-            onPlayAudio={setCurrentAudioTrack}
-            onMoreOptions={handleCourseMoreOptions}
-            {...contentProps}
-          />
-        );
-    }
-
     return null;
   };
 
@@ -7744,33 +7698,12 @@ export const StudentDashboard: React.FC<Props> = ({
                   setSelectedLucentBook('Lucent');
                   return;
                 }
-                setContentViewStep("CHAPTERS");
-                setSelectedChapter(null);
-                setLoadingChapters(true);
-                const lang =
-                  activeSessionBoard === "BSEB" ? "Hindi" : "English";
-                fetchChapters(
-                  activeSessionBoard || "CBSE",
-                  activeSessionClass || "10",
-                  user.stream || "Science",
-                  subject,
-                  lang,
-                ).then((data) => {
-                  const sortedData = [...data].sort((a, b) => {
-                    const matchA = a.title.match(/(\d+)/);
-                    const matchB = b.title.match(/(\d+)/);
-                    if (matchA && matchB) {
-                      const numA = parseInt(matchA[1], 10);
-                      const numB = parseInt(matchB[1], 10);
-                      if (numA !== numB) {
-                        return numA - numB;
-                      }
-                    }
-                    return a.title.localeCompare(b.title);
-                  });
-                  setChapters(sortedData);
-                  setLoadingChapters(false);
-                });
+                // Class 6-12 school subjects → show admin Lucent lessons for that class+subject
+                const currentClass = String(activeSessionClass || user.classLevel || '10');
+                if (['6','7','8','9','10','11','12'].includes(currentClass)) {
+                  setClass612SubjectView({ classLevel: currentClass, subject });
+                  return;
+                }
               }}
               onBack={() => {
                 if (initialParentSubject) {
@@ -14814,17 +14747,6 @@ export const StudentDashboard: React.FC<Props> = ({
         />
       )}
 
-      {/* LESSON ACTION MODAL */}
-      {showLessonModal && selectedLessonForModal && (
-        <LessonActionModal
-          chapter={selectedLessonForModal}
-          onClose={() => setShowLessonModal(false)}
-          onSelect={handleLessonOption}
-          logoUrl={settings?.appLogo}
-          appName={settings?.appName}
-          isPremiumUser={SubscriptionEngine.isPremium(user)}
-        />
-      )}
 
       {/* LUCENT PAGE LIST — shown before opening a specific page */}
       {lucentPageListViewer && !lucentNoteViewer && (() => {
@@ -14934,9 +14856,7 @@ export const StudentDashboard: React.FC<Props> = ({
         const openReadingNotes = () => {
           dismiss();
           if (isCourse) {
-            setPdfInitialTab('DEEP_DIVE');
-            setPdfInitialDeepDiveMode('chunk');
-            handleLessonOption('PDF');
+            return;
           } else if (isLucent) {
             lucentInitialTabRef.current = { tab: 'NOTES', viewMode: 'chunk' };
             tryOpenLucentNote(entry, pageIdx);
@@ -14948,9 +14868,7 @@ export const StudentDashboard: React.FC<Props> = ({
         const openMakingNotes = () => {
           dismiss();
           if (isCourse) {
-            setPdfInitialTab('DEEP_DIVE');
-            setPdfInitialDeepDiveMode('html');
-            handleLessonOption('PDF');
+            return;
           } else if (isLucent) {
             lucentInitialTabRef.current = { tab: 'NOTES', viewMode: 'html' };
             tryOpenLucentNote(entry, pageIdx);
@@ -14961,7 +14879,7 @@ export const StudentDashboard: React.FC<Props> = ({
         const openMcq = () => {
           dismiss();
           if (isCourse) {
-            handleLessonOption('MCQ');
+            return;
           } else if (isLucent) {
             lucentInitialTabRef.current = { tab: 'MCQS' };
             tryOpenLucentNote(entry, pageIdx);
@@ -14973,18 +14891,19 @@ export const StudentDashboard: React.FC<Props> = ({
         const openPdf = () => {
           dismiss();
           if (isCourse) {
-            // Class 6-12 PDF button → open Retention (PREMIUM) tab directly
-            setPdfInitialTab('PREMIUM');
-            handleLessonOption('PDF');
+            return;
+          } else if (isLucent) {
+            lucentInitialTabRef.current = { tab: 'PDF' };
+            tryOpenLucentNote(entry, pageIdx);
           } else {
-            const url = isLucent ? (page as any)?.pdfUrl : hw?.pdfUrl;
+            const url = hw?.pdfUrl;
             if (url) window.open(url, '_blank', 'noopener,noreferrer');
           }
         };
         const openVideo = () => {
           dismiss();
           if (isCourse) {
-            handleLessonOption('VIDEO');
+            return;
           } else if (isLucent) {
             lucentInitialTabRef.current = { tab: 'VIDEO' };
             tryOpenLucentNote(entry, pageIdx);
@@ -14996,7 +14915,7 @@ export const StudentDashboard: React.FC<Props> = ({
         const openAudio = () => {
           dismiss();
           if (isCourse) {
-            handleLessonOption('AUDIO');
+            return;
           } else if (isLucent) {
             const url = (page as any)?.audioUrl;
             if (url) window.open(url, '_blank', 'noopener,noreferrer');
@@ -15030,7 +14949,7 @@ export const StudentDashboard: React.FC<Props> = ({
 
         return (
           <div
-            className="fixed inset-0 z-[195] flex items-center justify-center p-5"
+            className="fixed inset-0 z-[250] flex items-center justify-center p-5"
             style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(8px)' }}
             onClick={dismiss}
           >
@@ -15232,13 +15151,13 @@ export const StudentDashboard: React.FC<Props> = ({
                 }}
                 aria-label="Back to top"
                 title="Back to top"
-                className="fixed bottom-24 right-5 z-[210] w-11 h-11 rounded-full bg-slate-800/85 hover:bg-slate-900 text-white shadow-xl backdrop-blur-md flex items-center justify-center active:scale-90 transition-all animate-in fade-in slide-in-from-bottom-2"
+                className="fixed bottom-5 right-5 z-[210] w-11 h-11 rounded-full bg-slate-800/85 hover:bg-slate-900 text-white shadow-xl backdrop-blur-md flex items-center justify-center active:scale-90 transition-all animate-in fade-in slide-in-from-bottom-2"
               >
                 <ChevronRight size={22} className="-rotate-90" />
               </button>
             )}
             {/* Header */}
-            <div className={`text-white px-4 py-3 flex items-center gap-2 shrink-0 ${(isLandscapeUiHidden || lucentImmersive) ? 'hidden' : ''}`} style={{ background: tierTheme.topBarGrad }}>
+            <div className={`text-white px-4 py-3 flex items-center gap-2 shrink-0 ${(isLandscapeUiHidden || lucentImmersive || (lucentActiveTab === 'NOTES' && lucentNotesViewMode === 'chunk')) ? 'hidden' : ''}`} style={{ background: tierTheme.topBarGrad }}>
               <button onClick={closeLucentViewer} className="bg-white/20 hover:bg-white/30 p-2 rounded-full shrink-0 transition-colors">
                 <ChevronRight size={18} className="rotate-180" />
               </button>
@@ -15349,7 +15268,7 @@ export const StudentDashboard: React.FC<Props> = ({
               const _pgHasPdf   = !!(currentPage as any)?.pdfUrl;
               if (!_pgHasNotes && !_pgHasVideo && !_pgHasPdf) return null;
               return (
-                <div className={`shrink-0 bg-white px-4 py-2 flex items-center gap-2 ${(isLandscapeUiHidden || lucentImmersive) ? 'hidden' : ''}`}>
+                <div className={`shrink-0 bg-white px-4 py-2 flex items-center gap-2 ${(isLandscapeUiHidden || lucentImmersive || (lucentActiveTab === 'NOTES' && lucentNotesViewMode === 'chunk')) ? 'hidden' : ''}`}>
                   {_pgHasNotes && (
                     <button
                       onClick={() => { setLucentActiveTab('NOTES'); }}
@@ -15386,34 +15305,6 @@ export const StudentDashboard: React.FC<Props> = ({
                       <span className="text-[13px] leading-none">📄</span> PDF
                     </button>
                   )}
-                </div>
-              );
-            })()}
-            {/* READ / WRITE MODE TOGGLE — Notes tab ke andar, sirf jab Notes tab active ho */}
-            {lucentActiveTab === 'NOTES' && (() => {
-              const _hasChunk = !!(currentPage?.chunkNotes?.trim() || currentPage?.content?.trim());
-              const _hasHtml  = !!(currentPage?.htmlNotes?.trim());
-              if (!_hasChunk && !_hasHtml) return null;
-              const _isWrite  = lucentNotesViewMode === 'html';
-              return (
-                <div className={`shrink-0 px-3 py-2 flex items-center gap-2 bg-white border-b border-slate-100 ${(isLandscapeUiHidden || lucentImmersive) ? 'hidden' : ''}`}>
-                  <button
-                    onClick={() => setLucentNotesViewMode('chunk')}
-                    disabled={!_hasChunk}
-                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-black transition-all active:scale-95 ${!_isWrite ? 'bg-amber-500 text-white shadow-sm' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'} disabled:opacity-35 disabled:cursor-not-allowed`}
-                  >
-                    📖 Read Mode
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (!_hasHtml) return;
-                      handleWriteModeGate(() => setLucentNotesViewMode('html'));
-                    }}
-                    disabled={!_hasHtml}
-                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-black transition-all active:scale-95 ${_isWrite ? 'bg-teal-500 text-white shadow-sm' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'} disabled:opacity-35 disabled:cursor-not-allowed`}
-                  >
-                    ✍️ Write Mode
-                  </button>
                 </div>
               );
             })()}
@@ -15499,8 +15390,8 @@ export const StudentDashboard: React.FC<Props> = ({
                         .replace(/\n{3,}/g, '\n\n').trim();
                     })()}`}
                     topBarLabel={`Page ${currentPage.pageNo}`}
-                    hideTopBar={true}
-                    suppressStickyControls={true}
+                    hideTopBar={lucentImmersive}
+                    suppressStickyControls={lucentImmersive}
                     preferChunkMode={true}
                     autoStart={autoSyncOn}
                     searchQuery={pendingReadQuery}

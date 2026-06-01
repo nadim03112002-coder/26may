@@ -19,7 +19,6 @@ from './components/Onboarding';
 import { BoardSelection } from './components/BoardSelection';
 import { ClassSelection } from './components/ClassSelection';
 import { SubjectSelection } from './components/SubjectSelection';
-import { ChapterSelection } from './components/ChapterSelection';
 import { StreamSelection } from './components/StreamSelection';
 const LessonView = lazy(() => import('./components/LessonView').then(m => ({ default: m.LessonView })));
 import { Auth } from './components/Auth';
@@ -2893,11 +2892,6 @@ const App: React.FC = () => {
                 {state.view === 'SUBJECTS' && state.selectedClass && (
                   <ErrorBoundary fallbackLabel="Subject Selection" compact>
                     <SubjectSelection classLevel={state.selectedClass} stream={state.selectedStream} board={state.selectedBoard || undefined} onSelect={handleSubjectSelect} onBack={goBack} settings={state.settings} />
-                  </ErrorBoundary>
-                )}
-                {state.view === 'CHAPTERS' && state.selectedSubject && (
-                  <ErrorBoundary fallbackLabel="Chapter Selection" compact>
-                    <ChapterSelection chapters={state.chapters} subject={state.selectedSubject} classLevel={state.selectedClass!} loading={state.loading && state.view === 'CHAPTERS'} user={state.user} onSelect={onChapterClick} onBack={goBack}/>
                   </ErrorBoundary>
                 )}
                 {state.view === 'LESSON' && state.lessonContent && (

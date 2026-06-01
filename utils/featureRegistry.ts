@@ -485,17 +485,6 @@ export const ALL_FEATURES: Feature[] = [
         color: 'purple'
     },
     {
-        id: 'ADMIN_SUBJECTS',
-        label: 'Subjects',
-        group: 'CORE',
-        surfaceLevel: 3,
-        adminVisible: true,
-        adminTab: 'SUBJECTS_MGR',
-        requiredPermission: 'MANAGE_SYLLABUS',
-        icon: 'Book',
-        color: 'emerald'
-    },
-    {
         id: 'ADMIN_STORE',
         label: 'Store Manager',
         group: 'CORE',
@@ -554,50 +543,6 @@ export const ALL_FEATURES: Feature[] = [
     },
 
     // GROUP: CONTENT / ANALYSIS
-    {
-        id: 'ADMIN_CONTENT_PDF',
-        label: 'Main Notes',
-        group: 'CONTENT',
-        surfaceLevel: 3,
-        adminVisible: true,
-        adminTab: 'CONTENT_PDF',
-        requiredPermission: 'MANAGE_CONTENT',
-        icon: 'FileText',
-        color: 'blue'
-    },
-    {
-        id: 'ADMIN_CONTENT_VIDEO',
-        label: 'Video Lectures',
-        group: 'CONTENT',
-        surfaceLevel: 3,
-        adminVisible: true,
-        adminTab: 'CONTENT_VIDEO',
-        requiredPermission: 'MANAGE_CONTENT',
-        icon: 'Video',
-        color: 'red'
-    },
-    {
-        id: 'ADMIN_CONTENT_AUDIO',
-        label: 'Audio Series',
-        group: 'CONTENT',
-        surfaceLevel: 3,
-        adminVisible: true,
-        adminTab: 'CONTENT_AUDIO',
-        requiredPermission: 'MANAGE_CONTENT',
-        icon: 'Headphones',
-        color: 'pink'
-    },
-    {
-        id: 'ADMIN_CONTENT_MCQ',
-        label: 'MCQ & Tests',
-        group: 'CONTENT',
-        surfaceLevel: 3,
-        adminVisible: false,
-        adminTab: 'CONTENT_MCQ',
-        requiredPermission: 'MANAGE_CONTENT',
-        icon: 'CheckCircle',
-        color: 'purple'
-    },
     // ADMIN_PREMIUM_VIDEO REMOVED from visible list as requested ("Content & Analysis me admin dashbord me ek button hai Premium Video ye hatao")
     {
         id: 'ADMIN_TOPIC_NOTES',
@@ -609,17 +554,6 @@ export const ALL_FEATURES: Feature[] = [
         requiredPermission: 'MANAGE_CONTENT',
         icon: 'BookOpen',
         color: 'cyan'
-    },
-    {
-        id: 'ADMIN_BULK_UPLOAD',
-        label: 'Bulk Import',
-        group: 'CONTENT',
-        surfaceLevel: 3,
-        adminVisible: false,
-        adminTab: 'BULK_UPLOAD',
-        requiredPermission: 'MANAGE_CONTENT',
-        icon: 'Layers',
-        color: 'orange'
     },
     {
         id: 'ADMIN_HOMEWORK',
@@ -664,17 +598,6 @@ export const ALL_FEATURES: Feature[] = [
         requiredPermission: 'MANAGE_CONTENT',
         icon: 'TrendingUp',
         color: 'amber'
-    },
-    {
-        id: 'ADMIN_SYLLABUS',
-        label: 'Syllabus Manager',
-        group: 'CONTENT',
-        surfaceLevel: 3,
-        adminVisible: true,
-        adminTab: 'SYLLABUS_MANAGER',
-        requiresSuperAdmin: true,
-        icon: 'ListChecks',
-        color: 'indigo'
     },
     {
         id: 'ADMIN_UNIVERSAL_PLAYLIST',
