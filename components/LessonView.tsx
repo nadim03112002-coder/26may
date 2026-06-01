@@ -631,24 +631,37 @@ export const LessonView: React.FC<Props> = ({
                       {(() => {
                           const sections = (content as any).schoolHtmlSections || (content as any).competitionHtmlSections || (content as any).htmlSections;
                           if (!sections || sections.length === 0) return null;
-                          return sections.map((sec: { id: string; title?: string; html: string }, idx: number) => (
-                              <div key={sec.id || idx} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mt-3">
-                                  {sec.title && (
-                                      <div className="px-4 pt-4 pb-1">
-                                          <h3 className="text-sm font-black text-slate-700 flex items-center gap-2">
-                                              <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-600 text-[10px] font-black flex items-center justify-center">{idx + 1}</span>
-                                              {sec.title}
-                                          </h3>
-                                          <div className="h-px bg-slate-100 mt-2" />
-                                      </div>
-                                  )}
-                                  <div
-                                      className="notes-html-content p-4 sm:p-6"
-                                      dangerouslySetInnerHTML={{ __html: sec.html || '' }}
-                                      style={{ fontSize: '15px', lineHeight: '1.8' }}
-                                  />
-                              </div>
-                          ));
+                          return sections.map((sec: { id: string; title?: string; html: string; chunkNotes?: string }, idx: number) => {
+                              const hasChunk = !!(sec.chunkNotes?.trim());
+                              const hasHtml  = !!(sec.html?.trim());
+                              return (
+                                  <div key={sec.id || idx} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mt-3">
+                                      {sec.title && (
+                                          <div className="px-4 pt-4 pb-1">
+                                              <h3 className="text-sm font-black text-slate-700 flex items-center gap-2">
+                                                  <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-600 text-[10px] font-black flex items-center justify-center">{idx + 1}</span>
+                                                  {sec.title}
+                                              </h3>
+                                              <div className="h-px bg-slate-100 mt-2" />
+                                          </div>
+                                      )}
+                                      {/* Read mode plain text (shown as a clean readable block) */}
+                                      {hasChunk && (
+                                          <div className="notes-html-content p-4 sm:p-6 border-b border-slate-100 whitespace-pre-wrap text-slate-700" style={{ fontSize: '15px', lineHeight: '1.8' }}>
+                                              {sec.chunkNotes}
+                                          </div>
+                                      )}
+                                      {/* Write mode HTML */}
+                                      {hasHtml && (
+                                          <div
+                                              className="notes-html-content p-4 sm:p-6"
+                                              dangerouslySetInnerHTML={{ __html: sec.html || '' }}
+                                              style={{ fontSize: '15px', lineHeight: '1.8' }}
+                                          />
+                                      )}
+                                  </div>
+                              );
+                          });
                       })()}
                       </div>
                       </>

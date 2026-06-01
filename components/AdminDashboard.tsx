@@ -489,6 +489,8 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
   const [homeworkTab, setHomeworkTab] = useState<'ADD' | 'HISTORY' | 'COMP_MCQ'>('ADD');
   const [bookNotesTab, setBookNotesTab] = useState<'ADD' | 'HISTORY'>('ADD');
   const [newBookNote, setNewBookNote] = useState({ date: new Date().toISOString().split('T')[0], title: '', notes: '', chunkNotes: '', htmlNotes: '', lightCSS: '', darkCSS: '', mcqText: '', audioUrl: '', videoUrl: '', pdfUrl: '', targetSubject: 'sarSangrah', pageNo: '', topicName: '', classTarget: 'ALL' as 'COMPETITION' | 'ALL' | '6' | '7' | '8' | '9' | '10' | '11' | '12' });
+  // Mode for custom book entries: 'single' = one-page per entry (like Speedy), 'multi' = Lucent-style multi-page
+  const [newBookNoteMode, setNewBookNoteMode] = useState<'single' | 'multi'>('single');
   const [newBookNoteMcqs, setNewBookNoteMcqs] = useState<Array<{ id: string; question: string; options: string[]; correctAnswer: number }>>([]);
   const [newBookNoteBulk, setNewBookNoteBulk] = useState<string | undefined>(undefined);
   // ── Compre Book Notes (stored in Firestore compre_notes, shown in Compare → Book Notes tab) ──
@@ -548,15 +550,16 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
 
   // Class targets a Lucent book can be assigned to. COMPETITION = original
   // Competition mode (default). Class 6-12 entries appear in that class's
-  // chapter list using the same page-wise viewer (notes + MCQ only — video/
-  // audio rendering for the class is untouched).
-  // Lucent (Page-wise) flow ab sirf Competition mode ke liye hai. Class 6-12 ke
-  // students ko apna alag homework path milta hai (jisme Notes + MCQ + chunked
-  // TTS reader pehle se hi same Competition jaise format me kaam karta hai).
-  // Type me purane class IDs ('6'-'12') retained hain taa ki agar koi purane
-  // saved Lucent entry me classLevel='6' jaisa value ho to data load break naa ho.
+  // chapter/subject view using the same page-wise notes viewer (Read+Write mode).
   const LUCENT_CLASS_TARGETS: { id: 'COMPETITION' | '6' | '7' | '8' | '9' | '10' | '11' | '12'; label: string }[] = [
     { id: 'COMPETITION', label: '🏆 Competition Mode' },
+    { id: '6',  label: '📚 Class 6'  },
+    { id: '7',  label: '📚 Class 7'  },
+    { id: '8',  label: '📚 Class 8'  },
+    { id: '9',  label: '📚 Class 9'  },
+    { id: '10', label: '📚 Class 10' },
+    { id: '11', label: '📚 Class 11' },
+    { id: '12', label: '📚 Class 12' },
   ];
   const [newLucent, setNewLucent] = useState<{ subject: string; bookName: string; classLevel: 'COMPETITION' | '6' | '7' | '8' | '9' | '10' | '11' | '12'; lessonTitle: string; pages: LucentPageNote[] }>({
     subject: 'biology',
@@ -785,6 +788,21 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
   const LUCENT_SUBJECT_OPTIONS: { id: string; name: string }[] = [
     ...LUCENT_SUBJECT_OPTIONS_BASE,
   ];
+  // Dynamic subject options — changes based on which classLevel admin selected.
+  // For COMPETITION: competition subjects. For class 6-12: all subjects of that class.
+  const activeLucentSubjectOptions: { id: string; name: string }[] = (() => {
+    if (newLucent.classLevel === 'COMPETITION') return LUCENT_SUBJECT_OPTIONS_BASE;
+    try {
+      const seen = new Set<string>();
+      const results: { id: string; name: string }[] = [];
+      (['Science', 'Commerce', 'Arts', null] as any[]).forEach((stream: string | null) => {
+        getSubjectsList(newLucent.classLevel, stream).forEach(s => {
+          if (!seen.has(s.id)) { seen.add(s.id); results.push({ id: s.id, name: s.name }); }
+        });
+      });
+      return results.length > 0 ? results : LUCENT_SUBJECT_OPTIONS_BASE;
+    } catch { return LUCENT_SUBJECT_OPTIONS_BASE; }
+  })();
   // Page-wise books list for book selector in Homework / Book Notes forms
   const PAGE_WISE_BOOK_OPTIONS: { id: string; name: string }[] = [
     { id: 'sarSangrah', name: '📒 Sar Sangrah' },
@@ -980,7 +998,7 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
   const [premiumNotesList, setPremiumNotesList] = useState<{title: string, url: string, type: 'PDF' | 'HTML', content?: string, audioUrl?: string}[]>([]);
 
   // MULTI-HTML SECTIONS STATE
-  const [htmlSections, setHtmlSections] = useState<{ id: string; title?: string; html: string }[]>([]);
+  const [htmlSections, setHtmlSections] = useState<{ id: string; title?: string; html: string; chunkNotes?: string }[]>([]);
 
   // NEW TOPIC CONTENT STATE
   const [topicNotes, setTopicNotes] = useState<{ id: string, title: string, content: string, isPremium: boolean, topic: string }[]>([]);
@@ -1797,6 +1815,28 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
 
   // ── PERMANENT DELETE HELPER ──────────────────────────────────────────────
   // Bypasses the isSettingsSaving guard so delete ops are NEVER silently dropped.
+  // Direct Lucent entry save — bypasses the isSettingsSaving guard so a Lucent
+  // lesson save is never silently skipped. Shows a loading state while saving
+  // and only shows success AFTER Firebase confirms the write.
+  const [isSavingLucent, setIsSavingLucent] = useState(false);
+  const saveLucentEntryDirectly = async (updatedNotes: LucentNoteEntry[], successMsg: string, updatedNotifs?: any[]) => {
+      if (isSavingLucent) return;
+      setIsSavingLucent(true);
+      try {
+          const toSave: any = { ...localSettings, lucentNotes: updatedNotes };
+          if (updatedNotifs) toSave.notifications = updatedNotifs;
+          setLocalSettings(toSave);
+          if (onUpdateSettings) onUpdateSettings(toSave);
+          localStorage.setItem('nst_system_settings', JSON.stringify(toSave));
+          await saveSystemSettings(toSave);
+          setAlertConfig({ isOpen: true, message: successMsg });
+      } catch (e: any) {
+          setAlertConfig({ isOpen: true, message: `❌ Save fail hua — dubara try karein. (${e?.message || 'Network error'})` });
+      } finally {
+          setIsSavingLucent(false);
+      }
+  };
+
   // Always writes directly to Firebase + localStorage.
   const permanentDeleteNote = async (newSettings: SystemSettings, label: string) => {
       setLocalSettings(newSettings);
@@ -2517,7 +2557,7 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
       // so applyContentData always gets the right mode (avoids stale state bug)
       const effectiveMode: 'SCHOOL' | 'COMPETITION' =
           ['6','7','8','9','10','11','12'].includes(selClass)
-              ? 'COMPETITION'
+              ? 'SCHOOL'
               : syllabusMode;
       setSyllabusMode(effectiveMode);
 
@@ -7285,9 +7325,9 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
                           </div>
                           )}
                           {['6','7','8','9','10','11','12'].includes(selClass) && (
-                              <div className="flex items-center gap-2 mb-4 px-3 py-2 bg-indigo-50 rounded-xl border border-indigo-200 w-fit">
-                                  <GraduationCap size={14} className="text-indigo-600" />
-                                  <span className="text-xs font-black text-indigo-700">Class {selClass} — Competition Content Mode</span>
+                              <div className="flex items-center gap-2 mb-4 px-3 py-2 bg-green-50 rounded-xl border border-green-200 w-fit">
+                                  <GraduationCap size={14} className="text-green-700" />
+                                  <span className="text-xs font-black text-green-800">Class {selClass} — School Mode (Dual-Box Notes)</span>
                               </div>
                           )}
 
@@ -7296,13 +7336,16 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
                           <div className="space-y-6">
                               {/* NOTE TYPES NAVIGATION TABS */}
                               <div className="flex gap-2 overflow-x-auto pb-2 mb-2 border-b border-slate-200">
-                                  {[
+                                  {(syllabusMode === 'SCHOOL' ? [
+                                      {id: 'PREMIUM', label: 'Premium (PDF)', icon: FileText},
+                                      {id: 'MULTI_HTML', label: `Notes Sections (${htmlSections.length})`, icon: Plus},
+                                  ] : [
                                       {id: 'PREMIUM', label: 'Retention Notes (Premium)', icon: FileText},
                                       {id: 'DEEP_DIVE', label: 'Concept Notes (Deep Dive)', icon: Layers},
                                       {id: 'ADDITIONAL', label: 'Extended Notes (Resources)', icon: FileText},
                                       {id: 'TEACHER', label: "Teacher's Guide", icon: GraduationCap},
-                                      {id: 'MULTI_HTML', label: `Multi-HTML Sections (${htmlSections.length})`, icon: Plus}
-                                  ].map(tab => (
+                                      {id: 'MULTI_HTML', label: `Multi-HTML Sections (${htmlSections.length})`, icon: Plus},
+                                  ]).map(tab => (
                                       <button
                                           key={tab.id}
                                           onClick={() => setActiveNoteTab(tab.id as any)}
@@ -7364,10 +7407,11 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
                                                       updated[idx].url = e.target.value;
                                                       setPremiumNotesList(updated);
                                                   }}
-                                                  placeholder="PDF URL (Optional)..."
+                                                  placeholder="PDF URL *"
                                                   className="w-full p-2 border rounded text-xs text-blue-600"
                                               />
 
+                                              {syllabusMode === 'COMPETITION' && (<>
                                               <textarea
                                                   value={note.content || ''}
                                                   onChange={e => {
@@ -7393,6 +7437,7 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
                                                       <Zap size={12} /> Add Quick Revision
                                                   </button>
                                               </div>
+                                              </>)}
                                           </div>
                                       ))}
                                   </div>
@@ -7717,9 +7762,10 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
                                     <Plus size={20} /> Multi-HTML Sections ({syllabusMode})
                                   </h4>
                                   <p className="text-[10px] text-blue-600 mb-4">
-                                    Ek hi notes page pe multiple HTML blocks add karo. Sab sections ek saath same page pe dikhenge students ko.
-                                    <br/>• Har section ka apna title aur HTML content hoga.
-                                    <br/>• Sections save hone ke baad automatically notes view mein appear ho jayenge.
+                                    {syllabusMode === 'SCHOOL'
+                                      ? <>Har section mein <b>2 boxes</b> hain — <b className="text-amber-600">📖 Read Mode</b> (plain text, TTS ke liye) aur <b className="text-teal-600">🎨 Write Mode</b> (HTML, styled view ke liye). Multiple sections add kar sakte hain.</>
+                                      : <>Ek hi notes page pe multiple HTML blocks add karo. Sab sections ek saath same page pe dikhenge students ko.</>
+                                    }
                                   </p>
 
                                   <div className="space-y-4 mb-4">
@@ -7779,29 +7825,50 @@ Capital of India?       Mumbai  Delhi   Kolkata Chennai 2       Delhi is the cap
                                             updated[idx] = { ...updated[idx], title: e.target.value };
                                             setHtmlSections(updated);
                                           }}
-                                          placeholder="Section Title (e.g. Introduction, Part 2) — optional"
+                                          placeholder="Section Title (e.g. Chapter 1, Part A) — optional"
                                           className="w-full p-2 border border-blue-100 rounded-lg text-xs font-bold outline-none focus:border-blue-400 bg-slate-50"
                                         />
 
-                                        <textarea
-                                          value={sec.html}
-                                          onChange={e => {
-                                            const updated = [...htmlSections];
-                                            updated[idx] = { ...updated[idx], html: e.target.value };
-                                            setHtmlSections(updated);
-                                          }}
-                                          className="w-full p-3 border border-blue-100 rounded-lg text-xs font-mono h-36 focus:ring-1 focus:ring-blue-300 outline-none"
-                                          placeholder="<h2>Section Heading</h2><p>Content yahan likho...</p><ul><li>Point 1</li><li>Point 2</li></ul>"
-                                        />
+                                        {/* READ MODE BOX — plain text / chunk notes */}
+                                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5">
+                                          <label className="text-[9px] font-black text-amber-700 uppercase block mb-1">📖 Read Mode Notes (Plain Text — TTS Reader)</label>
+                                          <textarea
+                                            value={sec.chunkNotes || ''}
+                                            onChange={e => {
+                                              const updated = [...htmlSections];
+                                              updated[idx] = { ...updated[idx], chunkNotes: e.target.value };
+                                              setHtmlSections(updated);
+                                            }}
+                                            className="w-full p-2 border border-amber-200 rounded text-xs h-28 resize-y focus:ring-1 focus:ring-amber-400 outline-none bg-white leading-relaxed"
+                                            placeholder="Plain text notes — student TTS reader mein sunegaa. Har bullet ya nayi line alag chunk banta hai."
+                                          />
+                                          <p className="text-[8px] text-amber-600 mt-0.5">💡 Sirf plain text — koi HTML tag nahi.</p>
+                                        </div>
+
+                                        {/* WRITE MODE BOX — HTML with CSS */}
+                                        <div className="bg-teal-50 border border-teal-200 rounded-lg p-2.5">
+                                          <label className="text-[9px] font-black text-teal-700 uppercase block mb-1">🎨 Write Mode Notes (HTML + CSS — Styled View)</label>
+                                          <textarea
+                                            value={sec.html}
+                                            onChange={e => {
+                                              const updated = [...htmlSections];
+                                              updated[idx] = { ...updated[idx], html: e.target.value };
+                                              setHtmlSections(updated);
+                                            }}
+                                            className="w-full p-2 border border-teal-200 rounded-lg text-xs font-mono h-36 focus:ring-1 focus:ring-teal-400 outline-none bg-white"
+                                            placeholder="<h2>Topic Heading</h2><p>HTML formatted notes — colors, bold, tables, lists sab likh sakte hain.</p>"
+                                          />
+                                          <p className="text-[8px] text-teal-600 mt-0.5">🎨 HTML + inline CSS supported — headings, colors, bold, tables.</p>
+                                        </div>
                                       </div>
                                     ))}
                                   </div>
 
                                   <button
-                                    onClick={() => setHtmlSections(prev => [...prev, { id: Date.now().toString(), title: '', html: '' }])}
+                                    onClick={() => setHtmlSections(prev => [...prev, { id: Date.now().toString(), title: '', html: '', chunkNotes: '' }])}
                                     className="w-full py-3 bg-white border-2 border-dashed border-blue-300 text-blue-600 font-bold rounded-xl hover:bg-blue-50 flex items-center justify-center gap-2"
                                   >
-                                    <Plus size={16} /> Nayi HTML Section Add Karo
+                                    <Plus size={16} /> {syllabusMode === 'SCHOOL' ? 'Nayi Notes Section Add Karo' : 'Nayi HTML Section Add Karo'}
                                   </button>
                                 </div>
                                 </>
@@ -11680,17 +11747,23 @@ Statement 2"
                           {newHomework.targetSubject === 'lucent' ? (
                               <div className="space-y-4 border-t border-indigo-100 pt-4">
                                   <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3 text-xs text-indigo-800">
-                                      <strong>Lucent Mode (Competition only):</strong> Subject category → custom book name → page-wise notes + MCQ. Yeh Competition page pe dikhega. Class 6-12 ke liye alag se Homework path use karein (Target Subject → None ya MCQ / Speedy / Sar Sangrah) — wahaan bhi same chunked Notes + MCQ + TTS reader milta hai.
+                                      <strong>Lucent Mode:</strong> Subject category → book name → page-wise notes (Read + Write mode) + MCQ. Competition ya Class 6-12 — jahan bhi assign karo, same reader milta hai.
                                   </div>
                                   <div className="grid grid-cols-2 gap-2">
                                       <div>
-                                          <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">🎯 Mode</label>
-                                          <div className="w-full p-2 border border-indigo-200 rounded text-sm bg-indigo-50 text-indigo-700 font-bold">🏆 Competition Only</div>
+                                          <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">🎯 Class / Mode</label>
+                                          <select value={newLucent.classLevel} onChange={e => {
+                                              const cl = e.target.value as any;
+                                              const firstSubj = cl === 'COMPETITION' ? 'biology' : (getSubjectsList(cl, 'Science')[0]?.id || getSubjectsList(cl, null)[0]?.id || 'science');
+                                              setNewLucent({...newLucent, classLevel: cl, subject: firstSubj});
+                                          }} className="w-full p-2 border border-indigo-200 rounded text-sm outline-none focus:border-indigo-500 bg-white font-bold">
+                                              {LUCENT_CLASS_TARGETS.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+                                          </select>
                                       </div>
                                       <div>
                                           <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Subject Category</label>
                                           <select value={newLucent.subject} onChange={e => setNewLucent({...newLucent, subject: e.target.value})} className="w-full p-2 border border-slate-200 rounded text-sm outline-none focus:border-indigo-500 bg-white">
-                                              {LUCENT_SUBJECT_OPTIONS.map(opt => (
+                                              {activeLucentSubjectOptions.map(opt => (
                                                   <option key={opt.id} value={opt.id}>{opt.name}</option>
                                               ))}
                                           </select>
@@ -12020,13 +12093,11 @@ Statement 2"
                                           const currentNotifs = localSettings.notifications || [];
                                           const updatedNotifs = [newNotif, ...currentNotifs].slice(0, 30);
 
-                                          const newSettings = { ...localSettings, lucentNotes: updated, notifications: updatedNotifs };
-                                          setLocalSettings(newSettings);
-                                          handleSaveSettings(newSettings);
+                                          const target = LUCENT_CLASS_TARGETS.find(t => t.id === newLucent.classLevel)?.label || newLucent.classLevel;
                                           setNewLucent({ subject: newLucent.subject, bookName: '', classLevel: newLucent.classLevel, lessonTitle: '', pages: [{ id: Date.now().toString(), pageNo: '1', content: '', chunkNotes: '', htmlNotes: '' }] });
-                                          setAlertConfig({ isOpen: true, message: `✅ Lucent Lesson Added → ${newLucent.classLevel === 'COMPETITION' ? 'Competition Mode' : 'Class ' + newLucent.classLevel}!` });
-                                      }} className="w-full bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-700 flex items-center justify-center gap-2 transition-colors">
-                                          <Save size={18} /> Save Lucent Lesson
+                                          saveLucentEntryDirectly(updated, `✅ Lesson saved → ${target}!`, updatedNotifs);
+                                      }} disabled={isSavingLucent} className="w-full bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-700 flex items-center justify-center gap-2 transition-colors disabled:opacity-60">
+                                          <Save size={18} /> {isSavingLucent ? 'Saving…' : 'Save Lucent Lesson'}
                                       </button>
                                   </div>
                               </div>
@@ -12679,7 +12750,9 @@ Statement 2"
                               {/* Hide built-in syllabus toggle (default: hidden) */}
                               {(() => {
                                   const isHidden = localSettings.hideLucentSyllabus !== false; // default true
+                                  const isLucentMode = !!localSettings.class612LucentMode;
                                   return (
+                                      <>
                                       <div className="bg-white border-2 border-indigo-200 rounded-2xl p-4 mb-4 flex items-center justify-between gap-3 shadow-sm">
                                           <div className="flex-1 min-w-0">
                                               <p className="font-black text-sm text-indigo-900">Hide built-in Lucent Syllabus</p>
@@ -12700,6 +12773,30 @@ Statement 2"
                                               <span className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow transition-transform ${isHidden ? 'translate-x-7' : 'translate-x-0.5'}`} />
                                           </button>
                                       </div>
+
+                                      {/* Class 6-12 Notes Mode: School vs Lucent */}
+                                      <div className="bg-white border-2 border-emerald-200 rounded-2xl p-4 mb-4 flex items-center justify-between gap-3 shadow-sm">
+                                          <div className="flex-1 min-w-0">
+                                              <p className="font-black text-sm text-emerald-900">📚 Class 6-12 Notes Mode</p>
+                                              <p className="text-[11px] text-slate-600 mt-0.5 leading-snug">
+                                                  {isLucentMode
+                                                      ? '🟢 Lucent Mode ON — Class 6-12 students sirf aapke add kiye Lucent-style lessons dekhenge. School mode notes (CONTENT_PDF) hidden.'
+                                                      : '⚪ School Mode — Class 6-12 students ko dono dikhenge: School notes (CONTENT_PDF) + Lucent lessons.'}
+                                              </p>
+                                          </div>
+                                          <button
+                                              onClick={() => {
+                                                  const newSettings = { ...localSettings, class612LucentMode: !isLucentMode };
+                                                  setLocalSettings(newSettings);
+                                                  handleSaveSettings(newSettings);
+                                              }}
+                                              className={`shrink-0 relative w-14 h-7 rounded-full transition-colors ${isLucentMode ? 'bg-emerald-600' : 'bg-slate-300'}`}
+                                              aria-label="Toggle class 6-12 notes mode"
+                                          >
+                                              <span className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow transition-transform ${isLucentMode ? 'translate-x-7' : 'translate-x-0.5'}`} />
+                                          </button>
+                                      </div>
+                                      </>
                                   );
                               })()}
                               <div className="flex justify-between items-center mb-4">
@@ -14094,7 +14191,9 @@ Statement 2"
               })),
           ];
           const BOOK_IDS = new Set(BOOK_TYPES.map(b => b.id));
-          const isPageWise = newBookNote.targetSubject !== 'lucent' && BOOK_IDS.has(newBookNote.targetSubject);
+          const isCustomBook = customBooksList.some(b => b.id === newBookNote.targetSubject);
+          const isMultiPageCustomBook = isCustomBook && newBookNoteMode === 'multi';
+          const isPageWise = newBookNote.targetSubject !== 'lucent' && BOOK_IDS.has(newBookNote.targetSubject) && !isMultiPageCustomBook;
 
           const bnHistoryFilter = (hw: HomeworkItem) => {
               if (!hw.targetSubject) return false;
@@ -14553,7 +14652,7 @@ Statement 2"
                                       const isActive = newBookNote.targetSubject === bt.id;
                                       return (
                                           <button key={bt.id} type="button"
-                                              onClick={() => setNewBookNote({ ...newBookNote, targetSubject: bt.id, title: '', notes: '', mcqText: '', pageNo: '' })}
+                                              onClick={() => { setNewBookNote({ ...newBookNote, targetSubject: bt.id, title: '', notes: '', mcqText: '', pageNo: '' }); setNewBookNoteMode('single'); }}
                                               className={`flex flex-col items-start gap-0.5 px-3 py-2.5 rounded-xl border-2 text-left transition-all font-bold text-sm shadow-sm ${isActive ? bt.active + ' shadow-md scale-[1.02]' : bt.idle}`}>
                                               <span className="text-sm font-black leading-tight">{bt.label}</span>
                                               <span className={`text-[10px] font-medium leading-tight ${isActive ? 'opacity-80' : 'opacity-60'}`}>{bt.sub}</span>
@@ -14562,21 +14661,136 @@ Statement 2"
                                   })}
                               </div>
 
+                              {/* ── CUSTOM BOOK MODE SELECTOR ── */}
+                              {isCustomBook && (
+                                  <div className="border-t border-teal-100 pt-3">
+                                      <label className="text-[10px] font-black text-teal-700 uppercase block mb-2">📦 Notes Format</label>
+                                      <div className="flex gap-2">
+                                          <button type="button" onClick={() => setNewBookNoteMode('single')}
+                                              className={`flex-1 flex flex-col items-center gap-1 py-2.5 px-3 rounded-xl border-2 text-xs font-black transition-all ${newBookNoteMode === 'single' ? 'bg-teal-600 text-white border-teal-600 shadow-md' : 'bg-white text-teal-700 border-teal-200 hover:border-teal-400'}`}>
+                                              <span className="text-lg">📄</span>
+                                              <span>Single Page</span>
+                                              <span className={`text-[9px] font-medium ${newBookNoteMode === 'single' ? 'opacity-80' : 'opacity-60'}`}>Speedy jaisa (ek entry = ek page)</span>
+                                          </button>
+                                          <button type="button" onClick={() => setNewBookNoteMode('multi')}
+                                              className={`flex-1 flex flex-col items-center gap-1 py-2.5 px-3 rounded-xl border-2 text-xs font-black transition-all ${newBookNoteMode === 'multi' ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-indigo-700 border-indigo-200 hover:border-indigo-400'}`}>
+                                              <span className="text-lg">📚</span>
+                                              <span>Multi Page</span>
+                                              <span className={`text-[9px] font-medium ${newBookNoteMode === 'multi' ? 'opacity-80' : 'opacity-60'}`}>Lucent jaisa (ek lesson = multiple pages)</span>
+                                          </button>
+                                      </div>
+                                  </div>
+                              )}
+
+                              {/* ── MULTI-PAGE CUSTOM BOOK FORM (Lucent-style) ── */}
+                              {isMultiPageCustomBook && (() => {
+                                  const _cBookName = customBooksList.find(b => b.id === newBookNote.targetSubject)?.name || '';
+                                  if (newLucent.bookName !== _cBookName && _cBookName) {
+                                      // Pre-fill bookName with custom book name (deferred to avoid render loop)
+                                      setTimeout(() => setNewLucent(prev => prev.bookName ? prev : ({...prev, bookName: _cBookName})), 0);
+                                  }
+                                  return (
+                                      <div className="border-t border-indigo-100 pt-4 space-y-3">
+                                          <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3 text-xs text-indigo-800">
+                                              <strong>Multi-Page Mode:</strong> Ek lesson mein multiple pages — Lucent jaisa reader milega students ko. Class 6-12 ya Competition — aap chunein.
+                                          </div>
+                                          <div className="grid grid-cols-2 gap-2">
+                                              <div>
+                                                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">🎯 Class / Mode</label>
+                                                  <select value={newLucent.classLevel} onChange={e => {
+                                                      const cl = e.target.value as any;
+                                                      const firstSubj = cl === 'COMPETITION' ? 'biology' : (getSubjectsList(cl, 'Science')[0]?.id || getSubjectsList(cl, null)[0]?.id || 'science');
+                                                      setNewLucent({...newLucent, classLevel: cl, subject: firstSubj});
+                                                  }} className="w-full p-2 border border-indigo-200 rounded text-sm outline-none focus:border-indigo-500 bg-white font-bold">
+                                                      {LUCENT_CLASS_TARGETS.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+                                                  </select>
+                                              </div>
+                                              <div>
+                                                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Subject</label>
+                                                  <select value={newLucent.subject} onChange={e => setNewLucent({...newLucent, subject: e.target.value})} className="w-full p-2 border border-slate-200 rounded text-sm outline-none focus:border-indigo-500 bg-white">
+                                                      {activeLucentSubjectOptions.map(opt => <option key={opt.id} value={opt.id}>{opt.name}</option>)}
+                                                  </select>
+                                              </div>
+                                          </div>
+                                          <p className="text-[10px] text-teal-700 font-bold">📗 Book: <span className="font-black">{_cBookName}</span> (auto-set)</p>
+                                          <div>
+                                              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">📖 Lesson Title *</label>
+                                              <input type="text" value={newLucent.lessonTitle} onChange={e => setNewLucent({...newLucent, lessonTitle: e.target.value})}
+                                                  className="w-full p-2 border border-slate-200 rounded text-sm outline-none focus:border-indigo-500"
+                                                  placeholder="e.g. Chapter 1: Cell Structure, Unit 3: Gravitation…" />
+                                          </div>
+                                          <div>
+                                              <div className="flex items-center justify-between mb-2">
+                                                  <label className="text-[10px] font-bold text-slate-500 uppercase">📄 Pages ({newLucent.pages.length})</label>
+                                                  <button type="button" onClick={() => setNewLucent({...newLucent, pages: [...newLucent.pages, { id: Date.now().toString(), pageNo: String(newLucent.pages.length + 1), content: '', chunkNotes: '', htmlNotes: '' }]})}
+                                                      className="text-[10px] font-black text-indigo-600 bg-indigo-50 border border-indigo-200 px-2 py-1 rounded-lg hover:bg-indigo-100">+ Add Page</button>
+                                              </div>
+                                              <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
+                                                  {newLucent.pages.map((pg, pgIdx) => (
+                                                      <div key={pg.id} className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2 relative">
+                                                          {newLucent.pages.length > 1 && (
+                                                              <button type="button" onClick={() => { const u=[...newLucent.pages]; u.splice(pgIdx,1); setNewLucent({...newLucent, pages: u}); }} className="absolute top-2 right-2 p-1 text-red-400 hover:text-red-600 rounded"><Trash2 size={13}/></button>
+                                                          )}
+                                                          <div className="grid grid-cols-2 gap-2">
+                                                              <div>
+                                                                  <label className="text-[9px] font-bold text-slate-500 uppercase block mb-1">Page No.</label>
+                                                                  <input type="text" value={pg.pageNo} onChange={e => { const u=[...newLucent.pages]; u[pgIdx]={...u[pgIdx], pageNo: e.target.value}; setNewLucent({...newLucent, pages: u}); }} className="w-full p-1.5 border border-slate-200 rounded text-sm outline-none focus:border-indigo-500" placeholder="1" />
+                                                              </div>
+                                                              <div>
+                                                                  <label className="text-[9px] font-bold text-slate-500 uppercase block mb-1">Date</label>
+                                                                  <input type="date" value={pg.date || ''} onChange={e => { const u=[...newLucent.pages]; u[pgIdx]={...u[pgIdx], date: e.target.value}; setNewLucent({...newLucent, pages: u}); }} className="w-full p-1.5 border border-slate-200 rounded text-xs outline-none focus:border-indigo-500" />
+                                                              </div>
+                                                          </div>
+                                                          <div className="bg-amber-50 border border-amber-200 rounded-lg p-2">
+                                                              <label className="text-[9px] font-black text-amber-700 uppercase block mb-1">📖 Read Mode Notes</label>
+                                                              <textarea value={pg.chunkNotes || ''} onChange={e => { const u=[...newLucent.pages]; u[pgIdx]={...u[pgIdx], chunkNotes: e.target.value}; setNewLucent({...newLucent, pages: u}); }} className="w-full p-2 border border-amber-200 rounded text-sm outline-none min-h-[80px] resize-y focus:border-amber-500 bg-white leading-relaxed" placeholder="Plain text notes — TTS reader ke liye." />
+                                                          </div>
+                                                          <div className="bg-teal-50 border border-teal-200 rounded-lg p-2">
+                                                              <label className="text-[9px] font-black text-teal-700 uppercase block mb-1">🎨 Write Mode Notes (HTML)</label>
+                                                              <textarea value={pg.htmlNotes || ''} onChange={e => { const u=[...newLucent.pages]; u[pgIdx]={...u[pgIdx], htmlNotes: e.target.value}; setNewLucent({...newLucent, pages: u}); }} className="w-full p-2 border border-teal-200 rounded text-sm outline-none min-h-[100px] resize-y focus:border-teal-500 bg-white font-mono" placeholder="<h2>Topic</h2><p>HTML formatted notes...</p>" />
+                                                          </div>
+                                                      </div>
+                                                  ))}
+                                              </div>
+                                          </div>
+                                          <button onClick={() => {
+                                              if (!newLucent.lessonTitle.trim()) return alert('Lesson title daalein.');
+                                              const validPages = newLucent.pages.filter(p => p.pageNo.trim() && (p.chunkNotes?.trim() || p.htmlNotes?.trim()));
+                                              if (validPages.length === 0) return alert('Kam se kam ek page ke notes likhein.');
+                                              const cbn = customBooksList.find(b => b.id === newBookNote.targetSubject)?.name || '';
+                                              const entry: LucentNoteEntry = { id: Date.now().toString(), subject: newLucent.subject, bookName: cbn || undefined, classLevel: newLucent.classLevel, lessonTitle: newLucent.lessonTitle.trim(), pages: validPages, createdAt: new Date().toISOString() };
+                                              const updated = [...(localSettings.lucentNotes || []), entry];
+                                              const target3 = LUCENT_CLASS_TARGETS.find(t => t.id === newLucent.classLevel)?.label || newLucent.classLevel;
+                                              setNewLucent({ subject: newLucent.subject, bookName: '', classLevel: newLucent.classLevel, lessonTitle: '', pages: [{ id: Date.now().toString(), pageNo: '1', content: '', chunkNotes: '', htmlNotes: '' }] });
+                                              saveLucentEntryDirectly(updated, `✅ Multi-page lesson saved → ${cbn} (${target3})!`);
+                                          }} disabled={isSavingLucent} className="w-full bg-indigo-600 text-white py-3 rounded-xl font-black text-sm hover:bg-indigo-700 flex items-center justify-center gap-2 disabled:opacity-60">
+                                              <Save size={16}/> {isSavingLucent ? 'Saving…' : 'Save Multi-Page Lesson'}
+                                          </button>
+                                      </div>
+                                  );
+                              })()}
+
                               {/* ── LUCENT FORM ── */}
                               {newBookNote.targetSubject === 'lucent' && (
                                   <div className="space-y-4 border-t border-amber-100 pt-4">
                                       <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3 text-xs text-indigo-800">
-                                          <strong>Lucent Mode (Competition):</strong> Subject category → book name → page-wise notes + MCQ. Yeh Competition page pe dikhega.
+                                          <strong>Lucent Mode:</strong> Subject category → book name → page-wise notes (Read + Write mode) + MCQ. Competition ya Class 6-12 — jahan bhi assign karo, same reader milta hai.
                                       </div>
                                       <div className="grid grid-cols-2 gap-2">
                                           <div>
-                                              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">🎯 Mode</label>
-                                              <div className="w-full p-2 border border-indigo-200 rounded text-sm bg-indigo-50 text-indigo-700 font-bold">🏆 Competition Only</div>
+                                              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">🎯 Class / Mode</label>
+                                              <select value={newLucent.classLevel} onChange={e => {
+                                              const cl = e.target.value as any;
+                                              const firstSubj = cl === 'COMPETITION' ? 'biology' : (getSubjectsList(cl, 'Science')[0]?.id || getSubjectsList(cl, null)[0]?.id || 'science');
+                                              setNewLucent({...newLucent, classLevel: cl, subject: firstSubj});
+                                          }} className="w-full p-2 border border-indigo-200 rounded text-sm outline-none focus:border-indigo-500 bg-white font-bold">
+                                                  {LUCENT_CLASS_TARGETS.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+                                              </select>
                                           </div>
                                           <div>
                                               <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Subject Category</label>
                                               <select value={newLucent.subject} onChange={e => setNewLucent({...newLucent, subject: e.target.value})} className="w-full p-2 border border-slate-200 rounded text-sm outline-none focus:border-indigo-500 bg-white">
-                                                  {LUCENT_SUBJECT_OPTIONS.map(opt => <option key={opt.id} value={opt.id}>{opt.name}</option>)}
+                                                  {activeLucentSubjectOptions.map(opt => <option key={opt.id} value={opt.id}>{opt.name}</option>)}
                                               </select>
                                           </div>
                                       </div>
@@ -14820,13 +15034,11 @@ Statement 2"
                                           const currentNotifs = localSettings.notifications || [];
                                           const updatedNotifs = [newNotif, ...currentNotifs].slice(0, 30);
 
-                                          const newSettings = { ...localSettings, lucentNotes: updated, notifications: updatedNotifs };
-                                          setLocalSettings(newSettings);
-                                          handleSaveSettings(newSettings);
+                                          const target2 = LUCENT_CLASS_TARGETS.find(t => t.id === newLucent.classLevel)?.label || newLucent.classLevel;
                                           setNewLucent({ subject: newLucent.subject, bookName: '', classLevel: newLucent.classLevel, lessonTitle: '', pages: [{ id: Date.now().toString(), pageNo: '1', content: '', chunkNotes: '', htmlNotes: '' }] });
-                                          setAlertConfig({ isOpen: true, message: `✅ Lucent Lesson Added → ${newLucent.classLevel === 'COMPETITION' ? 'Competition Mode' : 'Class ' + newLucent.classLevel}!` });
-                                      }} className="w-full mt-2 bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-700 flex items-center justify-center gap-2">
-                                          <Save size={18} /> Save Lucent Lesson
+                                          saveLucentEntryDirectly(updated, `✅ Lesson saved → ${target2}!`, updatedNotifs);
+                                      }} disabled={isSavingLucent} className="w-full mt-2 bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-700 flex items-center justify-center gap-2 disabled:opacity-60">
+                                          <Save size={18} /> {isSavingLucent ? 'Saving…' : 'Save Lucent Lesson'}
                                       </button>
                                   </div>
                               )}

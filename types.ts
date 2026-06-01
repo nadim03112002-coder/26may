@@ -593,6 +593,12 @@ export interface SystemSettings {
    */
   hideLucentSyllabus?: boolean;
   /**
+   * When true, class 6-12 students see ONLY admin-added Lucent-style lessons.
+   * Traditional school-mode notes (CONTENT_PDF system) are hidden for class 6-12.
+   * Default false (both systems visible).
+   */
+  class612LucentMode?: boolean;
+  /**
    * Admin-controlled "social proof" boost for the global Trending Notes page
    * and ⭐ saved-count badges. This is the LOW end of the per-note boost
    * range. If `globalNotesFakeBoostMax` is greater, each note gets a
@@ -1430,9 +1436,9 @@ export interface LessonContent {
   quickNotes?: QuickNoteEntry[]; // NEW: Quick Notes
 
   // MULTI-HTML SECTIONS: Multiple HTML blocks shown on same notes page
-  htmlSections?: { id: string; title?: string; html: string }[];
-  schoolHtmlSections?: { id: string; title?: string; html: string }[];
-  competitionHtmlSections?: { id: string; title?: string; html: string }[];
+  htmlSections?: { id: string; title?: string; html: string; chunkNotes?: string }[];
+  schoolHtmlSections?: { id: string; title?: string; html: string; chunkNotes?: string }[];
+  competitionHtmlSections?: { id: string; title?: string; html: string; chunkNotes?: string }[];
 
   // MODE SPECIFIC UNLIMITED ENTRIES
   schoolDeepDiveEntries?: DeepDiveEntry[];

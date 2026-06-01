@@ -2174,7 +2174,7 @@ export const StudentDashboard: React.FC<Props> = ({
   }, [contentPickerPopup]);
 
   // Ref to pass initial tab/viewMode through the useEffect reset when opening Lucent viewer
-  const lucentInitialTabRef = useRef<{ tab?: 'NOTES' | 'MCQS' | 'VIDEO'; viewMode?: 'html' | 'chunk' } | null>(null);
+  const lucentInitialTabRef = useRef<{ tab?: 'NOTES' | 'MCQS' | 'VIDEO' | 'PDF'; viewMode?: 'html' | 'chunk' } | null>(null);
   // Live scroll % for the Lucent reader — drives the gradient progress bar at
   // the very top, mirroring Sar Sangrah / Speedy. Reset on page change.
   const [lucentScrollProgress, setLucentScrollProgress] = useState(0);
@@ -2454,7 +2454,7 @@ export const StudentDashboard: React.FC<Props> = ({
   }, [showStarredPage]);
 
   // -- Lucent Page-wise MCQ tab state --
-  const [lucentActiveTab, setLucentActiveTab] = useState<'NOTES' | 'MCQS' | 'VIDEO'>('NOTES');
+  const [lucentActiveTab, setLucentActiveTab] = useState<'NOTES' | 'MCQS' | 'VIDEO' | 'PDF'>('NOTES');
   const [lucentMcqsByPage, setLucentMcqsByPage] = useState<Record<string, MCQItem[]>>({});
   const [lucentMcqLoading, setLucentMcqLoading] = useState(false);
   const [lucentMcqRevealed, setLucentMcqRevealed] = useState<Record<string, number>>({});
@@ -4765,6 +4765,30 @@ export const StudentDashboard: React.FC<Props> = ({
     const lang =
       (activeSessionBoard || user.board) === "BSEB" ? "Hindi" : "English";
     const currentClass = (activeSessionClass as any) || user.classLevel || "10";
+
+    // For class 6-12: prepend admin-added Lucent-style lessons (multi-page notes)
+    // as lucent_admin_* chapters at the top of the chapter list. Same handler
+    // at ChapterSelection onSelect already handles clicking these → lucentPageListViewer.
+    const _adminLucentNotes = (settings?.lucentNotes || []) as LucentNoteEntry[];
+    const adminClassLessons = currentClass !== 'COMPETITION'
+      ? _adminLucentNotes
+          .filter(n => String(n.classLevel) === String(currentClass) && String(n.subject) === String(subject.id))
+          .sort((a, b) => (a.lessonTitle || '').localeCompare(b.lessonTitle || ''))
+      : [];
+    const adminChapters: Chapter[] = adminClassLessons.map(n => ({
+      id: `lucent_admin_${n.id}`,
+      title: n.lessonTitle,
+      description: `📚 ${n.pages.length} page${n.pages.length === 1 ? '' : 's'}${n.bookName ? ` • ${n.bookName}` : ''}`,
+    }));
+
+    // When class612LucentMode is ON and class is 6-12: show ONLY admin Lucent chapters
+    const isLucentOnlyMode = !!(settings?.class612LucentMode) && ['6','7','8','9','10','11','12'].includes(String(currentClass));
+    if (isLucentOnlyMode) {
+      setChapters(adminChapters);
+      setLoadingChapters(false);
+      return;
+    }
+
     fetchChapters(
       activeSessionBoard || user.board || "CBSE",
       currentClass,
@@ -4784,7 +4808,7 @@ export const StudentDashboard: React.FC<Props> = ({
         }
         return a.title.localeCompare(b.title);
       });
-      setChapters([...sortedData]);
+      setChapters([...adminChapters, ...sortedData]);
       setLoadingChapters(false);
     });
   };
@@ -15323,7 +15347,8 @@ export const StudentDashboard: React.FC<Props> = ({
             {(() => {
               const _pgHasNotes = !!(currentPage?.chunkNotes?.trim() || currentPage?.htmlNotes?.trim() || currentPage?.content?.trim());
               const _pgHasVideo = !!(currentPage as any)?.videoUrl;
-              if (!_pgHasNotes && !_pgHasVideo) return null;
+              const _pgHasPdf   = !!(currentPage as any)?.pdfUrl;
+              if (!_pgHasNotes && !_pgHasVideo && !_pgHasPdf) return null;
               return (
                 <div className={`shrink-0 bg-white px-4 py-2 flex items-center gap-2 ${(isLandscapeUiHidden || lucentImmersive) ? 'hidden' : ''}`}>
                   {_pgHasNotes && (
@@ -15350,6 +15375,46 @@ export const StudentDashboard: React.FC<Props> = ({
                       <span className="text-[13px] leading-none">▶</span> Video
                     </button>
                   )}
+                  {_pgHasPdf && (
+                    <button
+                      onClick={() => { stopSpeech(); setLucentActiveTab('PDF'); }}
+                      className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-black transition-all ${
+                        lucentActiveTab === 'PDF'
+                          ? 'bg-blue-600 text-white shadow-sm'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      <span className="text-[13px] leading-none">📄</span> PDF
+                    </button>
+                  )}
+                </div>
+              );
+            })()}
+            {/* READ / WRITE MODE TOGGLE — Notes tab ke andar, sirf jab Notes tab active ho */}
+            {lucentActiveTab === 'NOTES' && (() => {
+              const _hasChunk = !!(currentPage?.chunkNotes?.trim() || currentPage?.content?.trim());
+              const _hasHtml  = !!(currentPage?.htmlNotes?.trim());
+              if (!_hasChunk && !_hasHtml) return null;
+              const _isWrite  = lucentNotesViewMode === 'html';
+              return (
+                <div className={`shrink-0 px-3 py-2 flex items-center gap-2 bg-white border-b border-slate-100 ${(isLandscapeUiHidden || lucentImmersive) ? 'hidden' : ''}`}>
+                  <button
+                    onClick={() => setLucentNotesViewMode('chunk')}
+                    disabled={!_hasChunk}
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-black transition-all active:scale-95 ${!_isWrite ? 'bg-amber-500 text-white shadow-sm' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'} disabled:opacity-35 disabled:cursor-not-allowed`}
+                  >
+                    📖 Read Mode
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (!_hasHtml) return;
+                      handleWriteModeGate(() => setLucentNotesViewMode('html'));
+                    }}
+                    disabled={!_hasHtml}
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-black transition-all active:scale-95 ${_isWrite ? 'bg-teal-500 text-white shadow-sm' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'} disabled:opacity-35 disabled:cursor-not-allowed`}
+                  >
+                    ✍️ Write Mode
+                  </button>
                 </div>
               );
             })()}
@@ -16103,6 +16168,27 @@ RULES:
                 </div>
                 <p className="text-[11px] text-slate-400 text-center">
                   📹 Google Drive se video play ho raha hai — kisi ka Gmail login nahi maangega
+                </p>
+              </div>
+            )}
+
+            {/* PDF TAB CONTENT */}
+            {lucentActiveTab === 'PDF' && (currentPage as any)?.pdfUrl && (
+              <div className="flex-1 overflow-hidden pb-[72px] flex flex-col gap-2 pt-2 px-3">
+                <div className="flex-1 rounded-2xl overflow-hidden border border-blue-200 bg-white shadow-lg">
+                  <iframe
+                    src={
+                      (currentPage as any).pdfUrl?.includes('drive.google.com')
+                        ? (currentPage as any).pdfUrl.replace('/view', '/preview').replace(/[?&]usp=\w+/, '')
+                        : (currentPage as any).pdfUrl
+                    }
+                    className="w-full h-full border-none"
+                    allow="autoplay"
+                    title="Lesson PDF"
+                  />
+                </div>
+                <p className="text-[11px] text-slate-400 text-center shrink-0">
+                  📄 Google Drive PDF — kisi ka Gmail login nahi maangega (share: &quot;Anyone with link&quot;)
                 </p>
               </div>
             )}
