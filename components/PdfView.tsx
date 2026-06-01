@@ -1068,6 +1068,24 @@ export const PdfView: React.FC<Props> = ({
             } catch(e) {
                 console.error("Deep Dive Aggregation Error:", e);
             }
+            // SCHOOL FALLBACK: if no deepDiveEntries exist, build topics from
+            // schoolFreeNotesHtml / schoolPremiumNotesHtml / freeNotesHtml so
+            // Class 6-12 notes added via the standard admin fields are visible.
+            if (allTopics.length === 0 && syllabusMode === 'SCHOOL') {
+                const fallbackHtml =
+                    data.schoolFreeNotesHtml ||
+                    data.freeNotesHtml ||
+                    data.schoolPremiumNotesHtml ||
+                    data.premiumNotesHtml;
+                if (fallbackHtml) {
+                    const extracted = extractTopicsFromHtml(fallbackHtml);
+                    allTopics = extracted.length > 0
+                        ? extracted
+                        : [{ title: data.title || 'Notes', content: fallbackHtml }];
+                }
+                // If no notes found at all — leave allTopics empty so DEEP_DIVE
+                // redirects to PREMIUM tab (where the PDF is shown).
+            }
             console.log("PDFVIEW: Setting allTopics", allTopics);
             setDeepDiveTopics(allTopics);
         }
@@ -1913,7 +1931,7 @@ export const PdfView: React.FC<Props> = ({
                                    {/* Row 2: action buttons */}
                                    {!(syllabusMode === 'COMPETITION' && isImmersive) && (
                                    <div className="flex items-center gap-1 px-3 pb-2">
-                                       {!['6','7','8','9','10','11','12'].includes(classLevel) && (<>
+                                       <>
                                        <button
                                            onClick={() => { stopSpeech(); setIsAutoPlaying(false); setDeepDiveViewMode('chunk'); }}
                                            className={`flex items-center gap-0.5 px-2 py-1 rounded-lg text-[10px] font-black transition-all border ${deepDiveViewMode === 'chunk' ? 'bg-amber-400 text-white border-amber-400 shadow-sm' : deepDiveViewMode === 'html' ? 'bg-white/8 text-white/60 border-white/15 hover:bg-white/15' : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200'}`}
@@ -1928,7 +1946,7 @@ export const PdfView: React.FC<Props> = ({
                                            <FileText size={11} /> Write
                                            {!user.subscriptionLevel && deepDiveViewMode !== 'html' && <span className="text-[8px] bg-amber-200 text-amber-800 px-1 rounded ml-0.5">5CR</span>}
                                        </button>
-                                       </>)}
+                                       </>
                                        <div className={`flex items-center gap-0 rounded-lg overflow-hidden shrink-0 ${deepDiveViewMode === 'html' ? 'bg-white/8 border border-white/15' : 'bg-slate-100 border border-slate-200'}`}>
                                             <button onClick={() => setWriteZoom(Math.max(0.5, writeZoom - 0.1))} className={`px-1.5 py-1 text-[11px] font-black transition-colors ${deepDiveViewMode === 'html' ? 'text-white/60 hover:bg-white/12' : 'text-slate-600 hover:bg-slate-200'}`} title="Zoom Out">A-</button>
                                             <span className={`px-0.5 text-[9px] font-bold min-w-[24px] text-center ${deepDiveViewMode === 'html' ? 'text-white/40' : 'text-slate-500'}`}>{Math.round(writeZoom * 100)}%</span>
@@ -1977,7 +1995,9 @@ export const PdfView: React.FC<Props> = ({
 
 
                                {deepDiveTopics.length === 0 && (
-                                   <div className="text-center py-16 text-slate-400">
+                                   syllabusMode === 'SCHOOL'
+                                   ? (() => { setTimeout(() => setActiveTab('PREMIUM'), 0); return null; })()
+                                   : <div className="text-center py-16 text-slate-400">
                                        <p className="text-lg font-bold">Coming Soon</p>
                                    </div>
                                )}
@@ -2324,6 +2344,20 @@ export const PdfView: React.FC<Props> = ({
                                {/* ENTRY SELECTOR IF MULTIPLE */}
                                {(() => {
                                    let entries = syllabusMode === 'SCHOOL' ? (contentData?.schoolPremiumNotesList || []) : (contentData?.competitionPremiumNotesList || []);
+                                   // Fallback: if list is empty, build from legacy premium fields
+                                   if (entries.length === 0) {
+                                       const legacyHtml = syllabusMode === 'SCHOOL'
+                                           ? (contentData?.schoolPremiumNotesHtml || contentData?.premiumNotesHtml
+                                              || contentData?.schoolFreeNotesHtml || contentData?.freeNotesHtml || '')
+                                           : (contentData?.competitionPremiumNotesHtml || contentData?.competitionFreeNotesHtml || '');
+                                       const legacyLink = syllabusMode === 'SCHOOL'
+                                           ? (contentData?.schoolPdfPremiumLink || contentData?.premiumLink
+                                              || contentData?.schoolPdfLink || contentData?.freeLink || '')
+                                           : (contentData?.competitionPdfPremiumLink || contentData?.competitionPdfLink || '');
+                                       if (legacyHtml || legacyLink) {
+                                           entries = [{ title: chapter.title, url: legacyLink, content: legacyHtml }];
+                                       }
+                                   }
 
                                    if (entries.length <= 1) return null;
 
@@ -2353,6 +2387,22 @@ export const PdfView: React.FC<Props> = ({
                                        let entryTitle = '';
 
                                        let entries = syllabusMode === 'SCHOOL' ? (contentData?.schoolPremiumNotesList || []) : (contentData?.competitionPremiumNotesList || []);
+                                       // Fallback to legacy premium fields when list is empty,
+                                       // then fall further back to free PDF/HTML fields so
+                                       // Class 6-12 notes always show something in this tab.
+                                       if (entries.length === 0) {
+                                           const legacyHtml = syllabusMode === 'SCHOOL'
+                                               ? (contentData?.schoolPremiumNotesHtml || contentData?.premiumNotesHtml
+                                                  || contentData?.schoolFreeNotesHtml || contentData?.freeNotesHtml || '')
+                                               : (contentData?.competitionPremiumNotesHtml || contentData?.competitionFreeNotesHtml || '');
+                                           const legacyLink = syllabusMode === 'SCHOOL'
+                                               ? (contentData?.schoolPdfPremiumLink || contentData?.premiumLink
+                                                  || contentData?.schoolPdfLink || contentData?.freeLink || '')
+                                               : (contentData?.competitionPdfPremiumLink || contentData?.competitionPdfLink || '');
+                                           if (legacyHtml || legacyLink) {
+                                               entries = [{ title: chapter.title, url: legacyLink, content: legacyHtml }];
+                                           }
+                                       }
 
                                        // Construct a virtual list for selection logic from Premium Notes List
                                        let virtualList: {title: string, pdf: string, html: string}[] = [];
@@ -2447,14 +2497,19 @@ export const PdfView: React.FC<Props> = ({
                                                             {/* Invisible Header Blocker */}
                                                             <div className="absolute top-0 left-0 w-full h-12 bg-transparent pointer-events-auto" onClick={(e) => e.stopPropagation()} />
                                                        </div>
-                                                   ) : (
-                                                       <div className="flex items-center justify-center h-full text-slate-500 font-bold bg-slate-50">
-                                                           <div className="text-center">
-                                                               <FileText size={48} className="mx-auto mb-2 opacity-20" />
-                                                               <p>No PDF attached for this section.</p>
-                                                               <p className="text-xs font-normal mt-1 text-slate-500">{entryTitle}</p>
-                                                           </div>
+                                                   ) : ttsHtml ? (
+                                                       /* No PDF but HTML notes exist — show as TTS reader */
+                                                       <div className="overflow-y-auto h-full bg-white px-4 py-4">
+                                                           <ChunkedNotesReader
+                                                               content={ttsHtml.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '').replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim()}
+                                                               topBarLabel={entryTitle || chapter.title}
+                                                               preferChunkMode
+                                                               hideTopBar={false}
+                                                           />
                                                        </div>
+                                                   ) : (
+                                                       /* Truly nothing — auto-redirect to Reading Notes tab */
+                                                       (() => { setTimeout(() => setActiveTab('DEEP_DIVE'), 0); return null; })()
                                                    )}
 
                                                </div>

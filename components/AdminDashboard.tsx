@@ -12945,7 +12945,7 @@ Statement 2"
                                                       {entry.pages.map((pg, pgIdx) => {
                                                           const pageExpanded = !!expandedLucentPage[pg.id];
                                                           const mcqCount = (pg.mcqs || []).length;
-                                                          const contentPreview = (pg.content || '').replace(/\s+/g, ' ').trim().slice(0, 70);
+                                                          const contentPreview = (pg.chunkNotes || pg.content || (pg.htmlNotes || '').replace(/<[^>]*>/g, '') || '').replace(/\s+/g, ' ').trim().slice(0, 70);
                                                           return (
                                                           <div key={pg.id} className="border border-slate-200 rounded-lg bg-slate-50 relative overflow-hidden">
                                                               {/* Collapsible page header — click to drill into per-page notes + MCQ history */}
@@ -13009,16 +13009,41 @@ Statement 2"
                                                                       setLocalSettings({ ...localSettings, lucentNotes: updated });
                                                                   }} className="w-full p-2 border border-violet-200 rounded text-sm outline-none focus:border-violet-500 bg-violet-50" placeholder="e.g. Article 21, DNA Structure, Mughal Empire..." />
                                                               </div>
-                                                              <div className="mt-2">
-                                                                  <label className="text-[9px] font-bold text-slate-500 uppercase block mb-1">📝 Note Content</label>
-                                                                  <textarea value={pg.content} onChange={e => {
-                                                                      const updated = [...(localSettings.lucentNotes || [])];
-                                                                      const pages = [...updated[i].pages];
-                                                                      pages[pgIdx] = { ...pages[pgIdx], content: e.target.value };
-                                                                      updated[i] = { ...updated[i], pages };
-                                                                      setLocalSettings({ ...localSettings, lucentNotes: updated });
-                                                                  }} className="w-full p-3 border border-slate-200 rounded-lg text-sm outline-none min-h-[200px] resize-y focus:border-indigo-500 bg-white leading-relaxed" placeholder="Page ke notes yahan likhein... Har bullet `•` ya nayi line par alag topic ban jata hai." />
-                                                                  <p className="text-[9px] text-slate-500 mt-1">💡 Tip: Box ke right-bottom corner se drag karke aur bada bhi kar sakte hain.</p>
+                                                              <div className="space-y-2 mt-2">
+                                                                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-2">
+                                                                      <label className="text-[9px] font-black text-amber-700 uppercase block mb-1">📖 Read Mode Notes (Chunk / TTS Reader)</label>
+                                                                      <textarea value={pg.chunkNotes || ''} onChange={e => {
+                                                                          const updated = [...(localSettings.lucentNotes || [])];
+                                                                          const pages = [...updated[i].pages];
+                                                                          pages[pgIdx] = { ...pages[pgIdx], chunkNotes: e.target.value };
+                                                                          updated[i] = { ...updated[i], pages };
+                                                                          setLocalSettings({ ...localSettings, lucentNotes: updated });
+                                                                      }} className="w-full p-3 border border-amber-200 rounded-lg text-sm outline-none min-h-[120px] resize-y focus:border-amber-500 bg-white leading-relaxed" placeholder="Plain text notes — TTS reader mein topic-by-topic padhega. Har bullet `•` ya nayi line alag chunk banta hai." />
+                                                                      <p className="text-[9px] text-amber-700 mt-1">💡 TTS Reader ke liye plain text. Agar khaali ho toh HTML notes se auto strip ho jayega.</p>
+                                                                  </div>
+                                                                  <div className="bg-teal-50 border border-teal-200 rounded-lg p-2">
+                                                                      <label className="text-[9px] font-black text-teal-700 uppercase block mb-1">🎨 Write Mode Notes (Smart HTML / Styled View)</label>
+                                                                      <textarea value={pg.htmlNotes || ''} onChange={e => {
+                                                                          const updated = [...(localSettings.lucentNotes || [])];
+                                                                          const pages = [...updated[i].pages];
+                                                                          pages[pgIdx] = { ...pages[pgIdx], htmlNotes: e.target.value };
+                                                                          updated[i] = { ...updated[i], pages };
+                                                                          setLocalSettings({ ...localSettings, lucentNotes: updated });
+                                                                      }} className="w-full p-3 border border-teal-200 rounded-lg text-sm outline-none min-h-[150px] resize-y focus:border-teal-500 bg-white leading-relaxed font-mono" placeholder="<h2>Topic</h2><p>HTML/CSS formatted notes — colors, bold, tables, lists supported.</p>" />
+                                                                      <p className="text-[9px] text-teal-700 mt-1">🎨 HTML + CSS supported — headings, colors, bold, tables, lists sab.</p>
+                                                                  </div>
+                                                                  <details className="border border-slate-200 rounded-lg bg-white">
+                                                                      <summary className="px-3 py-2 text-[9px] font-bold text-slate-500 uppercase cursor-pointer">📄 Legacy Plain Text (content field)</summary>
+                                                                      <div className="px-3 pb-3 pt-1">
+                                                                          <textarea value={pg.content} onChange={e => {
+                                                                              const updated = [...(localSettings.lucentNotes || [])];
+                                                                              const pages = [...updated[i].pages];
+                                                                              pages[pgIdx] = { ...pages[pgIdx], content: e.target.value };
+                                                                              updated[i] = { ...updated[i], pages };
+                                                                              setLocalSettings({ ...localSettings, lucentNotes: updated });
+                                                                          }} className="w-full p-2 border border-slate-200 rounded text-sm outline-none min-h-[100px] resize-y focus:border-indigo-500 bg-white leading-relaxed" placeholder="Legacy content field (pehle ka format). Nayi entries ke liye Read/Write mode boxes use karein upar." />
+                                                                      </div>
+                                                                  </details>
                                                               </div>
                                                               {/* Per-page MCQ editor */}
                                                               <div className="border-t border-slate-200 pt-2 mt-1">
@@ -13150,10 +13175,9 @@ Statement 2"
                                                       })}
                                                   </div>
                                                   <button onClick={() => {
-                                                      handleSaveSettings(localSettings);
-                                                      setAlertConfig({ isOpen: true, message: '✅ Lucent Lesson Updated!' });
-                                                  }} className="w-full bg-indigo-600 text-white px-3 py-2 rounded-lg text-xs font-bold hover:bg-indigo-700 flex items-center justify-center gap-1">
-                                                      <Save size={12} /> Save Changes
+                                                      saveLucentEntryDirectly(localSettings.lucentNotes || [], '✅ Lucent Lesson Updated!');
+                                                  }} disabled={isSavingLucent} className="w-full bg-indigo-600 text-white px-3 py-2 rounded-lg text-xs font-bold hover:bg-indigo-700 flex items-center justify-center gap-1 disabled:opacity-60">
+                                                      <Save size={12} /> {isSavingLucent ? 'Saving…' : 'Save Changes'}
                                                   </button>
                                               </div>
                                               )}

@@ -4828,9 +4828,6 @@ export const StudentDashboard: React.FC<Props> = ({
       return;
     }
 
-    // Reset to default tab for normal Notes
-    if (type === 'PDF') setPdfInitialTab('DEEP_DIVE');
-
     // Update Tab and State for Player
     onTabChange(type as any);
     setSelectedChapter(selectedLessonForModal);
@@ -14937,6 +14934,7 @@ export const StudentDashboard: React.FC<Props> = ({
         const openReadingNotes = () => {
           dismiss();
           if (isCourse) {
+            setPdfInitialTab('DEEP_DIVE');
             setPdfInitialDeepDiveMode('chunk');
             handleLessonOption('PDF');
           } else if (isLucent) {
@@ -14950,6 +14948,7 @@ export const StudentDashboard: React.FC<Props> = ({
         const openMakingNotes = () => {
           dismiss();
           if (isCourse) {
+            setPdfInitialTab('DEEP_DIVE');
             setPdfInitialDeepDiveMode('html');
             handleLessonOption('PDF');
           } else if (isLucent) {
