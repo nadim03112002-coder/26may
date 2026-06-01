@@ -2659,7 +2659,7 @@ const App: React.FC = () => {
       )}
 
       {/* STATUS BAR BACKGROUND */}
-      <div className="fixed top-0 left-0 right-0 h-[env(safe-area-inset-top,24px)] bg-slate-900 z-[100]"></div>
+      <div className="fixed top-0 left-0 right-0 h-[env(safe-area-inset-top,24px)] z-[100]"></div>
       {/* BOTTOM SAFE AREA BACKGROUND */}
       <div className="fixed bottom-0 left-0 right-0 h-[env(safe-area-inset-bottom,32px)] bg-slate-900 z-[100]"></div>
 
