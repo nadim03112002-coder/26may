@@ -1129,7 +1129,103 @@ const ReadingProgressSection: React.FC<ReadingSectionProps> = ({
     onResumeChapter, onResumeHw, onResumeLucent,
     onRemoveChapter, onRemoveHw, onRemoveLucent, onClearDoneBadge,
 }) => {
+    // ── Filter state ──────────────────────────────────────────────
+    type FilterType = 'ALL' | 'CHAPTER' | 'COMPETITION' | 'CLASS6_12' | 'HW';
+    const [filterType, setFilterType] = useState<FilterType>('ALL');
+    const [filterSubject, setFilterSubject] = useState('ALL');
+    const [filterClass, setFilterClass] = useState('ALL');
+    const [filterLesson, setFilterLesson] = useState('ALL');
+    const [searchText, setSearchText] = useState('');
+
+    // Derived: split lucent into competition vs class 6-12
+    const CLASS_LEVELS = ['6','7','8','9','10','11','12'];
+    const lucentCompetition = useMemo(() =>
+        recentLucent.filter(l => !l.classLevel || l.classLevel === 'COMPETITION'),
+    [recentLucent]);
+    const lucentClass = useMemo(() =>
+        recentLucent.filter(l => l.classLevel && CLASS_LEVELS.includes(l.classLevel)),
+    [recentLucent]);
+
+    // Subject options from active data set
+    const subjectOptions = useMemo(() => {
+        const set = new Set<string>();
+        if (filterType === 'ALL' || filterType === 'COMPETITION') lucentCompetition.forEach(l => l.subject && set.add(l.subject));
+        if (filterType === 'ALL' || filterType === 'CLASS6_12') lucentClass.forEach(l => l.subject && set.add(l.subject));
+        if (filterType === 'ALL' || filterType === 'CHAPTER') recentChapters.forEach(c => {
+            const s: any = c.subject; const n = typeof s === 'string' ? s : s?.name || ''; if (n) set.add(n);
+        });
+        if (filterType === 'ALL' || filterType === 'HW') recentHw.forEach(h => h.targetSubject && set.add(h.targetSubject));
+        return Array.from(set).sort();
+    }, [filterType, lucentCompetition, lucentClass, recentChapters, recentHw]);
+
+    // Class options (for Class 6-12 filter)
+    const classOptions = useMemo(() => {
+        const set = new Set<string>();
+        lucentClass.forEach(l => l.classLevel && set.add(l.classLevel));
+        return Array.from(set).sort((a, b) => Number(a) - Number(b));
+    }, [lucentClass]);
+
+    // Lesson title options for lesson dropdown
+    const lessonOptions = useMemo(() => {
+        const set = new Set<string>();
+        const addFromLucent = (arr: typeof recentLucent) => arr.forEach(l => {
+            if (filterSubject === 'ALL' || l.subject === filterSubject) set.add(l.lessonTitle);
+        });
+        if (filterType === 'ALL' || filterType === 'COMPETITION') addFromLucent(lucentCompetition);
+        if (filterType === 'ALL' || filterType === 'CLASS6_12') {
+            lucentClass.filter(l => filterClass === 'ALL' || l.classLevel === filterClass).forEach(l => {
+                if (filterSubject === 'ALL' || l.subject === filterSubject) set.add(l.lessonTitle);
+            });
+        }
+        return Array.from(set).sort();
+    }, [filterType, filterSubject, filterClass, lucentCompetition, lucentClass]);
+
+    // Reset child filters when parent filter changes
+    const handleTypeChange = (t: FilterType) => {
+        setFilterType(t); setFilterSubject('ALL'); setFilterClass('ALL'); setFilterLesson('ALL'); setSearchText('');
+    };
+
+    // Apply all active filters
+    const matchesSearch = (title: string) => !searchText || title.toLowerCase().includes(searchText.toLowerCase());
+
+    const filteredChapters = useMemo(() => {
+        if (filterType !== 'ALL' && filterType !== 'CHAPTER') return [];
+        return recentChapters.filter(c => {
+            const s: any = c.subject; const subj = typeof s === 'string' ? s : s?.name || '';
+            const title = (c as any).title || (c as any).chapter?.title || '';
+            return (filterSubject === 'ALL' || subj === filterSubject) && matchesSearch(title);
+        });
+    }, [filterType, filterSubject, searchText, recentChapters]);
+
+    const filteredHw = useMemo(() => {
+        if (filterType !== 'ALL' && filterType !== 'HW') return [];
+        return recentHw.filter(h =>
+            (filterSubject === 'ALL' || h.targetSubject === filterSubject) && matchesSearch(h.title || '')
+        );
+    }, [filterType, filterSubject, searchText, recentHw]);
+
+    const filteredCompetition = useMemo(() => {
+        if (filterType !== 'ALL' && filterType !== 'COMPETITION') return [];
+        return lucentCompetition.filter(l =>
+            (filterSubject === 'ALL' || l.subject === filterSubject) &&
+            (filterLesson === 'ALL' || l.lessonTitle === filterLesson) &&
+            matchesSearch(l.lessonTitle)
+        );
+    }, [filterType, filterSubject, filterLesson, searchText, lucentCompetition]);
+
+    const filteredClass = useMemo(() => {
+        if (filterType !== 'ALL' && filterType !== 'CLASS6_12') return [];
+        return lucentClass.filter(l =>
+            (filterClass === 'ALL' || l.classLevel === filterClass) &&
+            (filterSubject === 'ALL' || l.subject === filterSubject) &&
+            (filterLesson === 'ALL' || l.lessonTitle === filterLesson) &&
+            matchesSearch(l.lessonTitle)
+        );
+    }, [filterType, filterClass, filterSubject, filterLesson, searchText, lucentClass]);
+
+    const totalFiltered = filteredChapters.length + filteredHw.length + filteredCompetition.length + filteredClass.length;
     const totalCount = recentChapters.length + recentHw.length + recentLucent.length;
+
     const doneEntries = useMemo(() => {
         const arr = Object.values(fullyReadMap);
         arr.sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0));
@@ -1151,6 +1247,8 @@ const ReadingProgressSection: React.FC<ReadingSectionProps> = ({
         pct: number;
         isDone: boolean;
         emoji: string;
+        badge?: string;
+        badgeColor?: string;
         onResume: () => void;
         onRemove: () => void;
     }) => (
@@ -1160,30 +1258,26 @@ const ReadingProgressSection: React.FC<ReadingSectionProps> = ({
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                         <p className="font-bold text-sm text-slate-800 truncate flex-1 min-w-0">{opts.title}</p>
+                        {opts.badge && (
+                            <span className={`flex-none text-[9px] font-black px-2 py-0.5 rounded-full ${opts.badgeColor || 'bg-slate-100 text-slate-600'}`}>{opts.badge}</span>
+                        )}
                         {opts.isDone && (
                             <span className="flex-none inline-flex items-center gap-1 text-[10px] font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">
                                 <CheckCircle2 size={11} /> Done
                             </span>
                         )}
                     </div>
-                    {opts.subtitle && <p className="text-xs text-slate-500 truncate">{typeof opts.subtitle === 'string' ? opts.subtitle : ''}</p>}
+                    {opts.subtitle && <p className="text-xs text-slate-500 truncate mt-0.5">{typeof opts.subtitle === 'string' ? opts.subtitle : ''}</p>}
                     <div className="mt-2">{renderProgressBar(opts.pct, opts.isDone)}</div>
                     <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500">
-                        <span>{opts.isDone ? '100%' : `${Math.max(2, Math.min(100, Math.round(opts.pct || 0)))}%`} read</span>
+                        <span>{opts.isDone ? '100%' : `${Math.max(2, Math.min(100, Math.round(opts.pct || 0)))}%`} padha</span>
                         <div className="flex items-center gap-1">
-                            <button
-                                type="button"
-                                onClick={opts.onResume}
-                                className="inline-flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold px-3 py-1 rounded-full transition active:scale-95"
-                            >
+                            <button type="button" onClick={opts.onResume}
+                                className="inline-flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold px-3 py-1 rounded-full transition active:scale-95">
                                 <Play size={11} /> Resume
                             </button>
-                            <button
-                                type="button"
-                                onClick={opts.onRemove}
-                                aria-label="Remove from list"
-                                className="p-1 text-slate-400 hover:text-rose-500 rounded-full active:scale-95 transition"
-                            >
+                            <button type="button" onClick={opts.onRemove} aria-label="Remove"
+                                className="p-1 text-slate-400 hover:text-rose-500 rounded-full active:scale-95 transition">
                                 <XIcon size={14} />
                             </button>
                         </div>
@@ -1193,41 +1287,147 @@ const ReadingProgressSection: React.FC<ReadingSectionProps> = ({
         </div>
     );
 
+    // Filter type chips config
+    const typeChips: { id: FilterType; label: string; count: number; active: string; idle: string }[] = [
+        { id: 'ALL',         label: '🗂 Sab',           count: totalCount,             active: 'bg-slate-800 text-white', idle: 'bg-slate-100 text-slate-600' },
+        { id: 'CLASS6_12',   label: '🎓 Class 6-12',    count: lucentClass.length,     active: 'bg-green-600 text-white', idle: 'bg-green-50 text-green-700' },
+        { id: 'COMPETITION', label: '🏆 Competition',   count: lucentCompetition.length, active: 'bg-amber-600 text-white', idle: 'bg-amber-50 text-amber-700' },
+        { id: 'CHAPTER',     label: '📖 Chapters',      count: recentChapters.length,  active: 'bg-indigo-600 text-white', idle: 'bg-indigo-50 text-indigo-700' },
+        { id: 'HW',          label: '📝 Homework',      count: recentHw.length,        active: 'bg-rose-600 text-white', idle: 'bg-rose-50 text-rose-700' },
+    ].filter(c => c.id === 'ALL' || c.count > 0);
+
     return (
-        <div className="space-y-6 animate-in fade-in duration-300">
+        <div className="space-y-4 animate-in fade-in duration-300">
+
+            {/* ── TYPE FILTER CHIPS ── */}
+            {totalCount > 0 && (
+                <div className="flex gap-1.5 flex-wrap">
+                    {typeChips.map(chip => (
+                        <button key={chip.id} onClick={() => handleTypeChange(chip.id)}
+                            className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-black transition-all active:scale-95 ${filterType === chip.id ? chip.active : chip.idle}`}>
+                            {chip.label}
+                            <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${filterType === chip.id ? 'bg-white/20' : 'bg-slate-200/60'}`}>{chip.count}</span>
+                        </button>
+                    ))}
+                </div>
+            )}
+
+            {/* ── SECONDARY FILTERS (subject, class, lesson) ── */}
+            {totalCount > 0 && (
+                <div className="flex flex-wrap gap-2">
+                    {/* Search by lesson title */}
+                    <div className="relative flex-1 min-w-[140px]">
+                        <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                        <input type="text" value={searchText} onChange={e => setSearchText(e.target.value)}
+                            placeholder="Lesson dhundho..."
+                            className="w-full pl-7 pr-7 py-1.5 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-blue-400 text-slate-700 placeholder-slate-400" />
+                        {searchText && (
+                            <button onClick={() => setSearchText('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-rose-500">
+                                <XIcon size={12} />
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Class filter (only when CLASS6_12 or ALL with class data) */}
+                    {classOptions.length > 0 && (filterType === 'CLASS6_12' || filterType === 'ALL') && (
+                        <select value={filterClass} onChange={e => { setFilterClass(e.target.value); setFilterLesson('ALL'); }}
+                            className="px-2 py-1.5 text-xs font-bold bg-green-50 border border-green-200 rounded-xl outline-none focus:border-green-500 text-green-800">
+                            <option value="ALL">Sab Class</option>
+                            {classOptions.map(c => <option key={c} value={c}>Class {c}</option>)}
+                        </select>
+                    )}
+
+                    {/* Subject filter */}
+                    {subjectOptions.length > 1 && (
+                        <select value={filterSubject} onChange={e => { setFilterSubject(e.target.value); setFilterLesson('ALL'); }}
+                            className="px-2 py-1.5 text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-blue-400 text-slate-700">
+                            <option value="ALL">Sab Subject</option>
+                            {subjectOptions.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                    )}
+
+                    {/* Lesson filter */}
+                    {lessonOptions.length > 1 && (
+                        <select value={filterLesson} onChange={e => setFilterLesson(e.target.value)}
+                            className="px-2 py-1.5 text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-blue-400 text-slate-700 max-w-[160px]">
+                            <option value="ALL">Sab Lesson</option>
+                            {lessonOptions.map(l => <option key={l} value={l}>{l}</option>)}
+                        </select>
+                    )}
+                </div>
+            )}
+
+            {/* ── RESULTS ── */}
             {totalCount === 0 && doneEntries.length === 0 ? (
                 <div className="text-center text-slate-500 py-12">
                     <BookOpen size={42} className="mx-auto mb-3 text-slate-300" />
                     <p className="font-bold text-slate-700">Abhi tak kuch nahi padha.</p>
                     <p className="text-xs mt-1">Koi note ya chapter padhna shuru karein — yahan progress save hogi.</p>
                 </div>
+            ) : totalFiltered === 0 && searchText ? (
+                <div className="text-center py-10 bg-slate-50 rounded-2xl border border-slate-100">
+                    <Search size={30} className="text-slate-300 mx-auto mb-3" />
+                    <p className="font-bold text-slate-600 text-sm">Koi match nahi mila.</p>
+                    <p className="text-xs text-slate-400 mt-1">Doosra word ya filter try karein.</p>
+                </div>
             ) : (
-                <>
-                    {recentChapters.length > 0 && (
+                <div className="space-y-5">
+                    {/* Class 6-12 section */}
+                    {filteredClass.length > 0 && (
                         <section>
-                            <h4 className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-2 px-1">Chapters</h4>
+                            <h4 className="text-xs font-black text-green-700 uppercase tracking-wider mb-2 px-1 flex items-center gap-1">
+                                🎓 Class 6-12 Notes
+                                <span className="ml-1 text-[9px] font-black bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full">{filteredClass.length}</span>
+                            </h4>
                             <div className="space-y-2">
-                                {recentChapters.map(c => {
-                                    // c.subject can be either a string OR a full
-                                    // Subject object (older RecentChapterEntry
-                                    // stored the whole {id,name,icon,color}).
-                                    // Coerce to a plain string so renderRow's
-                                    // <p>{opts.subtitle}</p> doesn't try to render
-                                    // an object — that was the source of the
-                                    // React #31 crash on this page.
-                                    const subj: any = (c as any).subject;
-                                    const subjectStr = typeof subj === 'string'
-                                        ? subj
-                                        : (subj && typeof subj === 'object' && typeof subj.name === 'string')
-                                            ? subj.name
-                                            : '';
-                                    // c.title may also be missing on legacy
-                                    // entries (the type defines it but the data
-                                    // may have come from an older saver). Fall
-                                    // back to the chapter object's title.
-                                    const titleStr = (c as any).title
-                                        || (c as any).chapter?.title
-                                        || 'Untitled chapter';
+                                {filteredClass.map(l => renderRow(`lc_${l.id}`, {
+                                    title: l.lessonTitle,
+                                    subtitle: `Class ${l.classLevel} • ${l.subject} • Page ${l.pageNo}`,
+                                    pct: l.scrollPct,
+                                    isDone: !!fullyReadMap[l.id],
+                                    emoji: '🎓',
+                                    badge: `Class ${l.classLevel}`,
+                                    badgeColor: 'bg-green-100 text-green-700',
+                                    onResume: () => onResumeLucent(l),
+                                    onRemove: () => onRemoveLucent(l.id),
+                                }))}
+                            </div>
+                        </section>
+                    )}
+
+                    {/* Competition / Lucent section */}
+                    {filteredCompetition.length > 0 && (
+                        <section>
+                            <h4 className="text-xs font-black text-amber-700 uppercase tracking-wider mb-2 px-1 flex items-center gap-1">
+                                🏆 Competition / Lucent
+                                <span className="ml-1 text-[9px] font-black bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">{filteredCompetition.length}</span>
+                            </h4>
+                            <div className="space-y-2">
+                                {filteredCompetition.map(l => renderRow(`lc_${l.id}`, {
+                                    title: `${l.lessonTitle} — Pg ${l.pageNo}`,
+                                    subtitle: `${l.subject} • Page ${l.pageIndex + 1}/${l.totalPages}`,
+                                    pct: l.scrollPct,
+                                    isDone: !!fullyReadMap[l.id],
+                                    emoji: '📚',
+                                    onResume: () => onResumeLucent(l),
+                                    onRemove: () => onRemoveLucent(l.id),
+                                }))}
+                            </div>
+                        </section>
+                    )}
+
+                    {/* Chapters section */}
+                    {filteredChapters.length > 0 && (
+                        <section>
+                            <h4 className="text-xs font-black text-indigo-700 uppercase tracking-wider mb-2 px-1 flex items-center gap-1">
+                                📖 Chapters
+                                <span className="ml-1 text-[9px] font-black bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded-full">{filteredChapters.length}</span>
+                            </h4>
+                            <div className="space-y-2">
+                                {filteredChapters.map(c => {
+                                    const subj: any = c.subject;
+                                    const subjectStr = typeof subj === 'string' ? subj : (subj?.name || '');
+                                    const titleStr = (c as any).title || (c as any).chapter?.title || 'Untitled chapter';
                                     return renderRow(`ch_${c.id}`, {
                                         title: titleStr,
                                         subtitle: subjectStr,
@@ -1242,11 +1442,15 @@ const ReadingProgressSection: React.FC<ReadingSectionProps> = ({
                         </section>
                     )}
 
-                    {recentHw.length > 0 && (
+                    {/* Homework section */}
+                    {filteredHw.length > 0 && (
                         <section>
-                            <h4 className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-2 px-1">Homework Notes</h4>
+                            <h4 className="text-xs font-black text-rose-700 uppercase tracking-wider mb-2 px-1 flex items-center gap-1">
+                                📝 Homework Notes
+                                <span className="ml-1 text-[9px] font-black bg-rose-100 text-rose-700 px-1.5 py-0.5 rounded-full">{filteredHw.length}</span>
+                            </h4>
                             <div className="space-y-2">
-                                {recentHw.map(h => renderRow(`hw_${h.id}`, {
+                                {filteredHw.map(h => renderRow(`hw_${h.id}`, {
                                     title: h.title || 'Homework',
                                     subtitle: h.targetSubject || 'Homework',
                                     pct: h.scrollPct,
@@ -1259,24 +1463,8 @@ const ReadingProgressSection: React.FC<ReadingSectionProps> = ({
                         </section>
                     )}
 
-                    {recentLucent.length > 0 && (
-                        <section>
-                            <h4 className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-2 px-1">Lucent Book Pages</h4>
-                            <div className="space-y-2">
-                                {recentLucent.map(l => renderRow(`lc_${l.id}`, {
-                                    title: `${l.lessonTitle} — Page ${l.pageNo}`,
-                                    subtitle: `${l.subject} • Page ${l.pageIndex + 1} of ${l.totalPages}`,
-                                    pct: l.scrollPct,
-                                    isDone: !!fullyReadMap[l.id],
-                                    emoji: '📚',
-                                    onResume: () => onResumeLucent(l),
-                                    onRemove: () => onRemoveLucent(l.id),
-                                }))}
-                            </div>
-                        </section>
-                    )}
-
-                    {doneEntries.length > 0 && (
+                    {/* Completed badges */}
+                    {doneEntries.length > 0 && filterType === 'ALL' && !searchText && (
                         <section>
                             <h4 className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-2 px-1 flex items-center gap-1">
                                 <CheckCircle2 size={13} className="text-emerald-600" /> Completed
@@ -1289,12 +1477,8 @@ const ReadingProgressSection: React.FC<ReadingSectionProps> = ({
                                             <p className="text-xs font-bold text-emerald-800 truncate">{d.title}</p>
                                             {d.subtitle && <p className="text-[10px] text-emerald-700 truncate">{d.subtitle}</p>}
                                         </div>
-                                        <button
-                                            type="button"
-                                            onClick={() => onClearDoneBadge(d.id)}
-                                            aria-label="Remove"
-                                            className="p-1 text-emerald-400 hover:text-rose-500 rounded-full active:scale-95"
-                                        >
+                                        <button type="button" onClick={() => onClearDoneBadge(d.id)} aria-label="Remove"
+                                            className="p-1 text-emerald-400 hover:text-rose-500 rounded-full active:scale-95">
                                             <XIcon size={12} />
                                         </button>
                                     </div>
@@ -1302,7 +1486,7 @@ const ReadingProgressSection: React.FC<ReadingSectionProps> = ({
                             </div>
                         </section>
                     )}
-                </>
+                </div>
             )}
         </div>
     );

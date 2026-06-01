@@ -2451,7 +2451,7 @@ export const StudentDashboard: React.FC<Props> = ({
   }, [showStarredPage]);
 
   // -- Lucent Page-wise MCQ tab state --
-  const [lucentActiveTab, setLucentActiveTab] = useState<'NOTES' | 'MCQS' | 'VIDEO' | 'PDF'>('NOTES');
+  const [lucentActiveTab, setLucentActiveTab] = useState<'NOTES' | 'MCQS' | 'VIDEO' | 'PDF' | 'AUDIO'>('NOTES');
   const [lucentMcqsByPage, setLucentMcqsByPage] = useState<Record<string, MCQItem[]>>({});
   const [lucentMcqLoading, setLucentMcqLoading] = useState(false);
   const [lucentMcqRevealed, setLucentMcqRevealed] = useState<Record<string, number>>({});
@@ -3159,7 +3159,9 @@ export const StudentDashboard: React.FC<Props> = ({
             pageNo: page.pageNo,
             totalPages: lv.pages.length,
             scrollY: 0,
-            scrollPct: 30, // partial — they were reading but didn't finish
+            scrollPct: 30,
+            classLevel: (lv as any).classLevel || 'COMPETITION',
+            board: (lv as any).board || 'COMPETITION',
           });
           markReadToday(recId);
         }
@@ -15115,6 +15117,8 @@ export const StudentDashboard: React.FC<Props> = ({
               totalPages,
               scrollY: 0,
               scrollPct: Math.max(2, Math.round(overridePct ?? lucentScrollProgress ?? 5)),
+              classLevel: (entry as any).classLevel || 'COMPETITION',
+              board: (entry as any).board || 'COMPETITION',
             });
             markReadToday(recId);
           } catch {}
@@ -15266,9 +15270,10 @@ export const StudentDashboard: React.FC<Props> = ({
               const _pgHasNotes = !!(currentPage?.chunkNotes?.trim() || currentPage?.htmlNotes?.trim() || currentPage?.content?.trim());
               const _pgHasVideo = !!(currentPage as any)?.videoUrl;
               const _pgHasPdf   = !!(currentPage as any)?.pdfUrl;
-              if (!_pgHasNotes && !_pgHasVideo && !_pgHasPdf) return null;
+              const _pgHasAudio = !!(currentPage as any)?.audioUrl;
+              if (!_pgHasNotes && !_pgHasVideo && !_pgHasPdf && !_pgHasAudio) return null;
               return (
-                <div className={`shrink-0 bg-white px-4 py-2 flex items-center gap-2 ${(isLandscapeUiHidden || lucentImmersive || (lucentActiveTab === 'NOTES' && lucentNotesViewMode === 'chunk')) ? 'hidden' : ''}`}>
+                <div className={`shrink-0 bg-white px-4 py-2 flex items-center gap-2 flex-wrap ${(isLandscapeUiHidden || lucentImmersive || (lucentActiveTab === 'NOTES' && lucentNotesViewMode === 'chunk')) ? 'hidden' : ''}`}>
                   {_pgHasNotes && (
                     <button
                       onClick={() => { setLucentActiveTab('NOTES'); }}
@@ -15291,6 +15296,18 @@ export const StudentDashboard: React.FC<Props> = ({
                       }`}
                     >
                       <span className="text-[13px] leading-none">▶</span> Video
+                    </button>
+                  )}
+                  {_pgHasAudio && (
+                    <button
+                      onClick={() => { stopSpeech(); setLucentActiveTab('AUDIO'); }}
+                      className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-black transition-all ${
+                        lucentActiveTab === 'AUDIO'
+                          ? 'bg-purple-600 text-white shadow-sm'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      <span className="text-[13px] leading-none">🎵</span> Audio
                     </button>
                   )}
                   {_pgHasPdf && (
@@ -15410,6 +15427,8 @@ export const StudentDashboard: React.FC<Props> = ({
                           totalPages,
                           scrollY: 0,
                           scrollPct: 5,
+                          classLevel: (entry as any).classLevel || 'COMPETITION',
+                          board: (entry as any).board || 'COMPETITION',
                         });
                         markReadToday(recId);
                       } catch {}
@@ -16040,7 +16059,7 @@ RULES:
             {lucentActiveTab === 'VIDEO' && (currentPage as any)?.videoUrl && (
               <div className="flex-1 overflow-y-auto pb-[72px] px-4 pt-4 flex flex-col gap-3">
                 <div
-                  className="rounded-2xl overflow-hidden bg-black shadow-xl border border-slate-200"
+                  className="rounded-2xl overflow-hidden bg-black shadow-xl border border-slate-200 relative"
                   style={{ aspectRatio: '16/9', width: '100%' }}
                 >
                   <iframe
@@ -16052,9 +16071,17 @@ RULES:
                     className="w-full h-full border-none"
                     allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
                     allowFullScreen
-                    sandbox="allow-scripts allow-same-origin allow-presentation allow-popups"
+                    sandbox="allow-scripts allow-same-origin allow-presentation"
                     title="Lesson Video"
                   />
+                  {/* Drive blocker — covers the "Open in Drive" button top-right */}
+                  {(currentPage as any).videoUrl?.includes('drive.google.com') && (
+                    <div
+                      className="absolute top-0 right-0 bg-black/80 text-white text-[9px] font-bold px-2 py-1 rounded-bl-lg z-10 select-none"
+                      style={{ pointerEvents: 'all', cursor: 'default' }}
+                      title="App mein hi rahein"
+                    >🔒 App</div>
+                  )}
                 </div>
                 <p className="text-[11px] text-slate-400 text-center">
                   📹 Google Drive se video play ho raha hai — kisi ka Gmail login nahi maangega
@@ -16062,20 +16089,79 @@ RULES:
               </div>
             )}
 
+            {/* AUDIO TAB CONTENT */}
+            {lucentActiveTab === 'AUDIO' && (currentPage as any)?.audioUrl && (
+              <div className="flex-1 overflow-y-auto pb-[72px] px-4 pt-6 flex flex-col gap-4">
+                <div className="rounded-2xl bg-purple-50 border border-purple-200 p-5 flex flex-col items-center gap-4 shadow-sm">
+                  <div className="w-16 h-16 rounded-full bg-purple-600 flex items-center justify-center shadow-lg">
+                    <span className="text-2xl">🎵</span>
+                  </div>
+                  <p className="text-sm font-black text-purple-800 text-center">{currentPage?.topicName || `Page ${currentPage?.pageNo}`}</p>
+                  {(() => {
+                    const url = (currentPage as any).audioUrl as string;
+                    const isDrive = url.includes('drive.google.com');
+                    if (isDrive) {
+                      const driveMatch = url.match(/drive\.google\.com\/file\/d\/([^/?#]+)/);
+                      const embedUrl = driveMatch
+                        ? `https://drive.google.com/file/d/${driveMatch[1]}/preview`
+                        : url;
+                      return (
+                        <div className="w-full relative">
+                          <iframe
+                            src={embedUrl}
+                            className="w-full border-none rounded-xl"
+                            style={{ height: '80px' }}
+                            sandbox="allow-scripts allow-same-origin allow-presentation"
+                            allow="autoplay"
+                            title="Lesson Audio"
+                          />
+                          {/* Drive blocker top-right */}
+                          <div
+                            className="absolute top-0 right-0 bg-purple-800/80 text-white text-[9px] font-bold px-2 py-1 rounded-bl-lg z-10 select-none"
+                            style={{ pointerEvents: 'all', cursor: 'default' }}
+                          >🔒 App</div>
+                        </div>
+                      );
+                    }
+                    return (
+                      <audio
+                        controls
+                        src={url}
+                        className="w-full"
+                        controlsList="nodownload noremoteplayback"
+                      />
+                    );
+                  })()}
+                </div>
+                <p className="text-[11px] text-slate-400 text-center">
+                  🎵 Google Drive se audio play ho raha hai — app ke andar hi rahega
+                </p>
+              </div>
+            )}
+
             {/* PDF TAB CONTENT */}
             {lucentActiveTab === 'PDF' && (currentPage as any)?.pdfUrl && (
               <div className="flex-1 overflow-hidden pb-[72px] flex flex-col gap-2 pt-2 px-3">
-                <div className="flex-1 rounded-2xl overflow-hidden border border-blue-200 bg-white shadow-lg">
+                <div className="flex-1 rounded-2xl overflow-hidden border border-blue-200 bg-white shadow-lg relative">
                   <iframe
                     src={
                       (currentPage as any).pdfUrl?.includes('drive.google.com')
-                        ? (currentPage as any).pdfUrl.replace('/view', '/preview').replace(/[?&]usp=\w+/, '')
+                        ? `https://drive.google.com/file/d/${((currentPage as any).pdfUrl.match(/drive\.google\.com\/file\/d\/([^/?#]+)/) || [])[1]}/preview?rm=minimal`
                         : (currentPage as any).pdfUrl
                     }
                     className="w-full h-full border-none"
+                    sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
                     allow="autoplay"
                     title="Lesson PDF"
                   />
+                  {/* Drive blocker top-right corner */}
+                  {(currentPage as any).pdfUrl?.includes('drive.google.com') && (
+                    <div
+                      className="absolute top-0 right-0 bg-blue-800/80 text-white text-[9px] font-bold px-2 py-1 rounded-bl-lg z-10 select-none"
+                      style={{ pointerEvents: 'all', cursor: 'default' }}
+                      title="App mein hi rahein"
+                    >🔒 App</div>
+                  )}
                 </div>
                 <p className="text-[11px] text-slate-400 text-center shrink-0">
                   📄 Google Drive PDF — kisi ka Gmail login nahi maangega (share: &quot;Anyone with link&quot;)

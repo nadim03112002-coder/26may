@@ -125,6 +125,7 @@ type AdminTab =
   | 'NSTA_CONTROL' // NEW - Replaces APP_SOUL
   | 'HOMEWORK_MANAGER' // NEW
   | 'BOOK_NOTES_MANAGER' // NEW – separate from homework
+  | 'CLASS_NOTES_MANAGER' // NEW – Class 6-12 school notes
   | 'DAILY_GK_MANAGER' // NEW
   | 'TEACHERS' // NEW
   | 'TRENDING_NOTES_MANAGER' // NEW: Live trending important notes
@@ -561,6 +562,7 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
   });
   // Per-page bulk MCQ paste: keyed by page id -> textarea content. When non-undefined the paste UI is open.
   const [lucentPageBulk, setLucentPageBulk] = useState<Record<string, string>>({});
+  const [cn612EditingId, setCn612EditingId] = useState<string | null>(null);
 
   // Homework History UI: subject filter + per-entry expanded state. Collapsed entries
   // render only a small header so the page stays snappy when there are many entries.
@@ -9856,7 +9858,7 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                                               const firstSubj = cl === 'COMPETITION' ? 'biology' : (getSubjectsList(cl, 'Science')[0]?.id || getSubjectsList(cl, null)[0]?.id || 'science');
                                               setNewLucent({...newLucent, classLevel: cl, subject: firstSubj});
                                           }} className="w-full p-2 border border-indigo-200 rounded text-sm outline-none focus:border-indigo-500 bg-white font-bold">
-                                              {LUCENT_CLASS_TARGETS.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+                                              <option value="COMPETITION">🏆 Competition Mode</option>
                                           </select>
                                       </div>
                                       <div>
@@ -12825,7 +12827,7 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                                                       const firstSubj = cl === 'COMPETITION' ? 'biology' : (getSubjectsList(cl, 'Science')[0]?.id || getSubjectsList(cl, null)[0]?.id || 'science');
                                                       setNewLucent({...newLucent, classLevel: cl, subject: firstSubj});
                                                   }} className="w-full p-2 border border-indigo-200 rounded text-sm outline-none focus:border-indigo-500 bg-white font-bold">
-                                                      {LUCENT_CLASS_TARGETS.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+                                                      <option value="COMPETITION">🏆 Competition Mode</option>
                                                   </select>
                                               </div>
                                               <div>
@@ -12907,7 +12909,7 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                                               const firstSubj = cl === 'COMPETITION' ? 'biology' : (getSubjectsList(cl, 'Science')[0]?.id || getSubjectsList(cl, null)[0]?.id || 'science');
                                               setNewLucent({...newLucent, classLevel: cl, subject: firstSubj});
                                           }} className="w-full p-2 border border-indigo-200 rounded text-sm outline-none focus:border-indigo-500 bg-white font-bold">
-                                                  {LUCENT_CLASS_TARGETS.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+                                                  <option value="COMPETITION">🏆 Competition Mode</option>
                                               </select>
                                           </div>
                                           <div>
@@ -13560,6 +13562,321 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                               })}
                           </div>
                       )}
+                  </div>
+              </div>
+          );
+      })()}
+
+      {/* ══════════════════════════════════════════════
+          CLASS 6-12 NOTES MANAGER
+      ══════════════════════════════════════════════ */}
+      {activeTab === 'CLASS_NOTES_MANAGER' && (() => {
+          const CLASS_ONLY_TARGETS = LUCENT_CLASS_TARGETS.filter(t => t.id !== 'COMPETITION');
+          const cn612Level = (newLucent.classLevel === 'COMPETITION' ? '6' : newLucent.classLevel) as '6'|'7'|'8'|'9'|'10'|'11'|'12';
+          const cn612SubjectOptions: { id: string; name: string }[] = (() => {
+              try {
+                  const seen = new Set<string>();
+                  const results: { id: string; name: string }[] = [];
+                  (['Science', 'Commerce', 'Arts', null] as any[]).forEach((stream: string | null) => {
+                      getSubjectsList(cn612Level, stream).forEach(s => {
+                          if (!seen.has(s.id)) { seen.add(s.id); results.push({ id: s.id, name: s.name }); }
+                      });
+                  });
+                  return results.length > 0 ? results : [{ id: 'science', name: 'Science' }];
+              } catch { return [{ id: 'science', name: 'Science' }]; }
+          })();
+          const cn612Subject = cn612SubjectOptions.find(s => s.id === newLucent.subject) ? newLucent.subject : (cn612SubjectOptions[0]?.id || 'science');
+
+          return (
+              <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-right">
+                  <div className="flex items-center gap-3 mb-5 pb-4 border-b border-green-100">
+                      <button onClick={() => setActiveTab('DASHBOARD')} className="bg-slate-100 p-2 rounded-full hover:bg-slate-200"><ArrowLeft size={20} /></button>
+                      <div className="flex-1 min-w-0">
+                          <h3 className="text-xl font-black text-green-800">Class 6-12 Notes Manager</h3>
+                          <p className="text-xs text-slate-500 font-medium">School curriculum notes — Class 6 se 12 tak ka content add karein</p>
+                      </div>
+                      {cn612EditingId && (
+                          <button
+                              onClick={() => {
+                                  setCn612EditingId(null);
+                                  setNewLucent({ subject: cn612Subject, bookName: '', classLevel: cn612Level, lessonTitle: '', pages: [{ id: Date.now().toString(), pageNo: '1', content: '', chunkNotes: '', htmlNotes: '' }] });
+                              }}
+                              className="flex items-center gap-1 bg-amber-100 text-amber-700 border border-amber-300 px-3 py-1.5 rounded-lg text-xs font-black hover:bg-amber-200"
+                          >✕ Cancel Edit</button>
+                      )}
+                  </div>
+                  {cn612EditingId && (
+                      <div className="bg-amber-50 border border-amber-300 rounded-xl px-3 py-2 text-xs font-bold text-amber-800 flex items-center gap-2 mb-3">
+                          <span className="text-base">✏️</span> Edit Mode — changes save karne par purana entry replace ho jayega
+                      </div>
+                  )}
+
+                  <div className="space-y-4">
+                      <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-xs text-green-800">
+                          <strong>Class Notes Mode:</strong> Class 6-12 ke liye subject-wise, chapter-wise notes yahan add karein. Ye notes students ke class view mein dikhengen — same Lucent-style reader milega (Read Mode + Write Mode + MCQ).
+                      </div>
+
+                      {/* Class + Subject Row */}
+                      <div className="grid grid-cols-2 gap-3">
+                          <div>
+                              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">🎓 Class</label>
+                              <select
+                                  value={cn612Level}
+                                  onChange={e => {
+                                      const cl = e.target.value as any;
+                                      const firstSubj = getSubjectsList(cl, 'Science')[0]?.id || getSubjectsList(cl, null)[0]?.id || 'science';
+                                      setNewLucent({...newLucent, classLevel: cl, subject: firstSubj});
+                                  }}
+                                  className="w-full p-2 border border-green-300 rounded-lg text-sm outline-none focus:border-green-500 bg-white font-bold"
+                              >
+                                  {CLASS_ONLY_TARGETS.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+                              </select>
+                          </div>
+                          <div>
+                              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">📗 Subject</label>
+                              <select
+                                  value={cn612Subject}
+                                  onChange={e => setNewLucent({...newLucent, subject: e.target.value})}
+                                  className="w-full p-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-green-500 bg-white"
+                              >
+                                  {cn612SubjectOptions.map(opt => <option key={opt.id} value={opt.id}>{opt.name}</option>)}
+                              </select>
+                          </div>
+                      </div>
+
+                      {/* Book Name */}
+                      <div>
+                          <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">📚 Book Name (Optional)</label>
+                          <input
+                              type="text"
+                              list="cn612-book-name-list"
+                              value={newLucent.bookName}
+                              onChange={e => setNewLucent({...newLucent, bookName: e.target.value})}
+                              className="w-full p-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-green-500"
+                              placeholder="e.g. NCERT, RD Sharma, Lakhmir Singh..."
+                          />
+                          <datalist id="cn612-book-name-list">
+                              <option value="NCERT" />
+                              <option value="RD Sharma" />
+                              <option value="RS Aggarwal" />
+                              <option value="Lakhmir Singh" />
+                              <option value="HC Verma" />
+                          </datalist>
+                          <p className="text-[10px] text-green-700 mt-1">Khaali chhodne par default class reader mein jayega.</p>
+                      </div>
+
+                      {/* Chapter/Lesson Title */}
+                      <div>
+                          <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">📖 Chapter / Lesson Title *</label>
+                          <input
+                              type="text"
+                              value={newLucent.lessonTitle}
+                              onChange={e => setNewLucent({...newLucent, lessonTitle: e.target.value})}
+                              className="w-full p-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-green-500"
+                              placeholder="e.g. Chapter 1: Cell Structure, Chapter 5: Gravitation..."
+                          />
+                      </div>
+
+                      {/* Pages */}
+                      <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                              <label className="text-[10px] font-bold text-slate-500 uppercase">📄 Pages ({newLucent.pages.length})</label>
+                              <button
+                                  type="button"
+                                  onClick={() => setNewLucent({...newLucent, pages: [...newLucent.pages, { id: Date.now().toString(), pageNo: String(newLucent.pages.length + 1), content: '', chunkNotes: '', htmlNotes: '' }]})}
+                                  className="text-[10px] font-black text-green-600 bg-green-50 border border-green-200 px-2 py-1 rounded-lg hover:bg-green-100"
+                              >+ Page Add Karein</button>
+                          </div>
+                          <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
+                              {newLucent.pages.map((pg, pgIdx) => (
+                                  <div key={pg.id} className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2 relative">
+                                      {newLucent.pages.length > 1 && (
+                                          <button type="button" onClick={() => { const u=[...newLucent.pages]; u.splice(pgIdx,1); setNewLucent({...newLucent, pages: u}); }} className="absolute top-2 right-2 p-1 text-red-400 hover:text-red-600 rounded"><Trash2 size={13}/></button>
+                                      )}
+                                      <div className="grid grid-cols-2 gap-2">
+                                          <div>
+                                              <label className="text-[9px] font-bold text-slate-500 uppercase block mb-1">Page No.</label>
+                                              <input type="text" value={pg.pageNo} onChange={e => { const u=[...newLucent.pages]; u[pgIdx]={...u[pgIdx], pageNo: e.target.value}; setNewLucent({...newLucent, pages: u}); }} className="w-full p-1.5 border border-slate-200 rounded text-sm outline-none focus:border-green-500" placeholder="1" />
+                                          </div>
+                                          <div>
+                                              <label className="text-[9px] font-bold text-slate-500 uppercase block mb-1">Date</label>
+                                              <input type="date" value={pg.date || ''} onChange={e => { const u=[...newLucent.pages]; u[pgIdx]={...u[pgIdx], date: e.target.value}; setNewLucent({...newLucent, pages: u}); }} className="w-full p-1.5 border border-slate-200 rounded text-xs outline-none focus:border-green-500" />
+                                          </div>
+                                      </div>
+                                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-2">
+                                          <label className="text-[9px] font-black text-amber-700 uppercase block mb-1">📖 Read Mode Notes (TTS ke liye)</label>
+                                          <textarea value={pg.chunkNotes || ''} onChange={e => { const u=[...newLucent.pages]; u[pgIdx]={...u[pgIdx], chunkNotes: e.target.value}; setNewLucent({...newLucent, pages: u}); }} className="w-full p-2 border border-amber-200 rounded text-sm outline-none min-h-[90px] resize-y focus:border-amber-500 bg-white leading-relaxed" placeholder="Plain text notes — students yahan sunenge." />
+                                      </div>
+                                      <div className="bg-teal-50 border border-teal-200 rounded-lg p-2">
+                                          <label className="text-[9px] font-black text-teal-700 uppercase block mb-1">🎨 Write Mode Notes (HTML formatted)</label>
+                                          <textarea value={pg.htmlNotes || ''} onChange={e => { const u=[...newLucent.pages]; u[pgIdx]={...u[pgIdx], htmlNotes: e.target.value}; setNewLucent({...newLucent, pages: u}); }} className="w-full p-2 border border-teal-200 rounded text-sm outline-none min-h-[110px] resize-y focus:border-teal-500 bg-white font-mono" placeholder="<h2>Topic</h2><p>HTML formatted notes — bold, tables, colors sab supported hai.</p>" />
+                                      </div>
+                                      {/* Media Links */}
+                                      <div className="bg-rose-50 border border-rose-200 rounded-lg p-2 space-y-2">
+                                          <p className="text-[9px] font-black text-rose-700 uppercase">🎬 Media Links (Google Drive ya YouTube)</p>
+                                          <div>
+                                              <label className="text-[9px] font-bold text-slate-500 uppercase block mb-1">▶ Video URL</label>
+                                              <input type="url" value={(pg as any).videoUrl || ''} onChange={e => { const u=[...newLucent.pages]; u[pgIdx]={...u[pgIdx], videoUrl: e.target.value}; setNewLucent({...newLucent, pages: u}); }} className="w-full p-1.5 border border-rose-200 rounded text-xs outline-none focus:border-rose-500 bg-white" placeholder="https://drive.google.com/file/d/... ya YouTube link" />
+                                          </div>
+                                          <div>
+                                              <label className="text-[9px] font-bold text-slate-500 uppercase block mb-1">🎵 Audio URL</label>
+                                              <input type="url" value={(pg as any).audioUrl || ''} onChange={e => { const u=[...newLucent.pages]; u[pgIdx]={...u[pgIdx], audioUrl: e.target.value}; setNewLucent({...newLucent, pages: u}); }} className="w-full p-1.5 border border-rose-200 rounded text-xs outline-none focus:border-rose-500 bg-white" placeholder="https://drive.google.com/file/d/... (audio file)" />
+                                          </div>
+                                          <div>
+                                              <label className="text-[9px] font-bold text-slate-500 uppercase block mb-1">📄 PDF URL</label>
+                                              <input type="url" value={(pg as any).pdfUrl || ''} onChange={e => { const u=[...newLucent.pages]; u[pgIdx]={...u[pgIdx], pdfUrl: e.target.value}; setNewLucent({...newLucent, pages: u}); }} className="w-full p-1.5 border border-rose-200 rounded text-xs outline-none focus:border-rose-500 bg-white" placeholder="https://drive.google.com/file/d/... (PDF file)" />
+                                          </div>
+                                          <p className="text-[8px] text-rose-600">💡 Google Drive links: File ko "Anyone with the link" se share karein. App ke andar hi play hoga — user bahar nahi jayega.</p>
+                                      </div>
+                                      {/* MCQ Section */}
+                                      <div className="border-t border-slate-200 pt-2">
+                                          <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
+                                              <label className="text-[9px] font-bold text-emerald-700 uppercase">📝 Page MCQs ({(pg.mcqs||[]).length})</label>
+                                              <div className="flex gap-1">
+                                                  <button type="button" onClick={() => setLucentPageBulk(prev => { const cp={...prev}; cp[pg.id]===undefined ? cp[pg.id]='' : delete cp[pg.id]; return cp; })} className="bg-amber-500 text-white px-2 py-0.5 rounded text-[10px] font-bold hover:bg-amber-600">📋 Bulk Paste</button>
+                                                  <button type="button" onClick={() => { const u=[...newLucent.pages]; u[pgIdx]={...u[pgIdx],mcqs:[...(u[pgIdx].mcqs||[]),{id:`mcq_${Date.now()}_${Math.random()}`,question:'',options:['','','',''],correctAnswer:0} as any]}; setNewLucent({...newLucent,pages:u}); }} className="bg-emerald-600 text-white px-2 py-0.5 rounded text-[10px] font-bold hover:bg-emerald-700 flex items-center gap-1"><Plus size={10}/> Add MCQ</button>
+                                              </div>
+                                          </div>
+                                          {lucentPageBulk[pg.id] !== undefined && (
+                                              <div className="bg-amber-50 border border-amber-200 rounded p-2 mb-2 space-y-1.5">
+                                                  <textarea value={lucentPageBulk[pg.id]} onChange={e => setLucentPageBulk(prev=>({...prev,[pg.id]:e.target.value}))} placeholder={"**प्रश्न:** ...?\nA) ...\nB) ...\nC) ...\nD) ...\n**सही उत्तर:** B) ..."} className="w-full p-1.5 border border-amber-300 rounded text-[11px] font-mono outline-none h-32 focus:border-amber-500" />
+                                                  <div className="flex gap-1">
+                                                      <button type="button" onClick={() => { const raw=(lucentPageBulk[pg.id]||'').trim(); if(!raw)return alert('Text khaali hai.'); const parsed=parseMCQText(normalizeMcqPaste(raw)); if(!parsed.questions?.length)return alert('Parse fail.'); const u=[...newLucent.pages]; u[pgIdx]={...u[pgIdx],mcqs:[...(u[pgIdx].mcqs||[]),...parsed.questions.map(q=>({id:`mcq_${Date.now()}_${Math.random()}`,question:(q.question||'').replace(/<br\/?>/g,'\n').trim(),options:(q.options||['','','','']).slice(0,4),correctAnswer:q.correctAnswer??0})) as any[]]}; setNewLucent({...newLucent,pages:u}); setLucentPageBulk(prev=>{const cp={...prev};delete cp[pg.id];return cp;}); setAlertConfig({isOpen:true,message:'✅ MCQs add ho gaye!'}); }} className="flex-1 bg-amber-600 text-white px-2 py-1 rounded text-[10px] font-bold hover:bg-amber-700">Parse & Add All</button>
+                                                      <button type="button" onClick={() => setLucentPageBulk(prev=>{const cp={...prev};delete cp[pg.id];return cp;})} className="bg-slate-200 text-slate-700 px-2 py-1 rounded text-[10px] font-bold hover:bg-slate-300">Cancel</button>
+                                                  </div>
+                                              </div>
+                                          )}
+                                          {(pg.mcqs||[]).map((mcq,mIdx) => (
+                                              <div key={(mcq as any).id||mIdx} className="bg-white border border-emerald-100 rounded p-2 mb-2 space-y-1.5 relative">
+                                                  <button type="button" onClick={() => { const u=[...newLucent.pages]; u[pgIdx]={...u[pgIdx],mcqs:(u[pgIdx].mcqs||[]).filter((_,i)=>i!==mIdx)}; setNewLucent({...newLucent,pages:u}); }} className="absolute top-1 right-1 p-0.5 text-red-400 hover:text-red-600 rounded"><Trash2 size={11}/></button>
+                                                  <input type="text" value={mcq.question} onChange={e => { const u=[...newLucent.pages]; const ms=[...(u[pgIdx].mcqs||[])]; ms[mIdx]={...ms[mIdx],question:e.target.value}; u[pgIdx]={...u[pgIdx],mcqs:ms}; setNewLucent({...newLucent,pages:u}); }} className="w-full p-1.5 pr-6 border border-slate-200 rounded text-xs outline-none focus:border-emerald-500" placeholder={`Q${mIdx+1}: Question?`} />
+                                                  <div className="grid grid-cols-2 gap-1">
+                                                      {(mcq.options||['','','','']).map((opt,oi) => (
+                                                          <div key={oi} className="flex items-center gap-1">
+                                                              <input type="radio" name={`cn612-correct-${pg.id}-${mIdx}`} checked={(mcq.correctAnswer??0)===oi} onChange={() => { const u=[...newLucent.pages]; const ms=[...(u[pgIdx].mcqs||[])]; ms[mIdx]={...ms[mIdx],correctAnswer:oi}; u[pgIdx]={...u[pgIdx],mcqs:ms}; setNewLucent({...newLucent,pages:u}); }} className="shrink-0" />
+                                                              <input type="text" value={opt} onChange={e => { const u=[...newLucent.pages]; const ms=[...(u[pgIdx].mcqs||[])]; const opts=[...(ms[mIdx].options||['','','',''])]; opts[oi]=e.target.value; ms[mIdx]={...ms[mIdx],options:opts}; u[pgIdx]={...u[pgIdx],mcqs:ms}; setNewLucent({...newLucent,pages:u}); }} className="w-full p-1 border border-slate-200 rounded text-[11px] outline-none focus:border-emerald-500" placeholder={`Option ${String.fromCharCode(65+oi)}`} />
+                                                          </div>
+                                                      ))}
+                                                  </div>
+                                              </div>
+                                          ))}
+                                      </div>
+                                  </div>
+                              ))}
+                          </div>
+                      </div>
+
+                      {/* Save / Update Button */}
+                      <button
+                          onClick={() => {
+                              if (!newLucent.lessonTitle.trim()) return alert('Chapter / Lesson title daalein.');
+                              const validPages = newLucent.pages.filter(p => p.pageNo.trim() && (p.chunkNotes?.trim() || p.htmlNotes?.trim() || (p.mcqs && p.mcqs.length > 0)));
+                              if (validPages.length === 0) return alert('Kam se kam ek page ke notes ya MCQ add karein.');
+                              const effectiveClass = (newLucent.classLevel === 'COMPETITION' ? '6' : newLucent.classLevel) as any;
+                              const classLabel = CLASS_ONLY_TARGETS.find(t => t.id === effectiveClass)?.label || `Class ${effectiveClass}`;
+                              const titleTrimmed = newLucent.lessonTitle.trim();
+
+                              let updated: LucentNoteEntry[];
+                              let msg: string;
+
+                              if (cn612EditingId) {
+                                  // Edit mode — replace existing entry (keep original id + createdAt)
+                                  const existing = (localSettings.lucentNotes || []).find((n: LucentNoteEntry) => n.id === cn612EditingId) as LucentNoteEntry | undefined;
+                                  const updatedEntry: LucentNoteEntry = {
+                                      ...(existing || {}),
+                                      id: cn612EditingId,
+                                      subject: cn612Subject,
+                                      bookName: newLucent.bookName.trim() || undefined,
+                                      classLevel: effectiveClass,
+                                      lessonTitle: titleTrimmed,
+                                      pages: validPages,
+                                      updatedAt: new Date().toISOString(),
+                                  } as LucentNoteEntry;
+                                  updated = (localSettings.lucentNotes || []).map((n: LucentNoteEntry) =>
+                                      n.id === cn612EditingId ? updatedEntry : n
+                                  );
+                                  msg = `✅ Updated → ${classLabel} — ${titleTrimmed}!`;
+                                  setCn612EditingId(null);
+                              } else {
+                                  // Create mode — append new entry
+                                  const entry: LucentNoteEntry = {
+                                      id: Date.now().toString(),
+                                      subject: cn612Subject,
+                                      bookName: newLucent.bookName.trim() || undefined,
+                                      classLevel: effectiveClass,
+                                      lessonTitle: titleTrimmed,
+                                      pages: validPages,
+                                      createdAt: new Date().toISOString(),
+                                  };
+                                  updated = [...(localSettings.lucentNotes || []), entry];
+                                  msg = `✅ Class Notes saved → ${classLabel} — ${titleTrimmed}!`;
+                              }
+
+                              setNewLucent({ subject: cn612Subject, bookName: '', classLevel: effectiveClass, lessonTitle: '', pages: [{ id: Date.now().toString(), pageNo: '1', content: '', chunkNotes: '', htmlNotes: '' }] });
+                              saveLucentEntryDirectly(updated, msg);
+                          }}
+                          disabled={isSavingLucent}
+                          className={`w-full text-white py-3 rounded-xl font-black text-sm flex items-center justify-center gap-2 disabled:opacity-60 ${cn612EditingId ? 'bg-amber-600 hover:bg-amber-700' : 'bg-green-600 hover:bg-green-700'}`}
+                      >
+                          <Save size={16}/> {isSavingLucent ? 'Saving…' : cn612EditingId ? '✏️ Update Class Notes' : 'Save Class Notes'}
+                      </button>
+
+                      {/* History of recently added class notes */}
+                      {(() => {
+                          const classNotesList = (localSettings.lucentNotes || []).filter((n: LucentNoteEntry) => n.classLevel !== 'COMPETITION').sort((a: LucentNoteEntry, b: LucentNoteEntry) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()).slice(0, 15);
+                          if (classNotesList.length === 0) return null;
+                          return (
+                              <div className="mt-2">
+                                  <p className="text-[10px] font-black text-slate-500 uppercase mb-2">Recently Added Class Notes ({classNotesList.length})</p>
+                                  <div className="space-y-2 max-h-[350px] overflow-y-auto">
+                                      {classNotesList.map((entry: LucentNoteEntry) => (
+                                          <div key={entry.id} className={`border rounded-xl p-3 flex items-start justify-between gap-2 ${cn612EditingId === entry.id ? 'bg-amber-50 border-amber-300' : 'bg-green-50 border-green-100'}`}>
+                                              <div className="flex-1 min-w-0">
+                                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                                      <p className="text-xs font-black text-slate-800 truncate">{entry.lessonTitle}</p>
+                                                      {cn612EditingId === entry.id && <span className="text-[9px] font-black bg-amber-400 text-white px-1.5 py-0.5 rounded-full shrink-0">✏️ Editing</span>}
+                                                  </div>
+                                                  <p className="text-[10px] text-slate-500 mt-0.5">
+                                                      {LUCENT_CLASS_TARGETS.find(t => t.id === entry.classLevel)?.label || entry.classLevel} • {entry.subject} {entry.bookName ? `• ${entry.bookName}` : ''} • {entry.pages?.length || 0} page(s)
+                                                  </p>
+                                                  <p className="text-[9px] text-slate-400">{(entry as any).updatedAt ? `Updated: ${new Date((entry as any).updatedAt).toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'})}` : entry.createdAt ? new Date(entry.createdAt).toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'}) : ''}</p>
+                                              </div>
+                                              <div className="flex gap-1 shrink-0">
+                                                  <button
+                                                      onClick={() => {
+                                                          // Load this entry into the form for editing
+                                                          setCn612EditingId(entry.id);
+                                                          setNewLucent({
+                                                              subject: entry.subject,
+                                                              bookName: entry.bookName || '',
+                                                              classLevel: (entry.classLevel && entry.classLevel !== 'COMPETITION' ? entry.classLevel : '6') as any,
+                                                              lessonTitle: entry.lessonTitle,
+                                                              pages: entry.pages || [],
+                                                          });
+                                                          // Scroll to top of form
+                                                          document.querySelector('.animate-in.slide-in-from-right')?.scrollTo({ top: 0, behavior: 'smooth' });
+                                                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                                                      }}
+                                                      className="p-1.5 text-amber-500 hover:text-amber-700 hover:bg-amber-50 rounded-lg"
+                                                      title="Edit"
+                                                  ><Edit3 size={14}/></button>
+                                                  <button
+                                                      onClick={() => {
+                                                          if (!confirm(`"${entry.lessonTitle}" delete karein?`)) return;
+                                                          if (cn612EditingId === entry.id) setCn612EditingId(null);
+                                                          const updated = (localSettings.lucentNotes || []).filter((n: LucentNoteEntry) => n.id !== entry.id);
+                                                          saveLucentEntryDirectly(updated, `🗑️ "${entry.lessonTitle}" deleted!`);
+                                                      }}
+                                                      className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                                                      title="Delete"
+                                                  ><Trash2 size={14}/></button>
+                                              </div>
+                                          </div>
+                                      ))}
+                                  </div>
+                              </div>
+                          );
+                      })()}
                   </div>
               </div>
           );

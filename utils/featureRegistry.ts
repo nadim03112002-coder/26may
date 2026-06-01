@@ -578,6 +578,17 @@ export const ALL_FEATURES: Feature[] = [
         color: 'amber'
     },
     {
+        id: 'ADMIN_CLASS_NOTES',
+        label: 'Class 6-12 Notes',
+        group: 'CONTENT',
+        surfaceLevel: 3,
+        adminVisible: true,
+        adminTab: 'CLASS_NOTES_MANAGER',
+        requiredPermission: 'MANAGE_CONTENT',
+        icon: 'GraduationCap',
+        color: 'green'
+    },
+    {
         id: 'ADMIN_DAILY_GK',
         label: 'Daily GK',
         group: 'CONTENT',

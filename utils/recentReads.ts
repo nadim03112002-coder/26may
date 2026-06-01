@@ -7,7 +7,7 @@ const READ_DATES_KEY = 'nst_read_dates_v1';
 const READ_ITEMS_BY_DAY_KEY = 'nst_read_items_by_day_v1';
 const FULLY_READ_KEY = 'nst_fully_read_v1';
 const MAX_ITEMS = 6;
-const MAX_LUCENT_ITEMS = 12;
+const MAX_LUCENT_ITEMS = 50;
 const MAX_DATES = 90;
 const MAX_FULLY_READ = 200;
 
@@ -105,6 +105,11 @@ export interface RecentLucentEntry {
   totalPages: number;
   scrollY: number;
   scrollPct: number;   // page-level reading progress (0–100)
+  /** classLevel distinguishes Competition/Lucent ('COMPETITION') from Class 6-12 ('6'–'12').
+   *  Absent on legacy entries → treat as 'COMPETITION'. */
+  classLevel?: string;
+  /** board: 'CBSE' | 'BSEB' | 'COMPETITION'. Optional for legacy compat. */
+  board?: string;
 }
 
 export const getRecentLucent = (): RecentLucentEntry[] => {
