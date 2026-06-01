@@ -65,11 +65,13 @@ export interface LevelDailyLimits {
 // ── Helper to build one level row ────────────────────────────────────────────
 // MCQ:       base Free=50, Basic=70, Ultra=100; +30 per level (all tiers)
 // DL:        base Free=2,  Basic=5,  Ultra=10;  Free+2, Basic+3, Ultra+5 per level
-// PDF:       base Free=2,  Basic=3,  Ultra=5;   Free+2, Basic+3, Ultra+5 per level
+// PDF:       Free: L1-L4=0 (blocked), L5=1, L6=2, L7=3, L8=4, L9=5, L10=6, L11=7, L12=8, L13=9, L14=10, L15=11
+//            Basic L1=1; L1-L5: +1/level, L6-L8: +2/level, L9-L11: +3/level, L12-L15: +4/5/6/7
+//            Ultra L1=3; L1-L5: +2/level, L6-L8: +3/level, L9-L11: +4/level, L12-L15: +5/6/7/8
 // Video:     base Free=0,  Basic=2,  Ultra=5;   Free+1(from L2), Basic+2, Ultra+2 per level
 // Notes:     base Free=10, Basic=10, Ultra=10;  Free+2, Basic+4, Ultra+6 per level; L9+ = UNLIMITED
 // TTS:       Same as Notes
-// Write:     base Free=0,  Basic=5,  Ultra=10;  Basic+1, Ultra+1 per level from L4
+// Write:     base Free=0 (credit-only: 5 CR/view), Basic=5, Ultra=10; Basic+1, Ultra+1 per level from L4
 // Concept:   base Free=5,  Basic=5,  Ultra=5;   Free+2, Basic+4, Ultra+6 per level (Free also open now)
 // Retention: Same formula as Write (Free=0 N/A, Basic/Ultra scaled — Premium only)
 // Flashcard: base Free=10, Basic=15, Ultra=20;  +10 per level (all tiers)
@@ -82,6 +84,12 @@ const _CREDIT_WRITE_MAX = [100, 100, 100, 100, 100, 110, 120, 130, 140, 145, 150
 // L8→L9=+30, L9→L10=+30, L10→L11=+40, L11→L12=+40, L12→L13=+50, L13→L14=+60, L14→L15=+70
 const _MCQ_INCR_CUMUL = [0, 10, 20, 30, 40, 60, 80, 100, 130, 160, 200, 240, 290, 350, 420];
 
+// PDF daily limits — per level (0-indexed n = level-1):
+// L1  L2  L3  L4  L5  L6  L7  L8  L9  L10 L11 L12 L13 L14 L15
+const _PDF_FREE  = [0,  0,  0,  0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11];
+const _PDF_BASIC = [1,  2,  3,  4,  5,  7,  9, 11, 14, 17, 20, 24, 29, 35, 42];
+const _PDF_ULTRA = [3,  5,  7,  9, 11, 14, 17, 20, 24, 28, 32, 37, 43, 50, 58];
+
 const buildTable = (): Record<number, LevelDailyLimits> => {
   const tbl: Record<number, LevelDailyLimits> = {};
   for (let i = 1; i <= MAX_LEVEL; i++) {
@@ -92,7 +100,7 @@ const buildTable = (): Record<number, LevelDailyLimits> => {
     tbl[i] = {
       mcq:       { free: 50 + _MCQ_INCR_CUMUL[n], basic: 70 + _MCQ_INCR_CUMUL[n], ultra: 100 + _MCQ_INCR_CUMUL[n] },
       dl:        { free: 2   + n * 2,  basic: 5   + n * 3,  ultra: 10  + n * 5  },
-      pdf:       { free: 2   + n * 2,  basic: 3   + n * 3,  ultra: 5   + n * 5  },
+      pdf:       { free: _PDF_FREE[n], basic: _PDF_BASIC[n], ultra: _PDF_ULTRA[n] },
       video:     { free: Math.max(0, n), basic: 2 + n * 2, ultra: 5 + n * 2 },
       notes:     unlimitedNotes ? { free: UNLIMITED, basic: UNLIMITED, ultra: UNLIMITED } : { free: 10 + n * 2, basic: 10 + n * 4, ultra: 10 + n * 6 },
       tts:       unlimitedNotes ? { free: UNLIMITED, basic: UNLIMITED, ultra: UNLIMITED } : { free: 10 + n * 2, basic: 10 + n * 4, ultra: 10 + n * 6 },

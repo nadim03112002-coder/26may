@@ -1201,10 +1201,18 @@ export const StudentDashboard: React.FC<Props> = ({
       const lvl = getLevelInfo(freshUser.totalScore || 0).level;
       const lim = getEffectiveDailyLimit(feature, lvl, tier, settings);
       if (lim >= UNLIMITED) return true;
+      // PDF blocked for Free users at L1-L4 (lim === 0)
+      if (lim === 0 && feature === 'pdf') {
+        const needsLevel = tier === 'FREE'
+          ? '🔒 PDF Level 5 se milega! Level badhao ya Basic/Ultra lo.'
+          : '🔒 PDF access unavailable. Store se subscription lein!';
+        showAlert(needsLevel, 'INFO');
+        return false;
+      }
       const used = parseInt(localStorage.getItem(storageKey) || '0', 10);
       if (used >= lim) {
         const label = feature === 'video' ? 'Video' : feature === 'pdf' ? 'PDF' : 'Audio/TTS';
-        showAlert(`🚫 Aaj ki ${label} limit khatam (${lim}/${lim}). Kal reset hoga!`, 'INFO');
+        showAlert(`🚫 Aaj ki ${label} limit khatam (${used}/${lim}). Kal reset hoga!`, 'INFO');
         return false;
       }
       localStorage.setItem(storageKey, String(used + 1));
@@ -4773,9 +4781,10 @@ export const StudentDashboard: React.FC<Props> = ({
     // as lucent_admin_* chapters at the top of the chapter list. Same handler
     // at ChapterSelection onSelect already handles clicking these → lucentPageListViewer.
     const _adminLucentNotes = (settings?.lucentNotes || []) as LucentNoteEntry[];
+    const _activeBoard = activeSessionBoard || user.board || 'CBSE';
     const adminClassLessons = currentClass !== 'COMPETITION'
       ? _adminLucentNotes
-          .filter(n => String(n.classLevel) === String(currentClass) && String(n.subject) === String(subject.id))
+          .filter(n => String(n.classLevel) === String(currentClass) && String(n.subject) === String(subject.id) && (!n.board || n.board === _activeBoard))
           .sort((a, b) => (a.lessonTitle || '').localeCompare(b.lessonTitle || ''))
       : [];
     const adminChapters: Chapter[] = adminClassLessons.map(n => ({
@@ -7412,6 +7421,11 @@ export const StudentDashboard: React.FC<Props> = ({
               // In dark mode the border color is too dark to use as text — use a bright tier color instead
               const tbTextColor = isDarkMode ? tierTheme.border : tbBorderColor;
 
+              const _c612Bg  = settings?.homeClass612CardBg     || tierTheme.profileCardBg;
+              const _c612Bdr = settings?.homeClass612CardBorder  || tierTheme.primary;
+              const _cmpBg   = settings?.homeCompetitionCardBg   || tierTheme.profileCardBg;
+              const _cmpBdr  = settings?.homeCompetitionCardBorder || tierTheme.primary;
+
               const ClassBtn = ({ c }: { c: string }) => {
                 const subjectCount = getSubjectsList(c, _stream, _board).length;
                 const isBoard = boardClasses.includes(c);
@@ -7420,7 +7434,7 @@ export const StudentDashboard: React.FC<Props> = ({
                     key={c}
                     onClick={() => goToClassHome(c)}
                     className="relative flex flex-col p-2.5 rounded-xl active:scale-95 transition-all text-left shadow-sm"
-                    style={{ background: tierTheme.profileCardBg, border: `2px solid ${tierTheme.primary}` }}
+                    style={{ background: _c612Bg, border: `2px solid ${_c612Bdr}` }}
                   >
                     {isBoard ? (
                       <span className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded-full text-[7px] font-black bg-amber-400 text-amber-900 leading-none">👑</span>
@@ -7428,7 +7442,7 @@ export const StudentDashboard: React.FC<Props> = ({
                       <span className="absolute top-1.5 right-1.5 text-sm leading-none select-none opacity-60">{classEmojis[c]}</span>
                     )}
                     <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-0.5">CLASS</p>
-                    <p className="text-2xl font-black leading-none mb-1" style={{ color: tierTheme.primary }}>{c}</p>
+                    <p className="text-2xl font-black leading-none mb-1" style={{ color: _c612Bdr }}>{c}</p>
                     <p className="text-[9px] font-bold text-slate-500 leading-tight">{subjectCount} Subj.</p>
                   </button>
                 );
@@ -7461,17 +7475,17 @@ export const StudentDashboard: React.FC<Props> = ({
                       <button
                         onClick={() => { hapticStrong(); setSyllabusMode('COMPETITION'); setActiveSessionClass('COMPETITION'); setActiveSessionBoard(_board); setContentViewStep('SUBJECTS'); setInitialParentSubject(null); onTabChange('COURSES'); }}
                         className="w-full relative overflow-hidden rounded-2xl text-left active:scale-[0.99] transition-all shadow-sm"
-                        style={{ background: tierTheme.profileCardBg, border: `2px solid ${tierTheme.primary}` }}
+                        style={{ background: _cmpBg, border: `2px solid ${_cmpBdr}` }}
                       >
                         <div className="flex items-center justify-between px-4 py-4">
                           <div className="flex-1 min-w-0 pr-2">
-                            <p className="text-[10px] font-black uppercase tracking-wider mb-1" style={{ color: tierTheme.primary }}>Competitive Mode</p>
+                            <p className="text-[10px] font-black uppercase tracking-wider mb-1" style={{ color: _cmpBdr }}>Competitive Mode</p>
                             <h3 className="text-[24px] font-black leading-tight mb-1 text-slate-800">Govt. Exams</h3>
                             <div className="mb-3">
                               <span className="text-[11px] font-bold text-slate-700">7 Books</span>
                               <span className="text-[10px] text-slate-400 ml-1.5">SSC · UPSC · Railway · BPSC · BSSC · Police</span>
                             </div>
-                            <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-black text-white" style={{ background: tierTheme.primary }}>
+                            <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-black text-white" style={{ background: _cmpBdr }}>
                               Tap to open →
                             </span>
                           </div>
@@ -7488,6 +7502,10 @@ export const StudentDashboard: React.FC<Props> = ({
                       <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Quick Access</span>
                       <span className="flex-1 h-px bg-slate-100" />
                     </div>
+                    {(() => {
+                      const _qaBg  = settings?.homeQuickAccessCardBg     || tierTheme.profileCardBg;
+                      const _qaBdr = settings?.homeQuickAccessCardBorder  || tierTheme.primary;
+                      return (
                     <div className="grid grid-cols-3 gap-2">
                       {([
                         { label: 'Reading',     sub: 'Continue where left', page: 'READING_PAGE',       icon: '📖' },
@@ -7501,13 +7519,13 @@ export const StudentDashboard: React.FC<Props> = ({
                           key={item.page}
                           onClick={() => { hapticStrong(); onTabChange(item.page as any); }}
                           className="flex flex-col items-start gap-2 p-3 rounded-2xl active:scale-95 transition-all shadow-sm"
-                          style={{ background: tierTheme.profileCardBg, border: `2px solid ${tierTheme.primary}` }}
+                          style={{ background: _qaBg, border: `2px solid ${_qaBdr}` }}
                         >
                           <div className="flex items-center justify-between w-full">
-                            <div className="w-10 h-10 rounded-2xl flex items-center justify-center text-xl shrink-0" style={{ background: `${tierTheme.primary}18` }}>
+                            <div className="w-10 h-10 rounded-2xl flex items-center justify-center text-xl shrink-0" style={{ background: `${_qaBdr}18` }}>
                               {item.icon}
                             </div>
-                            <ChevronRight size={14} style={{ color: tierTheme.primary }} />
+                            <ChevronRight size={14} style={{ color: _qaBdr }} />
                           </div>
                           <div>
                             <div className="text-[11px] font-black text-slate-800 leading-tight">{item.label}</div>
@@ -7516,6 +7534,8 @@ export const StudentDashboard: React.FC<Props> = ({
                         </button>
                       ))}
                     </div>
+                      );
+                    })()}
                   </div>
                 </div>
               );
@@ -7670,7 +7690,8 @@ export const StudentDashboard: React.FC<Props> = ({
       if (
         contentViewStep === "SUBJECTS" &&
         !lucentCategoryView &&
-        !homeworkSubjectView
+        !homeworkSubjectView &&
+        !class612SubjectView
       ) {
         return (
           <div className="p-4 pt-2 max-w-6xl mx-auto pb-4">
@@ -14332,9 +14353,9 @@ export const StudentDashboard: React.FC<Props> = ({
                   { icon: '📖', label: 'Notes', free: '✓ Unlimited', basic: '✓ Unlimited', ultra: '✓ Unlimited' },
                   { icon: '📝', label: 'MCQ Practice', free: `${mcqFreeLimit}/day`, basic: `${mcqBasicLimit}/day`, ultra: `${mcqUltraLimit}/day` },
                   { icon: '🎬', label: 'Video Lectures', free: 'Coins needed', basic: `${vidBasic}/day free`, ultra: `${vidUltra}/day free` },
-                  { icon: '📄', label: 'PDF Access', free: 'Coins needed', basic: `${pdfBasic}/day free`, ultra: `${pdfUltra}/day free` },
-                  { icon: '✍️', label: 'Write Mode (free views)', free: '0 free', basic: `${basicHtmlLimit}/day free`, ultra: `${ultraHtmlLimitModal}/day free` },
-                  { icon: '💎', label: 'Write Mode (credit)', free: `${htmlCost} CR/use`, basic: `10 CR/use`, ultra: `10 CR/use` },
+                  { icon: '📄', label: 'PDF Access', free: 'L1-L4: 🔒, L5: 1/day → badhta hai', basic: 'L1: 1/day → level pe badhe', ultra: 'L1: 3/day → level pe badhe' },
+                  { icon: '✍️', label: 'Write Mode (free views)', free: `${htmlCost} CR/view (no free)`, basic: `${basicHtmlLimit}/day free, phir CR`, ultra: `${ultraHtmlLimitModal}/day free, phir CR` },
+                  { icon: '💎', label: 'Write Mode (after limit)', free: `${htmlCost} CR/use`, basic: `10 CR/use`, ultra: `10 CR/use` },
                   { icon: '📥', label: 'HTML Downloads', free: `${dlFree}/day`, basic: `${dlBasic}/day`, ultra: `${dlUltra}/day` },
                   { icon: '🗓️', label: 'Sunday Bonus (streak tootne pe)', free: `+${freeBonus} CR`, basic: `+${basicBonus} CR`, ultra: `+${ultraBonus} CR` },
                   { icon: '🔊', label: 'Audio / TTS', free: '✓ Free', basic: '✓ Free', ultra: '✓ Free' },
@@ -14855,16 +14876,30 @@ export const StudentDashboard: React.FC<Props> = ({
 
         const dismiss = () => setContentPickerPopup(null);
 
+        // Is the Lucent viewer already open for this exact entry?
+        // If yes, switching tab/mode must set state directly — the useEffect
+        // [lucentPageIndex, lucentNoteViewer?.id] won't re-fire for same id.
+        const _lucentAlreadyOpen = isLucent && lucentNoteViewer?.id === entry?.id;
+
         const openReadingNotes = () => {
           dismiss();
           if (isCourse) {
             return;
           } else if (isLucent) {
-            lucentInitialTabRef.current = { tab: 'NOTES', viewMode: 'chunk' };
-            tryOpenLucentNote(entry, pageIdx);
+            if (_lucentAlreadyOpen) {
+              stopSpeech();
+              setLucentActiveTab('NOTES');
+              setLucentNotesViewMode('chunk');
+              setLucentPageIndex(pageIdx);
+            } else {
+              lucentInitialTabRef.current = { tab: 'NOTES', viewMode: 'chunk' };
+              tryOpenLucentNote(entry, pageIdx);
+            }
           } else {
+            // hw viewer: ensure notes view is active, switch sub-mode to read
+            setHwViewMode('notes');
             setHwNotesViewMode('chunk');
-            setHwActiveHwId(hw.id || null);
+            if (hw?.id) setHwActiveHwId(hw.id);
           }
         };
         const openMakingNotes = () => {
@@ -14872,10 +14907,25 @@ export const StudentDashboard: React.FC<Props> = ({
           if (isCourse) {
             return;
           } else if (isLucent) {
-            lucentInitialTabRef.current = { tab: 'NOTES', viewMode: 'html' };
-            tryOpenLucentNote(entry, pageIdx);
+            const doOpen = () => {
+              if (_lucentAlreadyOpen) {
+                stopSpeech();
+                setLucentActiveTab('NOTES');
+                setLucentNotesViewMode('html');
+                setLucentPageIndex(pageIdx);
+              } else {
+                lucentInitialTabRef.current = { tab: 'NOTES', viewMode: 'html' };
+                tryOpenLucentNote(entry, pageIdx);
+              }
+            };
+            handleWriteModeGate(doOpen);
           } else {
-            handleWriteModeGate(() => { setHwNotesViewMode('html'); setHwActiveHwId(hw.id || null); });
+            // hw viewer: ensure notes view is active, switch sub-mode to write
+            handleWriteModeGate(() => {
+              setHwViewMode('notes');
+              setHwNotesViewMode('html');
+              if (hw?.id) setHwActiveHwId(hw.id);
+            });
           }
         };
         const openMcq = () => {
@@ -14883,11 +14933,16 @@ export const StudentDashboard: React.FC<Props> = ({
           if (isCourse) {
             return;
           } else if (isLucent) {
-            lucentInitialTabRef.current = { tab: 'MCQS' };
-            tryOpenLucentNote(entry, pageIdx);
+            if (_lucentAlreadyOpen) {
+              stopSpeech();
+              setLucentActiveTab('MCQS');
+            } else {
+              lucentInitialTabRef.current = { tab: 'MCQS' };
+              tryOpenLucentNote(entry, pageIdx);
+            }
           } else {
             setHwViewMode('mcq');
-            setHwActiveHwId(hw.id || null);
+            if (hw?.id) setHwActiveHwId(hw.id);
           }
         };
         const openPdf = () => {
@@ -14895,8 +14950,13 @@ export const StudentDashboard: React.FC<Props> = ({
           if (isCourse) {
             return;
           } else if (isLucent) {
-            lucentInitialTabRef.current = { tab: 'PDF' };
-            tryOpenLucentNote(entry, pageIdx);
+            if (_lucentAlreadyOpen) {
+              stopSpeech();
+              setLucentActiveTab('PDF');
+            } else {
+              lucentInitialTabRef.current = { tab: 'PDF' };
+              tryOpenLucentNote(entry, pageIdx);
+            }
           } else {
             const url = hw?.pdfUrl;
             if (url) window.open(url, '_blank', 'noopener,noreferrer');
@@ -14907,11 +14967,16 @@ export const StudentDashboard: React.FC<Props> = ({
           if (isCourse) {
             return;
           } else if (isLucent) {
-            lucentInitialTabRef.current = { tab: 'VIDEO' };
-            tryOpenLucentNote(entry, pageIdx);
+            if (_lucentAlreadyOpen) {
+              stopSpeech();
+              setLucentActiveTab('VIDEO');
+            } else {
+              lucentInitialTabRef.current = { tab: 'VIDEO' };
+              tryOpenLucentNote(entry, pageIdx);
+            }
           } else {
             hwAutoOpenRef.current = 'video';
-            setHwActiveHwId(hw.id || null);
+            if (hw?.id) setHwActiveHwId(hw.id);
           }
         };
         const openAudio = () => {
@@ -14919,11 +14984,16 @@ export const StudentDashboard: React.FC<Props> = ({
           if (isCourse) {
             return;
           } else if (isLucent) {
-            const url = (page as any)?.audioUrl;
-            if (url) window.open(url, '_blank', 'noopener,noreferrer');
+            if (_lucentAlreadyOpen) {
+              stopSpeech();
+              setLucentActiveTab('AUDIO');
+            } else {
+              const url = (page as any)?.audioUrl;
+              if (url) window.open(url, '_blank', 'noopener,noreferrer');
+            }
           } else {
             hwAutoOpenRef.current = 'audio';
-            setHwActiveHwId(hw.id || null);
+            if (hw?.id) setHwActiveHwId(hw.id);
           }
         };
 

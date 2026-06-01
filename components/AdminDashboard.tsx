@@ -553,10 +553,11 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
     { id: '11', label: '📚 Class 11' },
     { id: '12', label: '📚 Class 12' },
   ];
-  const [newLucent, setNewLucent] = useState<{ subject: string; bookName: string; classLevel: 'COMPETITION' | '6' | '7' | '8' | '9' | '10' | '11' | '12'; lessonTitle: string; pages: LucentPageNote[] }>({
+  const [newLucent, setNewLucent] = useState<{ subject: string; bookName: string; classLevel: 'COMPETITION' | '6' | '7' | '8' | '9' | '10' | '11' | '12'; board: '' | 'CBSE' | 'BSEB'; lessonTitle: string; pages: LucentPageNote[] }>({
     subject: 'biology',
     bookName: '',
     classLevel: 'COMPETITION',
+    board: '',
     lessonTitle: '',
     pages: [{ id: Date.now().toString(), pageNo: '1', content: '', chunkNotes: '', htmlNotes: '' }],
   });
@@ -5892,6 +5893,96 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                                 <p className="text-[10px] text-slate-400 mt-1.5">👤 Sirf Profile page par apply hoga — baaki app ka background alag rahega. Default: Light Gray (#f0f4f8)</p>
                               </div>
 
+                              {/* ── ADVANCED: HOME PAGE SECTION CARD COLORS ── */}
+                              <div className="mt-4 p-3 bg-indigo-50 rounded-xl border border-indigo-200">
+                                <label className="text-xs font-black text-indigo-800 uppercase block mb-1">🎨 Advanced — Home Page Card Colors</label>
+                                <p className="text-[10px] text-indigo-500 mb-3">Har section ke card ka alag color set karo. Default: App Theme Color se match karta hai.</p>
+
+                                {/* Class 6-12 Cards */}
+                                <div className="mb-3 p-2.5 bg-white rounded-xl border border-indigo-100">
+                                  <p className="text-[10px] font-black text-slate-700 mb-1.5">📚 Class 6-12 Cards</p>
+                                  <div className="flex gap-2">
+                                    <div className="flex-1">
+                                      <p className="text-[9px] text-slate-400 mb-1">Background</p>
+                                      <div className="flex items-center gap-1.5">
+                                        <input type="color" value={localSettings.homeClass612CardBg || '#ffffff'} onChange={e => setLocalSettings({...localSettings, homeClass612CardBg: e.target.value})} className="w-8 h-8 rounded-lg cursor-pointer border border-slate-200 shrink-0" />
+                                        <input type="text" value={localSettings.homeClass612CardBg || ''} onChange={e => setLocalSettings({...localSettings, homeClass612CardBg: e.target.value})} placeholder="Default" className="flex-1 p-1 border rounded-lg text-[9px] uppercase font-mono bg-slate-50" />
+                                        {localSettings.homeClass612CardBg && <button onClick={() => setLocalSettings({...localSettings, homeClass612CardBg: undefined})} className="text-[9px] text-red-400 font-black shrink-0">✕</button>}
+                                      </div>
+                                    </div>
+                                    <div className="flex-1">
+                                      <p className="text-[9px] text-slate-400 mb-1">Border / Text</p>
+                                      <div className="flex items-center gap-1.5">
+                                        <input type="color" value={localSettings.homeClass612CardBorder || '#3b82f6'} onChange={e => setLocalSettings({...localSettings, homeClass612CardBorder: e.target.value})} className="w-8 h-8 rounded-lg cursor-pointer border border-slate-200 shrink-0" />
+                                        <input type="text" value={localSettings.homeClass612CardBorder || ''} onChange={e => setLocalSettings({...localSettings, homeClass612CardBorder: e.target.value})} placeholder="Default" className="flex-1 p-1 border rounded-lg text-[9px] uppercase font-mono bg-slate-50" />
+                                        {localSettings.homeClass612CardBorder && <button onClick={() => setLocalSettings({...localSettings, homeClass612CardBorder: undefined})} className="text-[9px] text-red-400 font-black shrink-0">✕</button>}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="flex gap-1.5 mt-2 flex-wrap">
+                                    {['#ffffff','#eff6ff','#f0fdf4','#fef3c7','#fdf4ff','#fff1f2','#f0fdfa','#1e293b'].map(c => (
+                                      <button key={c} onClick={() => setLocalSettings({...localSettings, homeClass612CardBg: c})} className="w-5 h-5 rounded border-2 transition-all hover:scale-110" style={{ background: c, borderColor: (localSettings.homeClass612CardBg||'') === c ? '#6366f1' : '#e2e8f0' }} title={c} />
+                                    ))}
+                                  </div>
+                                </div>
+
+                                {/* Competition Card */}
+                                <div className="mb-3 p-2.5 bg-white rounded-xl border border-indigo-100">
+                                  <p className="text-[10px] font-black text-slate-700 mb-1.5">🏛️ Competition / Govt. Exams Card</p>
+                                  <div className="flex gap-2">
+                                    <div className="flex-1">
+                                      <p className="text-[9px] text-slate-400 mb-1">Background</p>
+                                      <div className="flex items-center gap-1.5">
+                                        <input type="color" value={localSettings.homeCompetitionCardBg || '#ffffff'} onChange={e => setLocalSettings({...localSettings, homeCompetitionCardBg: e.target.value})} className="w-8 h-8 rounded-lg cursor-pointer border border-slate-200 shrink-0" />
+                                        <input type="text" value={localSettings.homeCompetitionCardBg || ''} onChange={e => setLocalSettings({...localSettings, homeCompetitionCardBg: e.target.value})} placeholder="Default" className="flex-1 p-1 border rounded-lg text-[9px] uppercase font-mono bg-slate-50" />
+                                        {localSettings.homeCompetitionCardBg && <button onClick={() => setLocalSettings({...localSettings, homeCompetitionCardBg: undefined})} className="text-[9px] text-red-400 font-black shrink-0">✕</button>}
+                                      </div>
+                                    </div>
+                                    <div className="flex-1">
+                                      <p className="text-[9px] text-slate-400 mb-1">Border / Text</p>
+                                      <div className="flex items-center gap-1.5">
+                                        <input type="color" value={localSettings.homeCompetitionCardBorder || '#3b82f6'} onChange={e => setLocalSettings({...localSettings, homeCompetitionCardBorder: e.target.value})} className="w-8 h-8 rounded-lg cursor-pointer border border-slate-200 shrink-0" />
+                                        <input type="text" value={localSettings.homeCompetitionCardBorder || ''} onChange={e => setLocalSettings({...localSettings, homeCompetitionCardBorder: e.target.value})} placeholder="Default" className="flex-1 p-1 border rounded-lg text-[9px] uppercase font-mono bg-slate-50" />
+                                        {localSettings.homeCompetitionCardBorder && <button onClick={() => setLocalSettings({...localSettings, homeCompetitionCardBorder: undefined})} className="text-[9px] text-red-400 font-black shrink-0">✕</button>}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="flex gap-1.5 mt-2 flex-wrap">
+                                    {['#ffffff','#fffbeb','#fdf4ff','#fff1f2','#f0fdfa','#eff6ff','#f0fdf4','#1e293b'].map(c => (
+                                      <button key={c} onClick={() => setLocalSettings({...localSettings, homeCompetitionCardBg: c})} className="w-5 h-5 rounded border-2 transition-all hover:scale-110" style={{ background: c, borderColor: (localSettings.homeCompetitionCardBg||'') === c ? '#6366f1' : '#e2e8f0' }} title={c} />
+                                    ))}
+                                  </div>
+                                </div>
+
+                                {/* Quick Access Cards */}
+                                <div className="p-2.5 bg-white rounded-xl border border-indigo-100">
+                                  <p className="text-[10px] font-black text-slate-700 mb-1.5">⚡ Quick Access Cards</p>
+                                  <div className="flex gap-2">
+                                    <div className="flex-1">
+                                      <p className="text-[9px] text-slate-400 mb-1">Background</p>
+                                      <div className="flex items-center gap-1.5">
+                                        <input type="color" value={localSettings.homeQuickAccessCardBg || '#ffffff'} onChange={e => setLocalSettings({...localSettings, homeQuickAccessCardBg: e.target.value})} className="w-8 h-8 rounded-lg cursor-pointer border border-slate-200 shrink-0" />
+                                        <input type="text" value={localSettings.homeQuickAccessCardBg || ''} onChange={e => setLocalSettings({...localSettings, homeQuickAccessCardBg: e.target.value})} placeholder="Default" className="flex-1 p-1 border rounded-lg text-[9px] uppercase font-mono bg-slate-50" />
+                                        {localSettings.homeQuickAccessCardBg && <button onClick={() => setLocalSettings({...localSettings, homeQuickAccessCardBg: undefined})} className="text-[9px] text-red-400 font-black shrink-0">✕</button>}
+                                      </div>
+                                    </div>
+                                    <div className="flex-1">
+                                      <p className="text-[9px] text-slate-400 mb-1">Border / Icon</p>
+                                      <div className="flex items-center gap-1.5">
+                                        <input type="color" value={localSettings.homeQuickAccessCardBorder || '#3b82f6'} onChange={e => setLocalSettings({...localSettings, homeQuickAccessCardBorder: e.target.value})} className="w-8 h-8 rounded-lg cursor-pointer border border-slate-200 shrink-0" />
+                                        <input type="text" value={localSettings.homeQuickAccessCardBorder || ''} onChange={e => setLocalSettings({...localSettings, homeQuickAccessCardBorder: e.target.value})} placeholder="Default" className="flex-1 p-1 border rounded-lg text-[9px] uppercase font-mono bg-slate-50" />
+                                        {localSettings.homeQuickAccessCardBorder && <button onClick={() => setLocalSettings({...localSettings, homeQuickAccessCardBorder: undefined})} className="text-[9px] text-red-400 font-black shrink-0">✕</button>}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="flex gap-1.5 mt-2 flex-wrap">
+                                    {['#ffffff','#f0f9ff','#f0fdf4','#fef9c3','#fdf4ff','#fff1f2','#f0fdfa','#1e293b'].map(c => (
+                                      <button key={c} onClick={() => setLocalSettings({...localSettings, homeQuickAccessCardBg: c})} className="w-5 h-5 rounded border-2 transition-all hover:scale-110" style={{ background: c, borderColor: (localSettings.homeQuickAccessCardBg||'') === c ? '#6366f1' : '#e2e8f0' }} title={c} />
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+
                               {/* ── DESIGN TOKENS LIVE PREVIEW ── */}
                               <div className="mt-3">
                                 <button
@@ -9870,6 +9961,21 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                                           </select>
                                       </div>
                                   </div>
+                                  {/* Board filter */}
+                                  <div>
+                                      <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">📋 Board Filter (kaun dekhe?)</label>
+                                      <div className="flex gap-2">
+                                          {([['', '🌐 Dono Board (CBSE + BSEB)'], ['CBSE', '📘 Sirf CBSE'], ['BSEB', '📗 Sirf BSEB']] as const).map(([val, lbl]) => (
+                                              <button key={val} type="button"
+                                                  onClick={() => setNewLucent({...newLucent, board: val})}
+                                                  className={`flex-1 py-2 px-2 rounded-lg border-2 text-[11px] font-black transition-all ${newLucent.board === val ? (val === '' ? 'bg-slate-700 border-slate-700 text-white' : val === 'CBSE' ? 'bg-blue-600 border-blue-600 text-white' : 'bg-green-600 border-green-600 text-white') : 'bg-white border-slate-200 text-slate-500 hover:border-slate-400'}`}
+                                              >{lbl}</button>
+                                          ))}
+                                      </div>
+                                      <p className="text-[9px] text-slate-400 font-bold mt-1">
+                                          ⚠️ CBSE mode ke students ko sirf CBSE lessons dikhenge, BSEB students ko sirf BSEB. "Dono" choose karne par sab ko dikhai dega.
+                                      </p>
+                                  </div>
                                   <div>
                                       <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">📚 Kis Book ka Content Hai?</label>
                                       <input
@@ -10176,6 +10282,7 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                                               subject: newLucent.subject,
                                               bookName: newLucent.bookName.trim() || undefined,
                                               classLevel: newLucent.classLevel,
+                                              board: newLucent.board || undefined,
                                               lessonTitle: newLucent.lessonTitle.trim(),
                                               pages: validPages,
                                               createdAt: new Date().toISOString(),
@@ -10195,7 +10302,7 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                                           const updatedNotifs = [newNotif, ...currentNotifs].slice(0, 30);
 
                                           const target = LUCENT_CLASS_TARGETS.find(t => t.id === newLucent.classLevel)?.label || newLucent.classLevel;
-                                          setNewLucent({ subject: newLucent.subject, bookName: '', classLevel: newLucent.classLevel, lessonTitle: '', pages: [{ id: Date.now().toString(), pageNo: '1', content: '', chunkNotes: '', htmlNotes: '' }] });
+                                          setNewLucent({ subject: newLucent.subject, bookName: '', classLevel: newLucent.classLevel, board: newLucent.board, lessonTitle: '', pages: [{ id: Date.now().toString(), pageNo: '1', content: '', chunkNotes: '', htmlNotes: '' }] });
                                           saveLucentEntryDirectly(updated, `✅ Lesson saved → ${target}!`, updatedNotifs);
                                       }} disabled={isSavingLucent} className="w-full bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-700 flex items-center justify-center gap-2 transition-colors disabled:opacity-60">
                                           <Save size={18} /> {isSavingLucent ? 'Saving…' : 'Save Lucent Lesson'}
@@ -12886,7 +12993,7 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                                               const entry: LucentNoteEntry = { id: Date.now().toString(), subject: newLucent.subject, bookName: cbn || undefined, classLevel: newLucent.classLevel, lessonTitle: newLucent.lessonTitle.trim(), pages: validPages, createdAt: new Date().toISOString() };
                                               const updated = [...(localSettings.lucentNotes || []), entry];
                                               const target3 = LUCENT_CLASS_TARGETS.find(t => t.id === newLucent.classLevel)?.label || newLucent.classLevel;
-                                              setNewLucent({ subject: newLucent.subject, bookName: '', classLevel: newLucent.classLevel, lessonTitle: '', pages: [{ id: Date.now().toString(), pageNo: '1', content: '', chunkNotes: '', htmlNotes: '' }] });
+                                              setNewLucent({ subject: newLucent.subject, bookName: '', classLevel: newLucent.classLevel, board: newLucent.board, lessonTitle: '', pages: [{ id: Date.now().toString(), pageNo: '1', content: '', chunkNotes: '', htmlNotes: '' }] });
                                               saveLucentEntryDirectly(updated, `✅ Multi-page lesson saved → ${cbn} (${target3})!`);
                                           }} disabled={isSavingLucent} className="w-full bg-indigo-600 text-white py-3 rounded-xl font-black text-sm hover:bg-indigo-700 flex items-center justify-center gap-2 disabled:opacity-60">
                                               <Save size={16}/> {isSavingLucent ? 'Saving…' : 'Save Multi-Page Lesson'}
@@ -13160,7 +13267,7 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                                           const updatedNotifs = [newNotif, ...currentNotifs].slice(0, 30);
 
                                           const target2 = LUCENT_CLASS_TARGETS.find(t => t.id === newLucent.classLevel)?.label || newLucent.classLevel;
-                                          setNewLucent({ subject: newLucent.subject, bookName: '', classLevel: newLucent.classLevel, lessonTitle: '', pages: [{ id: Date.now().toString(), pageNo: '1', content: '', chunkNotes: '', htmlNotes: '' }] });
+                                          setNewLucent({ subject: newLucent.subject, bookName: '', classLevel: newLucent.classLevel, board: newLucent.board, lessonTitle: '', pages: [{ id: Date.now().toString(), pageNo: '1', content: '', chunkNotes: '', htmlNotes: '' }] });
                                           saveLucentEntryDirectly(updated, `✅ Lesson saved → ${target2}!`, updatedNotifs);
                                       }} disabled={isSavingLucent} className="w-full mt-2 bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-700 flex items-center justify-center gap-2 disabled:opacity-60">
                                           <Save size={18} /> {isSavingLucent ? 'Saving…' : 'Save Lucent Lesson'}

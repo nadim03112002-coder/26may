@@ -492,6 +492,8 @@ export interface HomeworkItem {
   id: string;
   date: string;
   title: string;
+  /** Board filter: when set, only students in this board see this item. Unset = shown to all. */
+  board?: 'CBSE' | 'BSEB';
   notes?: string;
   mcqText?: string;
   parsedMcqs?: MCQItem[];
@@ -560,6 +562,8 @@ export interface LucentNoteEntry {
    * Defaults to 'COMPETITION' for backward compat with existing entries.
    */
   classLevel?: '6' | '7' | '8' | '9' | '10' | '11' | '12' | 'COMPETITION';
+  /** Board filter: when set, only students in this board see this lesson. Unset = shown to all boards. */
+  board?: 'CBSE' | 'BSEB';
   lessonTitle: string;
   pages: LucentPageNote[];
   createdAt?: string;
@@ -698,6 +702,13 @@ export interface SystemSettings {
   appBackground?: string;
   profileBackground?: string;
   themeColor?: string;
+  // ── Home Page Section Card Colors (Advanced Theme) ──
+  homeClass612CardBg?: string;
+  homeClass612CardBorder?: string;
+  homeCompetitionCardBg?: string;
+  homeCompetitionCardBorder?: string;
+  homeQuickAccessCardBg?: string;
+  homeQuickAccessCardBorder?: string;
   statusBarColor?: string;
   darkThemeColor?: string;
   lightThemeColor?: string;
