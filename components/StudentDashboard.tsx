@@ -2122,8 +2122,8 @@ export const StudentDashboard: React.FC<Props> = ({
       ENGLISH_HINDI_MAP[subjectName] || '',   // Hindi→English
     ].filter(Boolean)));
 
-    // 2. Board variants: try both CBSE and BSEB regardless of user's profile board
-    const boardVariants = Array.from(new Set([board, 'CBSE', 'BSEB'].filter(Boolean)));
+    // 2. Board variants: only use the active board — no cross-board content mixing
+    const boardVariants = [board].filter(Boolean) as string[];
 
     // 3. Stream suffix variants for class 11/12
     const streamSuffixes: string[] = [''];  // always try no-stream-suffix
@@ -4571,7 +4571,6 @@ export const StudentDashboard: React.FC<Props> = ({
             if (_prev.lucentCat) setLucentCategoryView(true);
           } else {
             setActiveSessionClass(null);
-            setActiveSessionBoard(null);
             onTabChange("HOME");
           }
         }
@@ -7734,7 +7733,6 @@ export const StudentDashboard: React.FC<Props> = ({
                 } else {
                   // If going back from root subject list, go back to HOME class selection
                   setActiveSessionClass(null);
-                  setActiveSessionBoard(null);
                   onTabChange("HOME");
                 }
               }}
@@ -13278,7 +13276,7 @@ export const StudentDashboard: React.FC<Props> = ({
 
       {/* FIXED BOTTOM NAVIGATION */}
       <nav
-        className={`fixed bottom-0 left-0 right-0 w-full mx-auto backdrop-blur-md z-[300] pb-safe ${activeExternalApp || isDocFullscreen || (contentViewStep === "PLAYER" && selectedChapter && activeTab !== 'STORE' && activeTab !== 'PROFILE') || isLandscapeUiHidden || isInternalImmersive || !!hwActiveHwId ? "hidden" : ""}`}
+        className={`fixed bottom-0 left-0 right-0 w-full mx-auto backdrop-blur-md z-[300] pb-safe ${activeExternalApp || isDocFullscreen || (contentViewStep === "PLAYER" && selectedChapter && activeTab !== 'STORE' && activeTab !== 'PROFILE') || isLandscapeUiHidden || isInternalImmersive || !!hwActiveHwId || !!lucentNoteViewer ? "hidden" : ""}`}
         style={{
           background: tierTheme.navBg,
           borderTop: `1px solid ${(tierTheme as any).navBorderColor || tierTheme.primary + '22'}`,
@@ -15288,6 +15286,25 @@ export const StudentDashboard: React.FC<Props> = ({
                     >
                       <RotateCcw size={14} />
                     </button>
+                    {/* Download — write mode only */}
+                    {_isWriteMode && (currentPage?.htmlNotes || currentPage?.content) && (
+                      <button
+                        onClick={async () => {
+                          try {
+                            const pageLabel = `Page ${currentPage?.pageNo || safeIndex + 1}`;
+                            const safeTitle = `${entry.lessonTitle || 'Lucent'} · ${pageLabel}`.replace(/[^a-z0-9_\- ·]/gi, '_').slice(0, 60);
+                            const _dlOk = await checkAndDoDownload(async () => {
+                              await downloadAsMHTML('lucent-html-download', safeTitle, { appName: settings?.appShortName || settings?.appName || 'IIC', pageTitle: `${entry.lessonTitle || 'Lucent'} · ${pageLabel}`, subtitle: 'Write Mode Notes' });
+                            });
+                            if (_dlOk) showAlert('📥 Saved!', 'SUCCESS');
+                          } catch { showAlert('Download failed. Please try again.', 'ERROR'); }
+                        }}
+                        className="w-8 h-8 flex items-center justify-center rounded-xl bg-white/15 border border-white/25 text-white active:scale-90 transition-all shrink-0"
+                        title="Download Notes"
+                      >
+                        <Download size={14} />
+                      </button>
+                    )}
                     {/* Save Offline — both modes */}
                     <button
                       onClick={_handleSaveOffline}
@@ -15398,7 +15415,7 @@ export const StudentDashboard: React.FC<Props> = ({
             {/* Notes scroll area */}
             <div
               ref={lucentScrollContainerRef}
-              className={`flex-1 overflow-y-auto ${lucentActiveTab === 'NOTES' ? '' : 'hidden'} ${!isLandscapeUiHidden ? 'pb-[72px]' : ''}`}
+              className={`flex-1 overflow-y-auto ${lucentActiveTab === 'NOTES' ? '' : 'hidden'} ${!isLandscapeUiHidden && !lucentImmersive ? 'pb-[72px]' : ''}`}
               onScroll={(e) => {
                 const t = e.currentTarget;
                 const max = t.scrollHeight - t.clientHeight;
