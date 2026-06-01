@@ -9107,7 +9107,7 @@ export const StudentDashboard: React.FC<Props> = ({
       <div
         id="top-banner-container"
         className={`sticky top-0 z-[100] w-full flex flex-col transition-all duration-300 ease-in-out ${isFullscreenMode ? "hidden" : ""} ${(isTopBarHidden || isLandscapeUiHidden || activeTab === 'STORE' || activeTab === 'CUSTOM_PAGE' || activeTab === 'PROFILE') ? "-translate-y-full !h-0 overflow-hidden opacity-0 pointer-events-none" : "translate-y-0 opacity-100"}`}
-        style={{ background: tierTheme.topBarGrad }}
+        style={{ background: tierTheme.topBarGrad, paddingTop: 'env(safe-area-inset-top)' }}
       >
         {/* Main Header Row */}
         <div className="flex items-center justify-between w-full px-3 pt-1.5 pb-1">
@@ -9286,6 +9286,9 @@ export const StudentDashboard: React.FC<Props> = ({
 
           </div>
         </div>
+
+        {/* Divider between Row 1 and Row 2 */}
+        <div className="mx-3 h-px bg-white/20" />
 
         {/* SECOND LINE: greeting + Level / Credits / Subscription pills */}
         <div className="flex items-center justify-between w-full mt-0 pt-0.5 px-4 pb-1">
