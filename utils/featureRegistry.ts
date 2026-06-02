@@ -872,6 +872,17 @@ export const ALL_FEATURES: Feature[] = [
         description: 'Real-time app error notice board — users ka crash kya hua, kab, kahan.'
     },
     {
+        id: 'ADMIN_FEEDBACK',
+        label: 'App Feedback',
+        group: 'ADVANCED',
+        surfaceLevel: 2,
+        adminVisible: true,
+        adminTab: 'FEEDBACK',
+        icon: 'MessageSquare',
+        color: 'violet',
+        description: 'Students ka app feedback — ratings, suggestions aur comments.'
+    },
+    {
         id: 'ADMIN_HELP',
         label: 'Help Guide',
         group: 'ADVANCED',

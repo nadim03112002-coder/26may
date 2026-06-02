@@ -1447,6 +1447,29 @@ export const updateCompreBookNote = async (bookId: string, noteId: string, updat
   }
 };
 
+// ── APP FEEDBACK ──────────────────────────────────────────────────────────
+import type { AppFeedbackEntry } from './types';
+
+export const saveAppFeedback = async (entry: AppFeedbackEntry): Promise<void> => {
+  try {
+    await setDoc(doc(db, 'app_feedback', entry.id), entry);
+  } catch (e) {
+    console.error('[saveAppFeedback] Firestore failed:', e);
+    throw e;
+  }
+};
+
+export const getAppFeedbacks = async (): Promise<AppFeedbackEntry[]> => {
+  try {
+    const q = query(collection(db, 'app_feedback'), orderBy('submittedAt', 'desc'));
+    const snap = await getDocs(q);
+    return snap.docs.map(d => d.data() as AppFeedbackEntry);
+  } catch (e) {
+    console.error('[getAppFeedbacks] failed:', e);
+    return [];
+  }
+};
+
 export { app, db, rtdb, auth };
 
 export const updateUserUID = async (oldUid: string, newUid: string, userData: any) => {

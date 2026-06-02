@@ -8,7 +8,7 @@ import { runAutoPilot, runCommandMode } from '../services/autoPilot';
 import { parseMCQText } from '../utils/mcqParser';
 import { TOP_BAR_EFFECTS, EFFECT_CATEGORIES, TopBarEffectsLayer } from '../utils/topBarEffects';
 import { generateSecureRandomString, generateSecureRandomId } from '../utils/cryptoUtils';
-import { saveChapterData, bulkSaveLinks, checkFirebaseConnection, saveSystemSettings, subscribeToUsers, rtdb, saveUserToLive, db, getChapterData, saveCustomSyllabus, deleteCustomSyllabus, subscribeToUniversalAnalysis, saveAiInteraction, saveSecureKeys, getSecureKeys, subscribeToApiUsage, subscribeToDrafts, resetAllContent, subscribeToDemands, updateDemandStatus, subscribeGlobalChat, subscribeSupportChat, deleteGlobalMessage, deleteSupportMessage, subscribeAllSupportThreads, sendGlobalMessage, sendSupportMessage, subscribeToCompareAnalytics, deleteCompareAnalyticsByQuery, addCompreBookNote, deleteCompreBookNote, getCompreBookNotes, updateCompreBookNote } from '../firebase'; // IMPORT FIREBASE
+import { saveChapterData, bulkSaveLinks, checkFirebaseConnection, saveSystemSettings, subscribeToUsers, rtdb, saveUserToLive, db, getChapterData, saveCustomSyllabus, deleteCustomSyllabus, subscribeToUniversalAnalysis, saveAiInteraction, saveSecureKeys, getSecureKeys, subscribeToApiUsage, subscribeToDrafts, resetAllContent, subscribeToDemands, updateDemandStatus, subscribeGlobalChat, subscribeSupportChat, deleteGlobalMessage, deleteSupportMessage, subscribeAllSupportThreads, sendGlobalMessage, sendSupportMessage, subscribeToCompareAnalytics, deleteCompareAnalyticsByQuery, addCompreBookNote, deleteCompreBookNote, getCompreBookNotes, updateCompreBookNote, getAppFeedbacks } from '../firebase'; // IMPORT FIREBASE
 import { ref, set, onValue, update, push, get } from "firebase/database";
 import { doc, deleteDoc, setDoc, getDocs, collection, writeBatch, deleteField } from "firebase/firestore";
 import { storage } from '../utils/storage';
@@ -132,7 +132,8 @@ type AdminTab =
   | 'GLOBAL_CHAT' // NEW: Chat moderation
   | 'ADMIN_HELP'
   | 'ERROR_LOGS' // Error Notice Board
-  | 'CONTENT_HISTORY'; // Content addition history log
+  | 'CONTENT_HISTORY' // Content addition history log
+  | 'FEEDBACK'; // App Feedback from users
 
 interface ContentConfig {
     freeLink?: string;
@@ -453,6 +454,9 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
   const [resetThemeLoading, setResetThemeLoading] = useState(false);
   const [resetThemeResult, setResetThemeResult] = useState<{count: number; status: 'success'|'error'; msg?: string} | null>(null);
   const [resetThemeConfirm, setResetThemeConfirm] = useState(false);
+  const [feedbacks, setFeedbacks] = useState<import('../types').AppFeedbackEntry[]>([]);
+  const [feedbacksLoading, setFeedbacksLoading] = useState(false);
+  const [feedbackRatingFilter, setFeedbackRatingFilter] = useState<number | 'ALL'>('ALL');
   const [quickResetLoading, setQuickResetLoading] = useState(false);
   const [quickResetDone, setQuickResetDone] = useState<string | null>(null);
   const [quickResetConfirm, setQuickResetConfirm] = useState(false);
@@ -3845,6 +3849,94 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                                   className="w-5 h-5 accent-blue-600"
                               />
                           </div>
+                      </div>
+
+                      {/* Score Boost Event Toggle */}
+                      <div className="flex flex-col gap-2 bg-white p-3 rounded-lg border border-orange-200">
+                          <div className="flex items-center justify-between">
+                              <div>
+                                  <span className="text-xs font-bold text-orange-700">🚀 Score Boost Event</span>
+                                  <p className="text-[10px] text-slate-500 mt-0.5">Sabhi users ka score boost + Theme Studio access</p>
+                              </div>
+                              <input
+                                  type="checkbox"
+                                  checked={(localSettings as any).scoreBoostEvent?.enabled || false}
+                                  onChange={e => setLocalSettings({...localSettings, scoreBoostEvent: {...((localSettings as any).scoreBoostEvent || {}), enabled: e.target.checked}} as any)}
+                                  className="w-5 h-5 accent-orange-600"
+                              />
+                          </div>
+                          {(localSettings as any).scoreBoostEvent?.enabled && (
+                              <div className="mt-2 space-y-2 pt-2 border-t border-orange-100">
+                                  <div className="grid grid-cols-2 gap-2">
+                                      <div>
+                                          <label className="text-[10px] font-bold text-slate-600 block mb-1">Event Name</label>
+                                          <input
+                                              type="text"
+                                              placeholder="e.g. Diwali Score Blast"
+                                              value={(localSettings as any).scoreBoostEvent?.eventName || ''}
+                                              onChange={e => setLocalSettings({...localSettings, scoreBoostEvent: {...((localSettings as any).scoreBoostEvent || {}), eventName: e.target.value}} as any)}
+                                              className="w-full p-2 border rounded text-xs"
+                                          />
+                                      </div>
+                                      <div>
+                                          <label className="text-[10px] font-bold text-slate-600 block mb-1">Score Boost %</label>
+                                          <input
+                                              type="number"
+                                              min={0}
+                                              max={500}
+                                              placeholder="e.g. 50"
+                                              value={(localSettings as any).scoreBoostEvent?.boostPercent || 0}
+                                              onChange={e => setLocalSettings({...localSettings, scoreBoostEvent: {...((localSettings as any).scoreBoostEvent || {}), boostPercent: Number(e.target.value)}} as any)}
+                                              className="w-full p-2 border rounded text-xs"
+                                          />
+                                      </div>
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-2">
+                                      <div>
+                                          <label className="text-[10px] font-bold text-slate-600 block mb-1">Start Date/Time</label>
+                                          <input
+                                              type="datetime-local"
+                                              value={(localSettings as any).scoreBoostEvent?.startsAt ? new Date((localSettings as any).scoreBoostEvent.startsAt).toISOString().slice(0, 16) : ''}
+                                              onChange={e => setLocalSettings({...localSettings, scoreBoostEvent: {...((localSettings as any).scoreBoostEvent || {}), startsAt: e.target.value ? new Date(e.target.value).toISOString() : undefined}} as any)}
+                                              className="w-full p-2 border rounded text-xs"
+                                          />
+                                      </div>
+                                      <div>
+                                          <label className="text-[10px] font-bold text-slate-600 block mb-1">End Date/Time</label>
+                                          <input
+                                              type="datetime-local"
+                                              value={(localSettings as any).scoreBoostEvent?.endsAt ? new Date((localSettings as any).scoreBoostEvent.endsAt).toISOString().slice(0, 16) : ''}
+                                              onChange={e => setLocalSettings({...localSettings, scoreBoostEvent: {...((localSettings as any).scoreBoostEvent || {}), endsAt: e.target.value ? new Date(e.target.value).toISOString() : undefined}} as any)}
+                                              className="w-full p-2 border rounded text-xs"
+                                          />
+                                      </div>
+                                  </div>
+                                  <div className="flex items-center gap-3 pt-1">
+                                      <label className="flex items-center gap-1.5 text-[10px] font-bold text-slate-700 cursor-pointer">
+                                          <input
+                                              type="checkbox"
+                                              checked={(localSettings as any).scoreBoostEvent?.themeStudioEnabled || false}
+                                              onChange={e => setLocalSettings({...localSettings, scoreBoostEvent: {...((localSettings as any).scoreBoostEvent || {}), themeStudioEnabled: e.target.checked}} as any)}
+                                              className="accent-orange-600"
+                                          />
+                                          🎨 Theme Studio Access
+                                      </label>
+                                      {(localSettings as any).scoreBoostEvent?.themeStudioEnabled && (
+                                          <div className="flex items-center gap-1">
+                                              <label className="text-[10px] text-slate-600">Theme Days (max 7):</label>
+                                              <input
+                                                  type="number"
+                                                  min={1}
+                                                  max={7}
+                                                  value={(localSettings as any).scoreBoostEvent?.themeStudioDays ?? 7}
+                                                  onChange={e => setLocalSettings({...localSettings, scoreBoostEvent: {...((localSettings as any).scoreBoostEvent || {}), themeStudioDays: Math.min(7, Number(e.target.value))}} as any)}
+                                                  className="w-12 p-1 border rounded text-xs"
+                                              />
+                                          </div>
+                                      )}
+                                  </div>
+                              </div>
+                          )}
                       </div>
                   </div>
 
@@ -16929,6 +17021,152 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                               </div>
                           );
                       })}
+                  </div>
+              )}
+          </div>
+      )}
+
+      {/* ── APP FEEDBACK TAB ── */}
+      {activeTab === 'FEEDBACK' && (
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-right">
+              <div className="flex items-center gap-4 mb-4 border-b pb-4">
+                  <button onClick={() => setActiveTab('DASHBOARD')} className="bg-slate-100 p-2 rounded-full hover:bg-slate-200"><ArrowLeft size={20} /></button>
+                  <div className="flex-1">
+                      <h3 className="text-xl font-black text-slate-800 flex items-center gap-2">
+                          💬 App Feedback
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-0.5">Students ne diya feedback — seedha unki baat</p>
+                  </div>
+                  <button
+                      onClick={async () => {
+                          setFeedbacksLoading(true);
+                          const data = await getAppFeedbacks();
+                          setFeedbacks(data);
+                          setFeedbacksLoading(false);
+                      }}
+                      className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 shadow hover:bg-indigo-700"
+                  >
+                      {feedbacksLoading ? <Loader2 size={13} className="animate-spin" /> : <span>🔄</span>}
+                      Load
+                  </button>
+              </div>
+
+              {/* Stats row */}
+              {feedbacks.length > 0 && (
+                  <div className="grid grid-cols-4 gap-3 mb-4">
+                      {[
+                          { label: 'Total', val: feedbacks.length, color: 'text-indigo-600', bg: 'bg-indigo-50 border-indigo-200' },
+                          { label: 'Avg Rating', val: (feedbacks.reduce((s, f) => s + (f.overallRating || 0), 0) / feedbacks.length).toFixed(1) + ' ⭐', color: 'text-amber-600', bg: 'bg-amber-50 border-amber-200' },
+                          { label: '5 Stars', val: feedbacks.filter(f => f.overallRating === 5).length, color: 'text-emerald-600', bg: 'bg-emerald-50 border-emerald-200' },
+                          { label: '1-2 Stars', val: feedbacks.filter(f => f.overallRating <= 2).length, color: 'text-red-500', bg: 'bg-red-50 border-red-200' },
+                      ].map(s => (
+                          <div key={s.label} className={`rounded-xl border p-3 text-center ${s.bg}`}>
+                              <p className={`text-lg font-black ${s.color}`}>{s.val}</p>
+                              <p className="text-[10px] text-slate-500 font-bold">{s.label}</p>
+                          </div>
+                      ))}
+                  </div>
+              )}
+
+              {/* Rating filter */}
+              {feedbacks.length > 0 && (
+                  <div className="flex gap-2 mb-4 flex-wrap">
+                      {(['ALL', 5, 4, 3, 2, 1] as const).map(r => (
+                          <button
+                              key={r}
+                              onClick={() => setFeedbackRatingFilter(r)}
+                              className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${feedbackRatingFilter === r ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-indigo-300'}`}
+                          >
+                              {r === 'ALL' ? 'Sab' : `${'⭐'.repeat(r)} (${feedbacks.filter(f => f.overallRating === r).length})`}
+                          </button>
+                      ))}
+                  </div>
+              )}
+
+              {feedbacksLoading ? (
+                  <div className="text-center py-16">
+                      <Loader2 size={32} className="animate-spin mx-auto text-indigo-400 mb-3" />
+                      <p className="text-sm text-slate-400 font-bold">Feedback load ho raha hai...</p>
+                  </div>
+              ) : feedbacks.length === 0 ? (
+                  <div className="text-center py-16 text-slate-400">
+                      <span className="text-5xl block mb-4">💬</span>
+                      <p className="font-bold text-slate-500">Abhi koi feedback nahi aaya</p>
+                      <p className="text-xs mt-1">Load button dabaao ya intezaar karo</p>
+                  </div>
+              ) : (
+                  <div className="space-y-3 max-h-[68vh] overflow-y-auto pr-1">
+                      {feedbacks
+                          .filter(f => feedbackRatingFilter === 'ALL' || f.overallRating === feedbackRatingFilter)
+                          .map(fb => {
+                              const date = new Date(fb.submittedAt);
+                              const dateStr = date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+                              const timeStr = date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+                              const stars = fb.overallRating || 0;
+                              const suggestion = fb.answers.find(a => a.questionId === 'suggestion')?.text;
+                              const bestFeature = fb.answers.find(a => a.questionId === 'best_feature')?.choice;
+                              return (
+                                  <div key={fb.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4 hover:border-indigo-200 transition-all">
+                                      <div className="flex items-start justify-between gap-3 mb-2">
+                                          <div className="flex items-center gap-2.5">
+                                              <div className="w-9 h-9 rounded-xl bg-indigo-100 flex items-center justify-center text-indigo-700 font-black text-sm shrink-0">
+                                                  {(fb.userName || 'U').charAt(0).toUpperCase()}
+                                              </div>
+                                              <div>
+                                                  <p className="font-black text-slate-800 text-sm">{fb.userName}</p>
+                                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                                      <span className="text-[10px] text-slate-400">{fb.userId}</span>
+                                                      {fb.isPremium && (
+                                                          <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">PRO</span>
+                                                      )}
+                                                      {fb.userClass && (
+                                                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-slate-200 text-slate-600">Class {fb.userClass}</span>
+                                                      )}
+                                                  </div>
+                                              </div>
+                                          </div>
+                                          <div className="text-right shrink-0">
+                                              <p className="text-[11px] font-bold text-slate-600">{dateStr}</p>
+                                              <p className="text-[10px] text-slate-400">{timeStr}</p>
+                                          </div>
+                                      </div>
+
+                                      {/* Overall rating */}
+                                      <div className="flex items-center gap-1 mb-2">
+                                          {[1,2,3,4,5].map(s => (
+                                              <span key={s} className={`text-base ${s <= stars ? 'text-amber-400' : 'text-slate-200'}`}>★</span>
+                                          ))}
+                                          <span className="ml-1 text-xs font-black text-slate-700">{stars}/5</span>
+                                      </div>
+
+                                      {/* Best feature */}
+                                      {bestFeature && (
+                                          <div className="mb-2">
+                                              <span className="text-[10px] text-slate-400 font-bold">Favorite Feature: </span>
+                                              <span className="text-[10px] font-black text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full">{bestFeature}</span>
+                                          </div>
+                                      )}
+
+                                      {/* Other ratings */}
+                                      <div className="flex gap-2 flex-wrap mb-2">
+                                          {fb.answers.filter(a => a.type === 'rating' && a.questionId !== 'overall').map(a => (
+                                              <div key={a.questionId} className="bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-center">
+                                                  <p className="text-[9px] text-slate-400 leading-tight truncate max-w-[90px]">{a.question.split('?')[0]}</p>
+                                                  <p className="text-xs font-black text-slate-700">{a.rating}/5 {'⭐'.repeat(a.rating || 0)}</p>
+                                              </div>
+                                          ))}
+                                      </div>
+
+                                      {/* Suggestion */}
+                                      {suggestion && (
+                                          <div className="bg-white border border-indigo-100 rounded-xl p-2.5 mt-1">
+                                              <p className="text-[9px] font-black text-indigo-400 uppercase mb-1">Suggestion</p>
+                                              <p className="text-xs text-slate-700 leading-relaxed">{suggestion}</p>
+                                          </div>
+                                      )}
+                                  </div>
+                              );
+                          })}
                   </div>
               )}
           </div>

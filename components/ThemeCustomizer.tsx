@@ -696,6 +696,10 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
     /* ── USER HISTORY STATE ── */
     const [userThemeSaving, setUserThemeSaving]       = useState(false);
 
+    /* ── ADMIN HISTORY PREVIEW STATE ── */
+    const [adminHistoryPreview, setAdminHistoryPreview] = useState<ThemeHistoryEntry | null>(null);
+    const [adminHistorySaving, setAdminHistorySaving]   = useState(false);
+
     /* ── ONE-TIME: clear old adminThemeLibrary data from Firestore ── */
     useEffect(() => {
         if (!isAdmin) return;
@@ -793,6 +797,14 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
             personalTheme:      themeObj,
             personalThemeColor: theme.btnStart,
         };
+        // If score boost event has theme studio enabled, add theme expiry
+        const sbe = (settings as any)?.scoreBoostEvent;
+        if (!isAdmin && sbe?.enabled && sbe?.themeStudioEnabled) {
+            const days = Math.min(sbe.themeStudioDays ?? 7, 7);
+            (updated as any).personalThemeExpiry = new Date(Date.now() + days * 24 * 3600000).toISOString();
+        } else if (!isAdmin) {
+            delete (updated as any).personalThemeExpiry;
+        }
         // User explicitly set a custom theme — clear the "lock to default" flag
         delete (updated as any).useDefaultTheme;
 
@@ -930,7 +942,20 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
             expiresAt: expiresAt,
             appliedAt: new Date().toISOString(),
         };
-        const newSettings = { ...(settings || {}), adminAppliedTheme };
+        const historyEntry: ThemeHistoryEntry = {
+            id: `th_hist_${Date.now()}`,
+            name: theme.themeName || `Theme ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' })}`,
+            themeData: themeObj,
+            targetTier: tierVal as 'all' | 'ultra' | 'basic' | 'free',
+            appliedAt: new Date().toISOString(),
+            expiresAt: expiresAt,
+        };
+        const prevHistory: ThemeHistoryEntry[] = (settings as any)?.themeHistory || [];
+        const newSettings = {
+            ...(settings || {}),
+            adminAppliedTheme,
+            themeHistory: [historyEntry, ...prevHistory].slice(0, 30),
+        };
         try {
             await saveSystemSettings(newSettings as any);
             onUpdateSettings?.(newSettings as any);
@@ -940,6 +965,58 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
             alert('❌ Error — dobara try karo.');
         }
         setGlobalNowSaving(false);
+    };
+
+    /* ── ADMIN: REAPPLY FROM THEME HISTORY ── */
+    const doReapplyFromHistory = async (entry: ThemeHistoryEntry) => {
+        if (!confirm(`"${entry.name}" ko dubara apply karna chahte ho?\nIs baar bhi same settings rahegi (Tier: ${entry.targetTier}, Expiry: ${entry.expiresAt ? new Date(entry.expiresAt).toLocaleDateString('en-IN') : 'Permanent'})`)) return;
+        setAdminHistorySaving(true);
+        const newExpiresAt = entry.expiresAt
+            ? new Date(Date.now() + (new Date(entry.expiresAt).getTime() - new Date(entry.appliedAt).getTime())).toISOString()
+            : null;
+        const adminAppliedTheme = {
+            theme: entry.themeData,
+            targetTier: entry.targetTier,
+            expiresAt: newExpiresAt,
+            appliedAt: new Date().toISOString(),
+        };
+        const newHistEntry: ThemeHistoryEntry = {
+            id: `th_hist_${Date.now()}`,
+            name: `${entry.name} (Reapplied)`,
+            themeData: entry.themeData,
+            targetTier: entry.targetTier,
+            appliedAt: new Date().toISOString(),
+            expiresAt: newExpiresAt,
+        };
+        const prevHist: ThemeHistoryEntry[] = (settings as any)?.themeHistory || [];
+        const newSettings = {
+            ...(settings || {}),
+            adminAppliedTheme,
+            themeHistory: [newHistEntry, ...prevHist].slice(0, 30),
+        };
+        try {
+            await saveSystemSettings(newSettings as any);
+            onUpdateSettings?.(newSettings as any);
+            setLiveAdminTheme(adminAppliedTheme as any);
+            setAdminHistoryPreview(null);
+            alert(`✅ "${entry.name}" reapply ho gayi!`);
+        } catch {
+            alert('❌ Error — dobara try karo.');
+        }
+        setAdminHistorySaving(false);
+    };
+
+    const doDeleteHistoryEntry = async (entryId: string) => {
+        if (!confirm('Is theme history entry ko hatana chahte ho?')) return;
+        const prevHist: ThemeHistoryEntry[] = (settings as any)?.themeHistory || [];
+        const newSettings = { ...(settings || {}), themeHistory: prevHist.filter(e => e.id !== entryId) };
+        try {
+            await saveSystemSettings(newSettings as any);
+            onUpdateSettings?.(newSettings as any);
+            if (adminHistoryPreview?.id === entryId) setAdminHistoryPreview(null);
+        } catch {
+            alert('❌ Error — dobara try karo.');
+        }
     };
 
     const doApplyProfileTheme = async () => {
@@ -2070,6 +2147,99 @@ export const ThemeCustomizer: React.FC<Props> = ({ user, onUpdateUser, onBack, s
                         </p>
                     </div>
                 )}
+
+                {/* ═══════════════════════════════════════
+                    ADMIN: THEME HISTORY
+                ═══════════════════════════════════════ */}
+                {isAdmin && (() => {
+                    const history: ThemeHistoryEntry[] = (settings as any)?.themeHistory || [];
+                    if (!history.length) return null;
+                    return (
+                        <div>
+                            <p className="text-[9px] font-black text-white/30 uppercase tracking-widest mb-2.5 flex items-center gap-1.5">
+                                🕐 Theme History ({history.length})
+                            </p>
+                            <div className="space-y-1.5">
+                                {history.map(entry => {
+                                    const isExpired = !!(entry.expiresAt && new Date(entry.expiresAt) <= new Date());
+                                    const timeStr = (() => {
+                                        if (!entry.expiresAt) return 'Permanent';
+                                        if (isExpired) return 'Expired';
+                                        const ms = new Date(entry.expiresAt).getTime() - Date.now();
+                                        const d = Math.floor(ms / 86400000);
+                                        const h = Math.floor((ms % 86400000) / 3600000);
+                                        if (d > 0) return `${d}d ${h}h bachi`;
+                                        return `${h}h bachi`;
+                                    })();
+                                    const isPreviewing = adminHistoryPreview?.id === entry.id;
+                                    return (
+                                        <div key={entry.id}>
+                                            <button
+                                                onClick={() => setAdminHistoryPreview(isPreviewing ? null : entry)}
+                                                className="w-full flex items-center gap-2.5 rounded-2xl px-3 py-2.5 transition-all active:scale-95 border text-left"
+                                                style={{
+                                                    background: isPreviewing ? `${entry.themeData.btnStart || '#6366f1'}18` : 'rgba(255,255,255,0.04)',
+                                                    borderColor: isPreviewing ? `${entry.themeData.btnStart || '#6366f1'}45` : 'rgba(255,255,255,0.08)',
+                                                }}
+                                            >
+                                                <div className="w-9 h-9 rounded-xl shrink-0 border border-white/10 flex-shrink-0"
+                                                    style={{ background: `linear-gradient(135deg, ${entry.themeData.topBarStart || '#1e3a5f'}, ${entry.themeData.btnStart || '#6366f1'})` }} />
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-xs font-black text-white truncate">{entry.name}</p>
+                                                    <p className="text-[9px] text-white/40">
+                                                        {entry.targetTier.toUpperCase()} · {new Date(entry.appliedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} · <span style={{ color: isExpired ? '#ef4444' : '#22c55e' }}>{timeStr}</span>
+                                                    </p>
+                                                </div>
+                                                <span className="text-[9px] font-bold text-white/30 shrink-0">{isPreviewing ? '▲' : '▼'}</span>
+                                            </button>
+                                            {isPreviewing && (
+                                                <div className="mx-2 mt-1 rounded-2xl overflow-hidden border" style={{ borderColor: `${entry.themeData.btnStart || '#6366f1'}30` }}>
+                                                    {/* Mini Preview */}
+                                                    <div className="px-3 py-2 flex items-center gap-2"
+                                                        style={{ background: `linear-gradient(135deg, ${entry.themeData.topBarStart || '#1e3a5f'}, ${entry.themeData.topBarEnd || entry.themeData.btnStart || '#3b82f6'})` }}>
+                                                        <div className="flex-1">
+                                                            <div className="h-1.5 w-12 rounded-full bg-white/50" />
+                                                            <div className="h-1 w-16 rounded-full mt-1 bg-white/30" />
+                                                        </div>
+                                                        <div className="h-4 px-2 rounded-full text-[7px] font-black flex items-center bg-white/20 text-white">PREVIEW</div>
+                                                    </div>
+                                                    <div className="p-2.5 grid grid-cols-2 gap-1.5"
+                                                        style={{ background: entry.themeData.bgColor || '#0d0f1a' }}>
+                                                        {[['📚', 'Notes'], ['🎯', 'MCQ'], ['🎓', 'Learn'], ['🏆', 'Rank']].map(([e, l]) => (
+                                                            <div key={l} className="rounded-lg p-2"
+                                                                style={{ background: entry.themeData.cardBg || '#1a1f35', border: `1px solid ${entry.themeData.cardBorder || '#ffffff15'}` }}>
+                                                                <span className="text-xs">{e}</span>
+                                                                <p className="text-[8px] font-black mt-0.5" style={{ color: entry.themeData.textColor || '#ffffff' }}>{l}</p>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                    <div className="px-2.5 pb-2.5 flex gap-2"
+                                                        style={{ background: entry.themeData.bgColor || '#0d0f1a' }}>
+                                                        <button
+                                                            onClick={() => doReapplyFromHistory(entry)}
+                                                            disabled={adminHistorySaving}
+                                                            className="flex-1 py-2 rounded-xl text-[10px] font-black text-white transition-all active:scale-95 disabled:opacity-50"
+                                                            style={{ background: `linear-gradient(135deg, ${entry.themeData.btnStart || '#6366f1'}, ${entry.themeData.btnEnd || entry.themeData.btnStart || '#8b5cf6'})` }}
+                                                        >
+                                                            🔄 Reapply
+                                                        </button>
+                                                        <button
+                                                            onClick={() => doDeleteHistoryEntry(entry.id)}
+                                                            className="px-3 py-2 rounded-xl text-[10px] font-black text-red-400 transition-all active:scale-95"
+                                                            style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.25)' }}
+                                                        >
+                                                            ✕ Hata
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    );
+                })()}
 
                 {/* ── ADMIN DEFAULT + OFFICIAL TIER THEME BUTTONS ── */}
                 {isAdmin && (

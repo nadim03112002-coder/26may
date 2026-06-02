@@ -213,6 +213,7 @@ import { StudentHistoryModal } from "./StudentHistoryModal";
 import { generateDailyRoutine } from "../utils/routineGenerator";
 import { OfflineDownloads } from "./OfflineDownloads";
 import { ThemeCustomizer } from "./ThemeCustomizer";
+import AppFeedback from "./AppFeedback";
 import { saveOfflineItem } from "../utils/offlineStorage";
 import { NotificationPrompt } from "./NotificationPrompt";
 // @ts-ignore
@@ -7966,6 +7967,13 @@ export const StudentDashboard: React.FC<Props> = ({
         </div>
       );
     }
+    if ((activeTab as string) === "APP_FEEDBACK") {
+      return (
+        <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <AppFeedback user={user} onBack={() => onTabChange('PROFILE' as any)} />
+        </div>
+      );
+    }
     if (activeTab === "PROFILE") {
       // Profile page always uses the official tier theme — never changed by user's custom theme
       // eslint-disable-next-line no-shadow
@@ -8594,6 +8602,21 @@ export const StudentDashboard: React.FC<Props> = ({
                 }
               </button>
             )}
+
+            {/* ── App Feedback Button ── */}
+            <button
+              onClick={() => onTabChange('APP_FEEDBACK' as any)}
+              className={`w-full px-4 py-4 flex items-center gap-3.5 ${_pHovCls} transition-colors`}
+              style={{ borderBottom: _pSep }}>
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.30)' }}>
+                <span className="text-base leading-none">💬</span>
+              </div>
+              <div className="flex-1 text-left">
+                <p className={`text-sm font-bold ${_pTxt}`}>App Feedback</p>
+                <p className={`text-[10px] mt-0.5 ${_pTxtSub}`}>Apna anubhav share karo</p>
+              </div>
+              <ChevronRight size={15} style={{ color: _pTxtMutedColor }} className="shrink-0" />
+            </button>
 
             {/* ── Settings Button ── */}
             <button

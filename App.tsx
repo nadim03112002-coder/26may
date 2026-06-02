@@ -488,8 +488,10 @@ const App: React.FC = () => {
               // Consecutive Login: Increment
               const prev = updatedUser.streak || 0;
               updatedUser.streak = prev + 1;
-              // SCORE INCREMENT: +10 per consecutive day
-              updatedUser.totalScore = (updatedUser.totalScore || 0) + 10;
+              // SCORE INCREMENT: +10 per consecutive day (+ score boost event %)
+              const _sbeBoost = (state.settings?.scoreBoostEvent?.enabled)
+                  ? ((state.settings.scoreBoostEvent as any).boostPercent / 100) : 0;
+              updatedUser.totalScore = (updatedUser.totalScore || 0) + Math.round(10 * (1 + _sbeBoost));
               updatedUser.lastScoreDate = new Date().toISOString();
               // Track longest streak & award 100 credits for new record
               const prevLongest = updatedUser.longestStreak || 0;
@@ -504,33 +506,7 @@ const App: React.FC = () => {
                   localStorage.setItem('nst_streak_popup_date', today);
                   setStreakLoginPopup({ newStreak: updatedUser.streak, prevStreak: prev, isNewRecord: updatedUser.streak > prevLongest && prevLongest > 0 });
               }
-              // === WEEKLY LEVEL BONUS (L9/10/11) — sirf Sunday + streak badhne pe, sirf ek baar per week ===
-              if (now.getDay() === 0) { // 0 = Sunday
-                  const _lvl = getLevelInfo(updatedUser.totalScore || 0).level;
-                  if (_lvl >= 9) {
-                      const _weekKey = now.toISOString().split('T')[0]; // Sunday ki date = week key
-                      const _lvlBonusLS = `nst_weekly_lvl_bonus_${state.user.id}_${_weekKey}`;
-                      const _lvlBonusId = `wlvlbonus-${state.user.id}-${_weekKey}`;
-                      const _alreadyLvl = (updatedUser.inbox || []).some((m: any) => m.id === _lvlBonusId);
-                      if (!localStorage.getItem(_lvlBonusLS) && !_alreadyLvl) {
-                          localStorage.setItem(_lvlBonusLS, '1');
-                          const _bonusMap: Record<number, number> = { 9: 500, 10: 700, 11: 1000 };
-                          const _bonusAmt = _bonusMap[Math.min(_lvl, 11)] ?? 500;
-                          const _bonusMsg: any = {
-                              id: _lvlBonusId,
-                              text: `🎁 Level ${_lvl} Weekly Bonus!\n\nAapke level ki taraf se is hafte ka special reward aaya hai!\n\n💰 ${_bonusAmt} Credits — 7 din mein expire ho jayenge\n\nYe credits Store, MCQ unlock, sabhi jagah use ho sakte hain!\n\nNeeche "Claim Karo" dabao.`,
-                              date: new Date().toISOString(),
-                              read: false,
-                              type: 'GIFT',
-                              gift: { type: 'CREDITS', value: _bonusAmt },
-                              expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-                              isClaimed: false,
-                          };
-                          updatedUser.inbox = [_bonusMsg, ...(updatedUser.inbox || [])];
-                          hasUpdates = true;
-                      }
-                  }
-              }
+              
           } else {
               // Streak Broken or First Login: Reset
               const prev = updatedUser.streak || 0;
@@ -548,6 +524,37 @@ const App: React.FC = () => {
                   let lvl = 0;
                   for (let i = 0; i < thresholds.length; i++) { if (cs >= thresholds[i]) lvl = i; else break; }
                   if (lvl > 0) updatedUser.totalScore = thresholds[lvl - 1];
+              }
+          }
+
+          // === WEEKLY LEVEL BONUS (L9–L15) — koi bhi Sunday login pe, ek baar per week ===
+          if (now.getDay() === 0) { // Sunday
+              const _wlvl = getLevelInfo(updatedUser.totalScore || 0).level;
+              if (_wlvl >= 9) {
+                  const _wKey  = now.toISOString().split('T')[0]; // Sunday YYYY-MM-DD
+                  const _wLS   = `nst_weekly_lvl_bonus_${state.user.id}_${_wKey}`;
+                  const _wId   = `wlvlbonus-${state.user.id}-${_wKey}`;
+                  const _wDupe = (updatedUser.inbox || []).some((m: any) => m.id === _wId);
+                  if (!localStorage.getItem(_wLS) && !_wDupe) {
+                      localStorage.setItem(_wLS, '1');
+                      const _wBonusMap: Record<number, number> = {
+                          9: 100, 10: 150, 11: 200, 12: 300, 13: 500, 14: 700, 15: 1000,
+                      };
+                      const _wAmt  = _wBonusMap[Math.min(_wlvl, 15)] ?? 100;
+                      const _wExp  = new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString(); // 12 ghante
+                      const _wMsg: any = {
+                          id: _wId,
+                          text: `🎁 Level ${_wlvl} Weekly Sunday Bonus!\n\nIs hafte ka special reward aaya hai!\n\n💰 ${_wAmt} Bonus Credits — 12 ghante mein expire ho jayenge\n\nYe credits Store, MCQ unlock, Theme Studio sabhi jagah use ho sakte hain!\n\nNeeche "Claim Karo" dabao.`,
+                          date: new Date().toISOString(),
+                          read: false,
+                          type: 'GIFT',
+                          gift: { type: 'CREDITS', value: _wAmt },
+                          expiresAt: _wExp,
+                          isClaimed: false,
+                      };
+                      updatedUser.inbox = [_wMsg, ...(updatedUser.inbox || [])];
+                      hasUpdates = true;
+                  }
               }
           }
       }

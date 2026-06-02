@@ -196,6 +196,7 @@ export interface User {
   lastScoreDate?: string; // ISO Date string of last score update
   scoreBoostPercent?: number; // Active score boost % from SCORE_BOOST redeem code
   scoreBoostExpiry?: string; // ISO Date when score boost expires
+  personalThemeExpiry?: string; // ISO Date when user's temporary custom theme expires (set during score boost event)
   scoreLimitBoostPercent?: number; // Permanent daily score limit boost % from SCORE_LIMIT_BOOST redeem code
   bonusCredits?: number; // Temporary credits that came with subscription (cleared on expiry)
   giftedCredits?: number; // Admin-gifted credits (separate from earned/bonus)
@@ -936,6 +937,15 @@ export interface SystemSettings {
   showTermsPopup?: boolean;
   showWelcomePopup?: boolean;
   welcomePopupTarget?: 'ALL' | 'FREE_ONLY' | 'ULTRA_ONLY';
+  scoreBoostEvent?: {
+    enabled: boolean;
+    eventName: string;
+    boostPercent: number;
+    themeStudioEnabled?: boolean;
+    themeStudioDays?: number;
+    endsAt?: string;
+    startsAt?: string;
+  };
   specialDiscountEvent?: {
     enabled: boolean;
     eventName: string; // e.g., "Diwali Offer"
@@ -1713,4 +1723,27 @@ export interface ChatMessage {
     };
     isAdminOnly?: boolean;
     timestamp: string;
+}
+
+export interface AppFeedbackAnswer {
+  questionId: string;
+  question: string;
+  type: 'rating' | 'text' | 'choice';
+  rating?: number;
+  text?: string;
+  choice?: string;
+}
+
+export interface AppFeedbackEntry {
+  id: string;
+  userId: string;
+  userName: string;
+  userRole: string;
+  userClass?: string;
+  userBoard?: string;
+  isPremium: boolean;
+  subscriptionTier?: string;
+  answers: AppFeedbackAnswer[];
+  overallRating: number;
+  submittedAt: string;
 }

@@ -8,6 +8,7 @@ export interface AppError {
   message: string;
   stack?: string;
   componentStack?: string;
+  component?: string;
   type: 'react' | 'runtime' | 'promise' | 'network' | 'manual';
   severity: ErrorSeverity;
   url: string;
@@ -114,10 +115,14 @@ export async function logErrorToFirebase(
     if (_sessionErrorCount >= MAX_SESSION_ERRORS) return;
     _sessionErrorCount++;
 
+    const componentMatch = opts.componentStack?.match(/\bat\s+(\w+)/);
+    const component = componentMatch?.[1] || undefined;
+
     const payload: AppError = {
       message: message.slice(0, 500),
       stack: stack?.slice(0, 1000),
       componentStack: opts.componentStack?.slice(0, 800),
+      component,
       type: opts.type ?? 'runtime',
       severity,
       url: window.location.pathname,
@@ -131,7 +136,8 @@ export async function logErrorToFirebase(
     };
 
     Object.keys(payload).forEach(k => {
-      if ((payload as Record<string, unknown>)[k] === undefined) delete (payload as Record<string, unknown>)[k];
+      const rec = payload as unknown as Record<string, unknown>;
+      if (rec[k] === undefined) delete rec[k];
     });
 
     await push(ref(rtdb, 'error_logs'), payload);

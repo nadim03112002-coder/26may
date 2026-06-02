@@ -1,4 +1,4 @@
-import{cK as r}from"./vendor-misc-DLxhxCFd.js";var e="firebase",a="12.14.0";/**
+import{r}from"./vendor-misc-DFEmdyXA.js";var e="firebase",a="12.10.0";/**
  * @license
  * Copyright 2020 Google LLC
  *
