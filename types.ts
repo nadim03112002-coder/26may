@@ -662,7 +662,7 @@ export interface SystemSettings {
    *   - a target-subject option in the Homework form (admin)
    *   - a subject card on the student dashboard, opening a flat page-wise list of notes/MCQs
    *  Items are stored as homework entries with `targetSubject = book.id`. */
-  customBooks?: { id: string; name: string }[];
+  customBooks?: { id: string; name: string; type?: 'single' | 'multi' }[];
   contentCodeExpiry?: { days: number; hours: number; minutes: number };
   splashFontId?: string; // Admin-chosen font family for the loading screen short name. See utils/splashFonts.ts
   // === Loading-screen LOGO (replaces the short-name text when enabled) ===

@@ -483,6 +483,8 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
   const [newBookNote, setNewBookNote] = useState({ date: new Date().toISOString().split('T')[0], title: '', notes: '', chunkNotes: '', htmlNotes: '', lightCSS: '', darkCSS: '', mcqText: '', audioUrl: '', videoUrl: '', pdfUrl: '', targetSubject: 'sarSangrah', pageNo: '', topicName: '', classTarget: 'ALL' as 'COMPETITION' | 'ALL' | '6' | '7' | '8' | '9' | '10' | '11' | '12' });
   // Mode for custom book entries: 'single' = one-page per entry (like Speedy), 'multi' = Lucent-style multi-page
   const [newBookNoteMode, setNewBookNoteMode] = useState<'single' | 'multi'>('single');
+  // Type selector for new custom book being created in Settings
+  const [newCustomBookType, setNewCustomBookType] = useState<'single' | 'multi'>('single');
   const [newBookNoteMcqs, setNewBookNoteMcqs] = useState<Array<{ id: string; question: string; options: string[]; correctAnswer: number }>>([]);
   const [newBookNoteBulk, setNewBookNoteBulk] = useState<string | undefined>(undefined);
   // ── Compre Book Notes (stored in Firestore compre_notes, shown in Compare → Book Notes tab) ──
@@ -6960,19 +6962,26 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                               <div className="space-y-2">
                                   {customBooksList.map((b, idx) => (
                                       <div key={b.id + '_' + idx} className="flex items-center gap-2 bg-white border border-rose-200 rounded-lg p-2">
-                                          <BookOpen size={16} className="text-rose-500 shrink-0" />
-                                          <input
-                                              type="text"
-                                              value={b.name}
-                                              onChange={e => {
-                                                  const next = [...(localSettings.customBooks || [])];
-                                                  next[idx] = { ...next[idx], name: e.target.value };
-                                                  setLocalSettings({ ...localSettings, customBooks: next });
-                                              }}
-                                              className="flex-1 text-sm font-bold text-slate-700 bg-transparent border-0 outline-none focus:ring-0"
-                                              placeholder="Book name"
-                                          />
-                                          <span className="text-[9px] font-mono font-bold text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded">{b.id}</span>
+                                          <span className="text-base shrink-0">{b.type === 'multi' ? '📚' : '📄'}</span>
+                                          <div className="flex-1 min-w-0">
+                                              <input
+                                                  type="text"
+                                                  value={b.name}
+                                                  onChange={e => {
+                                                      const next = [...(localSettings.customBooks || [])];
+                                                      next[idx] = { ...next[idx], name: e.target.value };
+                                                      setLocalSettings({ ...localSettings, customBooks: next });
+                                                  }}
+                                                  className="w-full text-sm font-bold text-slate-700 bg-transparent border-0 outline-none focus:ring-0"
+                                                  placeholder="Book name"
+                                              />
+                                              <div className="flex items-center gap-1 mt-0.5">
+                                                  <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-full ${b.type === 'multi' ? 'bg-indigo-100 text-indigo-700' : 'bg-amber-100 text-amber-700'}`}>
+                                                      {b.type === 'multi' ? 'MULTI PAGE' : 'ONE PAGE'}
+                                                  </span>
+                                                  <span className="text-[8px] font-mono font-bold text-slate-400">{b.id}</span>
+                                              </div>
+                                          </div>
                                           <button
                                               type="button"
                                               onClick={() => {
@@ -6980,13 +6989,37 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                                                   const next = (localSettings.customBooks || []).filter((_, i) => i !== idx);
                                                   setLocalSettings({ ...localSettings, customBooks: next });
                                               }}
-                                              className="p-1 text-rose-600 hover:bg-rose-50 rounded"
+                                              className="p-1 text-rose-600 hover:bg-rose-50 rounded shrink-0"
                                               aria-label="Remove book"
                                           >
                                               <Trash2 size={14} />
                                           </button>
                                       </div>
                                   ))}
+                              </div>
+                              {/* Type selector for new book */}
+                              <div className="mt-3 mb-2">
+                                  <p className="text-[10px] font-black text-rose-700 uppercase mb-1.5">📦 New Book ka Type chuno:</p>
+                                  <div className="grid grid-cols-2 gap-2">
+                                      <button
+                                          type="button"
+                                          onClick={() => setNewCustomBookType('single')}
+                                          className={`flex flex-col items-center gap-1 py-2.5 px-3 rounded-xl border-2 text-xs font-black transition-all ${newCustomBookType === 'single' ? 'bg-amber-600 text-white border-amber-600 shadow-md' : 'bg-white text-amber-700 border-amber-200 hover:border-amber-400'}`}
+                                      >
+                                          <span className="text-xl">📄</span>
+                                          <span>One Page Book</span>
+                                          <span className={`text-[9px] font-medium text-center leading-tight ${newCustomBookType === 'single' ? 'opacity-80' : 'opacity-60'}`}>Sar Sangrah jaisa — har baar ek page/notes add karo</span>
+                                      </button>
+                                      <button
+                                          type="button"
+                                          onClick={() => setNewCustomBookType('multi')}
+                                          className={`flex flex-col items-center gap-1 py-2.5 px-3 rounded-xl border-2 text-xs font-black transition-all ${newCustomBookType === 'multi' ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-indigo-700 border-indigo-200 hover:border-indigo-400'}`}
+                                      >
+                                          <span className="text-xl">📚</span>
+                                          <span>Multi Page Book</span>
+                                          <span className={`text-[9px] font-medium text-center leading-tight ${newCustomBookType === 'multi' ? 'opacity-80' : 'opacity-60'}`}>Class 6-12 jaisa — chapters + multiple pages + notes + MCQ</span>
+                                      </button>
+                                  </div>
                               </div>
                               <div className="flex items-center gap-2 mt-2">
                                   <input
@@ -7008,7 +7041,6 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                                           const input = document.getElementById('newCustomBookName') as HTMLInputElement | null;
                                           const raw = (input?.value || '').trim();
                                           if (!raw) return;
-                                          // Generate stable, unique id from the name. Reserved ids ko block karein.
                                           const reserved = new Set(['mcq','sarSangrah','speedyScience','speedySocialScience','lucent','none']);
                                           let baseId = ('book_' + raw.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')).slice(0, 32) || 'book_' + Date.now();
                                           let id = baseId;
@@ -7017,9 +7049,10 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                                           while (existingIds.has(id) || reserved.has(id)) {
                                               id = `${baseId}_${n++}`;
                                           }
-                                          const next = [...(localSettings.customBooks || []), { id, name: raw }];
+                                          const next = [...(localSettings.customBooks || []), { id, name: raw, type: newCustomBookType }];
                                           setLocalSettings({ ...localSettings, customBooks: next });
                                           if (input) input.value = '';
+                                          setNewCustomBookType('single');
                                       }}
                                       className="bg-rose-600 hover:bg-rose-700 text-white font-black text-xs px-3 py-2 rounded-lg shadow-sm active:scale-95"
                                   >
@@ -7027,7 +7060,7 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                                   </button>
                               </div>
                               <p className="text-[10px] text-slate-500 mt-2">
-                                  💡 Save Settings dabane ke baad book Homework Manager → Target Subject me dikhta hai.
+                                  💡 Save Settings dabane ke baad book Homework Manager → Book Notes Manager me dikhta hai.
                               </p>
                           </div>
 
@@ -12424,7 +12457,12 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
           ];
           const BOOK_IDS = new Set(BOOK_TYPES.map(b => b.id));
           const isCustomBook = customBooksList.some(b => b.id === newBookNote.targetSubject);
-          const isMultiPageCustomBook = isCustomBook && newBookNoteMode === 'multi';
+          // Auto-apply stored type from book definition (set at creation time in Settings)
+          const selectedCustomBook = customBooksList.find(b => b.id === newBookNote.targetSubject);
+          const storedBookType = selectedCustomBook?.type; // 'single' | 'multi' | undefined
+          // Effective mode: use stored type if available, else fall back to manual newBookNoteMode
+          const effectiveMode = isCustomBook && storedBookType ? storedBookType : newBookNoteMode;
+          const isMultiPageCustomBook = isCustomBook && effectiveMode === 'multi';
           const isPageWise = newBookNote.targetSubject !== 'lucent' && BOOK_IDS.has(newBookNote.targetSubject) && !isMultiPageCustomBook;
 
           const bnHistoryFilter = (hw: HomeworkItem) => {
@@ -12896,21 +12934,44 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                               {/* ── CUSTOM BOOK MODE SELECTOR ── */}
                               {isCustomBook && (
                                   <div className="border-t border-teal-100 pt-3">
-                                      <label className="text-[10px] font-black text-teal-700 uppercase block mb-2">📦 Notes Format</label>
-                                      <div className="flex gap-2">
-                                          <button type="button" onClick={() => setNewBookNoteMode('single')}
-                                              className={`flex-1 flex flex-col items-center gap-1 py-2.5 px-3 rounded-xl border-2 text-xs font-black transition-all ${newBookNoteMode === 'single' ? 'bg-teal-600 text-white border-teal-600 shadow-md' : 'bg-white text-teal-700 border-teal-200 hover:border-teal-400'}`}>
-                                              <span className="text-lg">📄</span>
-                                              <span>Single Page</span>
-                                              <span className={`text-[9px] font-medium ${newBookNoteMode === 'single' ? 'opacity-80' : 'opacity-60'}`}>Speedy jaisa (ek entry = ek page)</span>
-                                          </button>
-                                          <button type="button" onClick={() => setNewBookNoteMode('multi')}
-                                              className={`flex-1 flex flex-col items-center gap-1 py-2.5 px-3 rounded-xl border-2 text-xs font-black transition-all ${newBookNoteMode === 'multi' ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-indigo-700 border-indigo-200 hover:border-indigo-400'}`}>
-                                              <span className="text-lg">📚</span>
-                                              <span>Multi Page</span>
-                                              <span className={`text-[9px] font-medium ${newBookNoteMode === 'multi' ? 'opacity-80' : 'opacity-60'}`}>Lucent jaisa (ek lesson = multiple pages)</span>
-                                          </button>
-                                      </div>
+                                      {storedBookType ? (
+                                          /* Book has a stored type — show read-only badge, no manual selector */
+                                          <div className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border-2 ${storedBookType === 'multi' ? 'bg-indigo-50 border-indigo-200' : 'bg-amber-50 border-amber-200'}`}>
+                                              <span className="text-xl">{storedBookType === 'multi' ? '📚' : '📄'}</span>
+                                              <div>
+                                                  <p className={`text-xs font-black ${storedBookType === 'multi' ? 'text-indigo-800' : 'text-amber-800'}`}>
+                                                      {storedBookType === 'multi' ? 'Multi Page Book' : 'One Page Book'}
+                                                  </p>
+                                                  <p className={`text-[9px] font-medium ${storedBookType === 'multi' ? 'text-indigo-600' : 'text-amber-600'}`}>
+                                                      {storedBookType === 'multi'
+                                                          ? 'Class 6-12 jaisa — chapters + multiple pages + notes + MCQ'
+                                                          : 'Sar Sangrah jaisa — ek entry = ek page note'}
+                                                  </p>
+                                              </div>
+                                              <span className={`ml-auto text-[8px] font-black px-1.5 py-0.5 rounded-full ${storedBookType === 'multi' ? 'bg-indigo-100 text-indigo-700' : 'bg-amber-100 text-amber-700'}`}>
+                                                  AUTO
+                                              </span>
+                                          </div>
+                                      ) : (
+                                          /* Older book without stored type — show manual selector */
+                                          <>
+                                              <label className="text-[10px] font-black text-teal-700 uppercase block mb-2">📦 Notes Format</label>
+                                              <div className="flex gap-2">
+                                                  <button type="button" onClick={() => setNewBookNoteMode('single')}
+                                                      className={`flex-1 flex flex-col items-center gap-1 py-2.5 px-3 rounded-xl border-2 text-xs font-black transition-all ${newBookNoteMode === 'single' ? 'bg-teal-600 text-white border-teal-600 shadow-md' : 'bg-white text-teal-700 border-teal-200 hover:border-teal-400'}`}>
+                                                      <span className="text-lg">📄</span>
+                                                      <span>Single Page</span>
+                                                      <span className={`text-[9px] font-medium ${newBookNoteMode === 'single' ? 'opacity-80' : 'opacity-60'}`}>Sar Sangrah jaisa (ek entry = ek page)</span>
+                                                  </button>
+                                                  <button type="button" onClick={() => setNewBookNoteMode('multi')}
+                                                      className={`flex-1 flex flex-col items-center gap-1 py-2.5 px-3 rounded-xl border-2 text-xs font-black transition-all ${newBookNoteMode === 'multi' ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-indigo-700 border-indigo-200 hover:border-indigo-400'}`}>
+                                                      <span className="text-lg">📚</span>
+                                                      <span>Multi Page</span>
+                                                      <span className={`text-[9px] font-medium ${newBookNoteMode === 'multi' ? 'opacity-80' : 'opacity-60'}`}>Class 6-12 jaisa (chapters + multiple pages)</span>
+                                                  </button>
+                                              </div>
+                                          </>
+                                      )}
                                   </div>
                               )}
 
