@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { SystemSettings } from '../../types';
-import { Save, Calendar, Clock, ChevronDown, ChevronUp, Zap, TrendingUp, Globe, Coins, Palette, Tag } from 'lucide-react';
+import { Save, Calendar, Clock, ChevronDown, ChevronUp, Zap, TrendingUp, Globe, Coins, Palette, Tag, Gift } from 'lucide-react';
 
 interface Props {
   settings: SystemSettings;
@@ -347,6 +347,54 @@ export const EventManager: React.FC<Props> = ({ settings, onUpdate, onSave, isSa
               onChange={e => upd({ themeStudioEvent: { ...((settings as any).themeStudioEvent || { enabled: false, eventName: '' }), days: Number(e.target.value) } } as any)}
               className="w-20 p-2 border border-slate-200 rounded-xl text-sm font-bold" />
             <span className="text-[10px] text-slate-500">din free theme access (event ke baad)</span>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'creditBonus',
+      title: 'Credit Bonus Event',
+      icon: <Gift size={18} style={{ color: '#22c55e' }} />,
+      accentColor: '#22c55e',
+      description: 'MCQ prizes aur gifts mein extra % bonus credits milenge',
+      enabled: settings.creditBonusEvent?.enabled ?? false,
+      eventName: settings.creditBonusEvent?.eventName,
+      startsAt: settings.creditBonusEvent?.startsAt,
+      endsAt: settings.creditBonusEvent?.endsAt,
+      onToggle: (v: boolean) => upd({ creditBonusEvent: { ...(settings.creditBonusEvent || { eventName: 'Credit Bonus', bonusPercent: 50, applyToMcqPrize: true, applyToGifts: true, applyToLoginBonus: false }), enabled: v } }),
+      onNameChange: (n: string) => upd({ creditBonusEvent: { ...(settings.creditBonusEvent || { enabled: false, bonusPercent: 50 }), eventName: n } }),
+      onStartChange: (s: string) => upd({ creditBonusEvent: { ...(settings.creditBonusEvent || { enabled: false, eventName: '', bonusPercent: 50 }), startsAt: s || undefined } }),
+      onEndChange: (e: string) => upd({ creditBonusEvent: { ...(settings.creditBonusEvent || { enabled: false, eventName: '', bonusPercent: 50 }), endsAt: e || undefined } }),
+      extraSettings: (
+        <div className="space-y-3">
+          <div>
+            <label className="text-[10px] font-black text-slate-500 uppercase mb-1 block">Bonus Credits %</label>
+            <div className="flex items-center gap-2">
+              <input type="number" min={5} max={500} step={5}
+                value={settings.creditBonusEvent?.bonusPercent ?? 50}
+                onChange={e => upd({ creditBonusEvent: { ...(settings.creditBonusEvent || { enabled: false, eventName: '' }), bonusPercent: Number(e.target.value) } })}
+                className="w-24 p-2 border border-slate-200 rounded-xl text-sm font-bold" />
+              <span className="text-sm font-black text-green-600">% extra</span>
+              <span className="text-[10px] text-slate-400">e.g. 50 = 1.5× credits</span>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-slate-500 uppercase block">Kahan apply hoga?</label>
+            {([
+              { label: 'MCQ Prize Coins', fk: 'applyToMcqPrize' as const },
+              { label: 'Inbox Gifts (Credits)', fk: 'applyToGifts' as const },
+              { label: 'Login Bonus Credits', fk: 'applyToLoginBonus' as const },
+            ]).map(({ label, fk }) => (
+              <label key={fk} className="flex items-center gap-2 cursor-pointer">
+                <div
+                  className="w-10 h-5 rounded-full transition-colors"
+                  style={{ background: settings.creditBonusEvent?.[fk] ? '#22c55e' : '#cbd5e1' }}
+                  onClick={() => upd({ creditBonusEvent: { ...(settings.creditBonusEvent || { enabled: false, eventName: '', bonusPercent: 50 }), [fk]: !settings.creditBonusEvent?.[fk] } })}>
+                  <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform m-0.5 ${settings.creditBonusEvent?.[fk] ? 'translate-x-5' : ''}`} />
+                </div>
+                <span className="text-[10px] font-bold text-slate-600">{label}</span>
+              </label>
+            ))}
           </div>
         </div>
       ),

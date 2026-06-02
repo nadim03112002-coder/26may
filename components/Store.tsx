@@ -164,9 +164,8 @@ function getCreditPrice(planDuration: string, isUltra: boolean): number {
 
 /* ─── Main Store ─── */
 export const Store: React.FC<Props> = ({ user, settings, onUserUpdate, renderEarnContent, onBack }) => {
-  const [tierType, setTierType] = useState<'BASIC' | 'ULTRA' | 'EARN' | 'CREDITS'>('BASIC');
+  const [tierType, setTierType] = useState<'BASIC' | 'ULTRA' | 'EARN' | 'CREDITS' | 'HISTORY'>('BASIC');
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
-  const [showHistory, setShowHistory] = useState(false);
 
   const packages = settings?.packages || [];
   const subscriptionPlans = settings?.subscriptionPlans || [];
@@ -327,7 +326,6 @@ export const Store: React.FC<Props> = ({ user, settings, onUserUpdate, renderEar
   };
   const initiatePurchase = (item: any) => { setPurchaseItem(item); setShowSupportModal(true); };
 
-  if (showHistory) return <SubHistory user={user} onBack={() => setShowHistory(false)} />;
 
   const isPro = tierType === 'BASIC';
   const isGameEnabled = settings?.isGameEnabled !== false;
@@ -588,47 +586,38 @@ export const Store: React.FC<Props> = ({ user, settings, onUserUpdate, renderEar
           style={{ background: C.goldBg, filter: 'blur(30px)' }} />
 
         <div className="relative px-4 pt-5 pb-4">
-          {/* Back button */}
-          {onBack && (
-            <button onClick={onBack}
-              className="flex items-center gap-2 mb-5 active:scale-95 transition-transform w-fit"
-              style={{ color: C.textMuted }}>
-              <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: C.surfaceHigh, border: `1px solid ${C.border}` }}>
-                <ArrowLeft size={15} color={C.textMuted} />
-              </div>
-              <span className="text-sm font-bold">Back</span>
-            </button>
-          )}
-
-          {/* Title row */}
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              {/* Crown icon with glow */}
-              <div className="relative w-12 h-12 rounded-2xl flex items-center justify-center shrink-0"
-                style={{ background: 'linear-gradient(135deg,rgba(251,191,36,0.22),rgba(251,191,36,0.08))', border: `1.5px solid ${C.goldBorder}`, boxShadow: `0 0 18px rgba(251,191,36,0.22)` }}>
-                <Crown size={22} color={C.gold} />
-              </div>
-              <div>
-                <h1 className="text-2xl font-black leading-none" style={{ color: C.text }}>Premium Store</h1>
-                <p className="text-[12px] mt-0.5 font-medium" style={{ color: C.textMuted }}>Sab kuch unlock karo</p>
-              </div>
+          {/* Single header row: Back + Crown + Title | Credits + Status */}
+          <div className="flex items-center gap-2.5 mb-4">
+            {onBack && (
+              <button onClick={onBack}
+                className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 active:scale-90 transition-transform"
+                style={{ background: C.surfaceHigh, border: `1px solid ${C.border}` }}>
+                <ArrowLeft size={16} color={C.textMuted} />
+              </button>
+            )}
+            <div className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0"
+              style={{ background: 'linear-gradient(135deg,rgba(251,191,36,0.22),rgba(251,191,36,0.08))', border: `1.5px solid ${C.goldBorder}`, boxShadow: `0 0 14px rgba(251,191,36,0.2)` }}>
+              <Crown size={18} color={C.gold} />
             </div>
-
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl font-black leading-none" style={{ color: C.text }}>Premium Store</h1>
+              <p className="text-[11px] mt-0.5 font-medium" style={{ color: C.textMuted }}>Sab kuch unlock karo</p>
+            </div>
             {/* Credits + Status */}
-            <div className="flex flex-col items-end gap-2">
-              <div className="flex items-center gap-1.5 px-3 py-2 rounded-2xl"
-                style={{ background: C.goldBg, border: `1.5px solid ${C.goldBorder}`, boxShadow: `0 0 12px rgba(251,191,36,0.12)` }}>
-                <span className="text-base leading-none">🪙</span>
-                <span className="font-black text-base leading-none" style={{ color: C.gold }}>
+            <div className="flex flex-col items-end gap-1.5 shrink-0">
+              <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-2xl"
+                style={{ background: C.goldBg, border: `1.5px solid ${C.goldBorder}`, boxShadow: `0 0 10px rgba(251,191,36,0.12)` }}>
+                <span className="text-sm leading-none">🪙</span>
+                <span className="font-black text-sm leading-none" style={{ color: C.gold }}>
                   {userCredits.toLocaleString('en-IN')}
                 </span>
-                <span className="text-[10px] font-black" style={{ color: 'rgba(251,191,36,0.55)' }}>CR</span>
+                <span className="text-[9px] font-black" style={{ color: 'rgba(251,191,36,0.55)' }}>CR</span>
               </div>
               {user.isPremium && user.subscriptionEndDate && new Date(user.subscriptionEndDate) > new Date() && (
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl"
+                <div className="flex items-center gap-1 px-2.5 py-1 rounded-xl"
                   style={{ background: C.greenBg, border: `1px solid ${C.greenBorder}` }}>
-                  <BadgeCheck size={11} color={C.green} />
-                  <span className="text-[11px] font-black" style={{ color: C.green }}>
+                  <BadgeCheck size={10} color={C.green} />
+                  <span className="text-[10px] font-black" style={{ color: C.green }}>
                     {user.subscriptionLevel === 'ULTRA' ? 'MAX' : 'PRO'} Active
                   </span>
                 </div>
@@ -636,44 +625,41 @@ export const Store: React.FC<Props> = ({ user, settings, onUserUpdate, renderEar
             </div>
           </div>
 
-          {/* Store / History toggle */}
-          <div className="flex gap-1.5 p-1.5 rounded-2xl mb-4" style={{ background: C.surfaceHigh, border: `1px solid ${C.border}` }}>
-            <button onClick={() => setShowHistory(false)}
-              className="flex-1 py-2.5 rounded-xl text-[13px] font-black transition-all flex items-center justify-center gap-1.5"
-              style={!showHistory
-                ? { background: C.surface, color: C.text, boxShadow: '0 2px 10px rgba(0,0,0,0.4)' }
-                : { color: C.textMuted }}>
-              🛒 <span>Store</span>
-            </button>
-            <button onClick={() => setShowHistory(true)}
-              className="flex-1 py-2.5 rounded-xl text-[13px] font-black transition-all flex items-center justify-center gap-1.5"
-              style={showHistory
-                ? { background: C.surface, color: C.text, boxShadow: '0 2px 10px rgba(0,0,0,0.4)' }
-                : { color: C.textMuted }}>
-              📋 <span>History</span>
-            </button>
-          </div>
-
-          {/* Plan type tabs */}
-          <div className={`grid gap-2.5 ${allTabs.length === 2 ? 'grid-cols-2' : allTabs.length === 3 ? 'grid-cols-3' : 'grid-cols-4'}`}>
-            {allTabs.map(tab => {
-              const isActive = tierType === tab.id;
-              return (
-                <button key={tab.id} onClick={() => setTierType(tab.id)}
-                  className="py-3.5 rounded-2xl font-black transition-all flex flex-col items-center gap-1.5 relative overflow-hidden"
-                  style={isActive
-                    ? { background: tab.bg, border: `2px solid ${tab.border}`, boxShadow: `0 0 18px ${tab.glow}, inset 0 1px 0 rgba(255,255,255,0.08)` }
+          {/* Plan type tabs + History */}
+          {(() => {
+            const totalCols = allTabs.length + 1;
+            const colClass = totalCols === 3 ? 'grid-cols-3' : totalCols === 4 ? 'grid-cols-4' : totalCols === 5 ? 'grid-cols-5' : 'grid-cols-4';
+            return (
+              <div className={`grid gap-2 ${colClass}`}>
+                {allTabs.map(tab => {
+                  const isActive = tierType === tab.id;
+                  return (
+                    <button key={tab.id} onClick={() => setTierType(tab.id)}
+                      className="py-3 rounded-2xl font-black transition-all flex flex-col items-center gap-1 relative overflow-hidden"
+                      style={isActive
+                        ? { background: tab.bg, border: `2px solid ${tab.border}`, boxShadow: `0 0 14px ${tab.glow}, inset 0 1px 0 rgba(255,255,255,0.08)` }
+                        : { background: C.surfaceHigh, border: `1.5px solid ${C.border}` }}>
+                      {isActive && (
+                        <div className="absolute inset-0 pointer-events-none"
+                          style={{ background: `radial-gradient(ellipse at 50% 0%, ${tab.glow} 0%, transparent 70%)` }} />
+                      )}
+                      <span className="text-lg leading-none relative z-10">{tab.emoji}</span>
+                      <span className="text-[11px] relative z-10" style={{ color: isActive ? tab.color : C.textMuted }}>{tab.label}</span>
+                    </button>
+                  );
+                })}
+                {/* History tab */}
+                <button onClick={() => setTierType('HISTORY')}
+                  className="py-3 rounded-2xl font-black transition-all flex flex-col items-center gap-1 relative overflow-hidden"
+                  style={tierType === 'HISTORY'
+                    ? { background: 'rgba(251,191,36,0.10)', border: `2px solid rgba(251,191,36,0.35)`, boxShadow: '0 0 14px rgba(251,191,36,0.18)' }
                     : { background: C.surfaceHigh, border: `1.5px solid ${C.border}` }}>
-                  {isActive && (
-                    <div className="absolute inset-0 pointer-events-none"
-                      style={{ background: `radial-gradient(ellipse at 50% 0%, ${tab.glow} 0%, transparent 70%)` }} />
-                  )}
-                  <span className="text-xl leading-none relative z-10">{tab.emoji}</span>
-                  <span className="text-[12px] relative z-10" style={{ color: isActive ? tab.color : C.textMuted }}>{tab.label}</span>
+                  <span className="text-lg leading-none">📋</span>
+                  <span className="text-[11px]" style={{ color: tierType === 'HISTORY' ? C.gold : C.textMuted }}>History</span>
                 </button>
-              );
-            })}
-          </div>
+              </div>
+            );
+          })()}
         </div>
       </div>
 
@@ -717,6 +703,81 @@ export const Store: React.FC<Props> = ({ user, settings, onUserUpdate, renderEar
             </div>
           </div>
         )}
+
+        {/* ── HISTORY TAB ── */}
+        {tierType === 'HISTORY' && (() => {
+          const history = user.subscriptionHistory || [];
+          const sorted = [...history].sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
+          const totalPaid = history.reduce((s, i) => s + i.price, 0);
+          const totalFree = history.reduce((s, i) => i.isFree ? s + i.originalPrice : s, 0);
+          return (
+            <div className="animate-in fade-in duration-200 space-y-4">
+              {history.length > 0 && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-2xl p-4" style={{ background: C.greenBg, border: `1px solid ${C.greenBorder}` }}>
+                    <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-3" style={{ background: 'rgba(52,211,153,0.2)' }}>
+                      <TrendingDown size={16} color={C.green} />
+                    </div>
+                    <p className="text-[10px] font-black uppercase tracking-wide mb-1" style={{ color: C.textMuted }}>Total Paid</p>
+                    <p className="text-2xl font-black" style={{ color: C.text }}>₹{totalPaid}</p>
+                  </div>
+                  <div className="rounded-2xl p-4" style={{ background: C.proBg, border: `1px solid ${C.proBorder}` }}>
+                    <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-3" style={{ background: 'rgba(34,211,238,0.2)' }}>
+                      <Gift size={16} color={C.pro} />
+                    </div>
+                    <p className="text-[10px] font-black uppercase tracking-wide mb-1" style={{ color: C.textMuted }}>Free Value</p>
+                    <p className="text-2xl font-black" style={{ color: C.pro }}>₹{totalFree}</p>
+                  </div>
+                </div>
+              )}
+              <p className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2" style={{ color: C.textMuted }}>
+                <History size={12} /> Recent Plans
+              </p>
+              {sorted.length === 0 ? (
+                <div className="rounded-2xl p-12 text-center" style={{ border: `1.5px dashed ${C.border}` }}>
+                  <Crown size={38} className="mx-auto mb-3" style={{ color: C.textDim }} />
+                  <p className="font-bold text-sm mb-1" style={{ color: C.textMuted }}>Abhi tak koi plan nahi</p>
+                  <p className="text-xs" style={{ color: C.textDim }}>Pehla plan lo — yahan record aayega</p>
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {sorted.map((item) => (
+                    <div key={item.id} className="rounded-2xl p-4" style={{ background: C.surface, border: `1px solid ${C.border}` }}>
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+                          style={{ background: item.isFree ? C.greenBg : C.maxBg }}>
+                          {item.isFree ? <Gift size={18} color={C.green} /> : <DollarSign size={18} color={C.max} />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-black text-sm" style={{ color: C.text }}>
+                            {item.tier === 'LIFETIME' ? 'Lifetime Access' : `${item.durationHours < 24 ? item.durationHours + ' Hours' : Math.ceil(item.durationHours / 24) + ' Days'} Plan`}
+                          </p>
+                          <p className="text-[11px] mt-0.5" style={{ color: C.textMuted }}>{item.level} · {item.grantSource}</p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="font-black text-sm" style={{ color: item.isFree ? C.green : C.text }}>
+                            {item.isFree ? 'FREE' : `₹${item.price}`}
+                          </p>
+                          {item.isFree && <p className="text-[10px] line-through" style={{ color: C.textDim }}>₹{item.originalPrice}</p>}
+                        </div>
+                      </div>
+                      <div className="flex justify-between rounded-xl px-3 py-2" style={{ background: C.surfaceHigh }}>
+                        <div className="flex items-center gap-1.5 text-[11px]" style={{ color: C.textMuted }}>
+                          <Calendar size={10} />
+                          <span>{new Date(item.startDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' })}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-[11px]" style={{ color: C.textMuted }}>
+                          <Clock size={10} />
+                          <span>{item.tier === 'LIFETIME' ? 'Forever' : new Date(item.endDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' })}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* ── EARN TAB ── */}
         {tierType === 'EARN' && isGameEnabled && (
@@ -840,7 +901,7 @@ export const Store: React.FC<Props> = ({ user, settings, onUserUpdate, renderEar
 
                     {/* Discount summary if any */}
                     {totalDiscount > 0 && (
-                      <div className="mt-4 flex items-center gap-2 px-3 py-2 rounded-xl"
+                      <div className="mt-4 w-[60%] flex items-center gap-2 px-3 py-2 rounded-xl"
                         style={{ background: 'rgba(0,0,0,0.25)', border: `1px solid ${ac.border}` }}>
                         <span className="text-base">🏷️</span>
                         <span className="text-[12px] font-black" style={{ color: C.gold }}>
@@ -863,7 +924,7 @@ export const Store: React.FC<Props> = ({ user, settings, onUserUpdate, renderEar
 
                     return (
                       <button key={plan.id} onClick={() => setSelectedPlanId(plan.id)}
-                        className="w-full px-5 py-4 rounded-2xl text-left transition-all relative overflow-hidden"
+                        className="w-[60%] mx-auto block px-5 py-4 rounded-2xl text-left transition-all relative overflow-hidden"
                         style={isSelected
                           ? { background: ac.bg, border: `2px solid ${ac.border}`, boxShadow: `0 0 28px ${ac.glow}` }
                           : { background: C.surface, border: `1.5px solid ${C.border}` }}>

@@ -749,6 +749,9 @@ export const StudentDashboard: React.FC<Props> = ({
   const _userLevelInfo  = getLevelInfo(user.totalScore || 0);
   const _userLevel      = (user.role === 'ADMIN' || user.role === 'SUB_ADMIN') ? 15 : _userLevelInfo.level;
   const _lvlBonus       = getLevelLimitBonus(_userLevel);
+  // Event level gates: admins (level 15) always pass. Level 1 = everyone.
+  const EVENT_MIN_LEVELS = { scoreBoost: 5, specialDiscount: 1, globalFreeAccess: 10, creditFree: 8, dailyLimitBoost: 3, themeStudio: 7, creditBonus: 1 } as const;
+  const meetsEventLevel = (min: number) => _userLevel >= min;
 
   // Free quota (0 free views — credit-only, but track key for limit enforcement)
   const _freeHtmlKey   = `nst_free_html_${user.id}_${_todayKey}`;
@@ -1401,34 +1404,62 @@ export const StudentDashboard: React.FC<Props> = ({
 
       // 4. Global Free Access & Credit Free Event Popups
       if (settings?.isGlobalFreeMode) {
-        const lastShown = parseInt(
-          localStorage.getItem(`last_global_free_${user.id}`) || "0",
-        );
-        const interval = 4 * 60 * 60 * 1000; // Every 4 hours
-        if (now - lastShown > interval) {
-          addAppNotification(
-            "Special Event",
-            "🌟 GLOBAL FREE ACCESS IS LIVE! Enjoy everything for free!",
-            "SUCCESS",
-          );
-          localStorage.setItem(`last_global_free_${user.id}`, now.toString());
-          return;
+        const _gfLevel = getLevelInfo(user.totalScore || 0).level;
+        const _gfAdmin = user.role === 'ADMIN' || user.role === 'SUB_ADMIN';
+        const _gfMeets = _gfAdmin || _gfLevel >= EVENT_MIN_LEVELS.globalFreeAccess;
+        if (!_gfMeets) {
+          const lastShown = parseInt(localStorage.getItem(`last_global_free_locked_${user.id}`) || "0");
+          if (now - lastShown > 4 * 60 * 60 * 1000) {
+            addAppNotification("Special Event 🔒", `🌍 Global Free Access event chal raha hai, par yeh Level ${EVENT_MIN_LEVELS.globalFreeAccess}+ ke liye hai! (Tumhara Level: ${_gfLevel})`, "INFO");
+            localStorage.setItem(`last_global_free_locked_${user.id}`, now.toString());
+          }
+        } else {
+          const lastShown = parseInt(localStorage.getItem(`last_global_free_${user.id}`) || "0");
+          if (now - lastShown > 4 * 60 * 60 * 1000) {
+            addAppNotification("Special Event", "🌟 GLOBAL FREE ACCESS IS LIVE! Enjoy everything for free!", "SUCCESS");
+            localStorage.setItem(`last_global_free_${user.id}`, now.toString());
+            return;
+          }
         }
       }
 
       if (settings?.creditFreeEvent?.enabled) {
-        const lastShown = parseInt(
-          localStorage.getItem(`last_credit_free_${user.id}`) || "0",
-        );
-        const interval = 4 * 60 * 60 * 1000; // Every 4 hours
-        if (now - lastShown > interval) {
-          addAppNotification(
-            "Special Event",
-            "⚡ CREDIT FREE EVENT IS LIVE! Unlock content without using your coins!",
-            "SUCCESS",
-          );
-          localStorage.setItem(`last_credit_free_${user.id}`, now.toString());
-          return;
+        const _cfLevel = getLevelInfo(user.totalScore || 0).level;
+        const _cfAdmin = user.role === 'ADMIN' || user.role === 'SUB_ADMIN';
+        const _cfMeets = _cfAdmin || _cfLevel >= EVENT_MIN_LEVELS.creditFree;
+        if (!_cfMeets) {
+          const lastShown = parseInt(localStorage.getItem(`last_credit_free_locked_${user.id}`) || "0");
+          if (now - lastShown > 4 * 60 * 60 * 1000) {
+            addAppNotification("Special Event 🔒", `⚡ Credit Free event chal raha hai, par yeh Level ${EVENT_MIN_LEVELS.creditFree}+ ke liye hai! (Tumhara Level: ${_cfLevel})`, "INFO");
+            localStorage.setItem(`last_credit_free_locked_${user.id}`, now.toString());
+          }
+        } else {
+          const lastShown = parseInt(localStorage.getItem(`last_credit_free_${user.id}`) || "0");
+          if (now - lastShown > 4 * 60 * 60 * 1000) {
+            addAppNotification("Special Event", "⚡ CREDIT FREE EVENT IS LIVE! Unlock content without using your coins!", "SUCCESS");
+            localStorage.setItem(`last_credit_free_${user.id}`, now.toString());
+            return;
+          }
+        }
+      }
+
+      if (settings?.creditBonusEvent?.enabled) {
+        const cbEv = settings.creditBonusEvent;
+        const cbStart = cbEv.startsAt ? new Date(cbEv.startsAt).getTime() : 0;
+        const cbEnd = cbEv.endsAt ? new Date(cbEv.endsAt).getTime() : Infinity;
+        const cbLive = now >= cbStart && now < cbEnd;
+        if (cbLive) {
+          const lastShown = parseInt(localStorage.getItem(`last_credit_bonus_${user.id}`) || "0");
+          const interval = 4 * 60 * 60 * 1000;
+          if (now - lastShown > interval) {
+            addAppNotification(
+              cbEv.eventName || "Credit Bonus Event",
+              `🎁 CREDIT BONUS EVENT LIVE! Credits kamao toh ${cbEv.bonusPercent}% extra milenge!`,
+              "SUCCESS",
+            );
+            localStorage.setItem(`last_credit_bonus_${user.id}`, now.toString());
+            return;
+          }
         }
       }
 
@@ -1810,11 +1841,11 @@ export const StudentDashboard: React.FC<Props> = ({
     const checkAndRedirect = () => {
       const _now = Date.now();
       const _tse = (settings as any)?.themeStudioEvent;
-      const _tseActive = _tse?.enabled &&
+      const _tseActive = _tse?.enabled && meetsEventLevel(EVENT_MIN_LEVELS.themeStudio) &&
         (_tse.startsAt ? new Date(_tse.startsAt).getTime() <= _now : true) &&
         (_tse.endsAt ? new Date(_tse.endsAt).getTime() > _now : true);
       const _sbe = (settings as any)?.scoreBoostEvent;
-      const _sbeTheme = _sbe?.enabled && _sbe?.themeStudioEnabled &&
+      const _sbeTheme = _sbe?.enabled && _sbe?.themeStudioEnabled && meetsEventLevel(EVENT_MIN_LEVELS.scoreBoost) &&
         (_sbe.startsAt ? new Date(_sbe.startsAt).getTime() <= _now : true) &&
         (_sbe.endsAt ? new Date(_sbe.endsAt).getTime() > _now : true);
       if (!_tseActive && !_sbeTheme) {
@@ -4189,13 +4220,30 @@ export const StudentDashboard: React.FC<Props> = ({
       }
     };
 
+    // Credit Bonus Event multiplier helper
+    const _cbEv = settings?.creditBonusEvent;
+    const _cbActive = (() => {
+      if (!_cbEv?.enabled) return false;
+      const n = Date.now();
+      const s = _cbEv.startsAt ? new Date(_cbEv.startsAt).getTime() : 0;
+      const e = _cbEv.endsAt ? new Date(_cbEv.endsAt).getTime() : Infinity;
+      return n >= s && n < e;
+    })();
+    const _cbMult = _cbActive ? (1 + ((_cbEv?.bonusPercent ?? 50) / 100)) : 1;
+
     if (gift) {
       if (gift.type === "CREDITS") {
-        updatedUser.credits = (user.credits || 0) + Number(gift.value);
+        const baseAmt = Number(gift.value);
+        const applyBonus = _cbActive && (_cbEv?.applyToGifts !== false);
+        const finalAmt = applyBonus ? Math.round(baseAmt * _cbMult) : baseAmt;
+        const bonusAmt = finalAmt - baseAmt;
+        updatedUser.credits = (user.credits || 0) + finalAmt;
         updatedUser.totalScore = (user.totalScore || 0) + 5;
-        successMsg = `🎁 Gift Claimed! Added ${gift.value} Credits. (+5 score)`;
-        triggerRewardEffect(Number(gift.value), 'Gift Reward');
-        try { recordCreditTx(user.id, Number(gift.value), 'EARN_GIFT', `Gift Claimed: +${gift.value} CR`, updatedUser.credits); } catch {}
+        successMsg = applyBonus
+          ? `🎁 Gift Claimed! +${finalAmt} Credits (${baseAmt} + ${bonusAmt} Bonus 🎉). (+5 score)`
+          : `🎁 Gift Claimed! Added ${baseAmt} Credits. (+5 score)`;
+        triggerRewardEffect(finalAmt, applyBonus ? `+${finalAmt} CR 🎉 Bonus!` : 'Gift Reward');
+        try { recordCreditTx(user.id, finalAmt, 'EARN_GIFT', `Gift Claimed: +${finalAmt} CR${applyBonus ? ` (${_cbEv?.bonusPercent}% Bonus Event)` : ''}`, updatedUser.credits); } catch {}
       } else if (gift.type === "SUBSCRIPTION") {
         const [tier, level] = (gift.value as string).split("_");
         const duration = gift.durationHours || 24;
@@ -4206,11 +4254,16 @@ export const StudentDashboard: React.FC<Props> = ({
     } else if (reward) {
       if (reward.type === 'COINS') {
         const coinAmt = Number(reward.amount || 0);
-        updatedUser.credits = (user.credits || 0) + coinAmt;
+        const applyBonus = _cbActive && (_cbEv?.applyToMcqPrize !== false);
+        const finalCoin = applyBonus ? Math.round(coinAmt * _cbMult) : coinAmt;
+        const bonusCoin = finalCoin - coinAmt;
+        updatedUser.credits = (user.credits || 0) + finalCoin;
         updatedUser.totalScore = (user.totalScore || 0) + 5;
-        successMsg = `🎯 MCQ Prize! +${coinAmt} Coins earn kiye!`;
-        triggerRewardEffect(coinAmt, `+${coinAmt} Coins 🎯`);
-        try { recordCreditTx(user.id, coinAmt, 'EARN_GIFT', `MCQ Prize: +${coinAmt} CR`, updatedUser.credits); } catch {}
+        successMsg = applyBonus
+          ? `🎯 MCQ Prize! +${finalCoin} Coins (${coinAmt} + ${bonusCoin} Bonus 🎉)!`
+          : `🎯 MCQ Prize! +${coinAmt} Coins earn kiye!`;
+        triggerRewardEffect(finalCoin, applyBonus ? `+${finalCoin} Coins 🎉 Bonus!` : `+${coinAmt} Coins 🎯`);
+        try { recordCreditTx(user.id, finalCoin, 'EARN_GIFT', `MCQ Prize: +${finalCoin} CR${applyBonus ? ` (${_cbEv?.bonusPercent}% Bonus Event)` : ''}`, updatedUser.credits); } catch {}
       } else {
         // SUBSCRIPTION reward — MCQ prize uses subTier/subLevel/durationHours
         const duration = reward.durationHours || reward.duration || 4;
@@ -8033,11 +8086,11 @@ export const StudentDashboard: React.FC<Props> = ({
       if (!_isAdminTC) {
         const _nowTC = Date.now();
         const _tseTC = (settings as any)?.themeStudioEvent;
-        const _tseActiveTC = _tseTC?.enabled &&
+        const _tseActiveTC = _tseTC?.enabled && meetsEventLevel(EVENT_MIN_LEVELS.themeStudio) &&
           (_tseTC.startsAt ? new Date(_tseTC.startsAt).getTime() <= _nowTC : true) &&
           (_tseTC.endsAt ? new Date(_tseTC.endsAt).getTime() > _nowTC : true);
         const _sbeTC = (settings as any)?.scoreBoostEvent;
-        const _sbeThemeTC = _sbeTC?.enabled && _sbeTC?.themeStudioEnabled &&
+        const _sbeThemeTC = _sbeTC?.enabled && _sbeTC?.themeStudioEnabled && meetsEventLevel(EVENT_MIN_LEVELS.scoreBoost) &&
           (_sbeTC.startsAt ? new Date(_sbeTC.startsAt).getTime() <= _nowTC : true) &&
           (_sbeTC.endsAt ? new Date(_sbeTC.endsAt).getTime() > _nowTC : true);
         if (!_tseActiveTC && !_sbeThemeTC) {
@@ -8499,11 +8552,11 @@ export const StudentDashboard: React.FC<Props> = ({
             {
               const _now2 = Date.now();
               const _tse = (settings as any)?.themeStudioEvent;
-              const _tseActive = _tse?.enabled &&
+              const _tseActive = _tse?.enabled && meetsEventLevel(EVENT_MIN_LEVELS.themeStudio) &&
                 (_tse.startsAt ? new Date(_tse.startsAt).getTime() <= _now2 : true) &&
                 (_tse.endsAt ? new Date(_tse.endsAt).getTime() > _now2 : true);
               const _sbe = (settings as any)?.scoreBoostEvent;
-              const _sbeTheme = _sbe?.enabled && _sbe?.themeStudioEnabled &&
+              const _sbeTheme = _sbe?.enabled && _sbe?.themeStudioEnabled && meetsEventLevel(EVENT_MIN_LEVELS.scoreBoost) &&
                 (_sbe.startsAt ? new Date(_sbe.startsAt).getTime() <= _now2 : true) &&
                 (_sbe.endsAt ? new Date(_sbe.endsAt).getTime() > _now2 : true);
               if (_tseActive || _sbeTheme) {
@@ -9308,6 +9361,7 @@ export const StudentDashboard: React.FC<Props> = ({
               pushActive('🪙 Credit Free', cfEnabled, (settings?.creditFreeEvent as any)?.startsAt, (settings?.creditFreeEvent as any)?.endsAt);
               pushActive('📈 Limit Boost', (settings as any)?.dailyLimitBoostEvent?.enabled ?? false, (settings as any)?.dailyLimitBoostEvent?.startsAt, (settings as any)?.dailyLimitBoostEvent?.endsAt);
               pushActive('🎨 Theme Studio', (settings as any)?.themeStudioEvent?.enabled ?? false, (settings as any)?.themeStudioEvent?.startsAt, (settings as any)?.themeStudioEvent?.endsAt);
+              pushActive(`🎁 ${settings?.creditBonusEvent?.eventName || 'Credit Bonus'}`, settings?.creditBonusEvent?.enabled ?? false, settings?.creditBonusEvent?.startsAt, settings?.creditBonusEvent?.endsAt);
               // ── 80% elapsed detection ──
               const elapsedPct = (s?: string, e?: string) => {
                 if (!s || !e) return 0;
@@ -9327,6 +9381,7 @@ export const StudentDashboard: React.FC<Props> = ({
                   { label: '🪙 Credit Free', startsAt: (settings?.creditFreeEvent as any)?.startsAt, endsAt: (settings?.creditFreeEvent as any)?.endsAt },
                   { label: '📈 Limit Boost', startsAt: (settings as any)?.dailyLimitBoostEvent?.startsAt, endsAt: (settings as any)?.dailyLimitBoostEvent?.endsAt },
                   { label: '🎨 Theme Studio', startsAt: (settings as any)?.themeStudioEvent?.startsAt, endsAt: (settings as any)?.themeStudioEvent?.endsAt },
+                  { label: `🎁 ${settings?.creditBonusEvent?.eventName || 'Credit Bonus'}`, startsAt: settings?.creditBonusEvent?.startsAt, endsAt: settings?.creditBonusEvent?.endsAt },
                 ];
                 const hist: any[] = JSON.parse(localStorage.getItem(EVT_HIST_KEY) || '[]').filter((h: any) => now - h.expiredAt < sevenDays);
                 allEvtDefs.forEach(ev => {
@@ -9436,6 +9491,27 @@ export const StudentDashboard: React.FC<Props> = ({
                               const pct = elapsedPct(ae.startsAt, ae.endsAt);
                               const isEndingSoon = pct >= 0.8;
                               const msLeft = ae.endsAt ? new Date(ae.endsAt).getTime() - Date.now() : Infinity;
+                              // Level gate for this event
+                              const _evMinLvl = ev.includes('Score Boost') ? EVENT_MIN_LEVELS.scoreBoost
+                                : ev.includes('Theme Studio') ? EVENT_MIN_LEVELS.themeStudio
+                                : ev.includes('Credit Free') ? EVENT_MIN_LEVELS.creditFree
+                                : ev.includes('Free Access') ? EVENT_MIN_LEVELS.globalFreeAccess
+                                : ev.includes('Limit Boost') ? EVENT_MIN_LEVELS.dailyLimitBoost
+                                : 1;
+                              const _evLocked = !meetsEventLevel(_evMinLvl);
+                              if (_evLocked) {
+                                return (
+                                  <div key={i} className="rounded-2xl p-4 flex items-center gap-3 opacity-60"
+                                    style={{ background: 'rgba(100,116,139,0.08)', border: '1px solid rgba(100,116,139,0.2)' }}>
+                                    <span className="text-2xl shrink-0 grayscale">{ev.split(' ')[0]}</span>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="font-black text-slate-400 text-sm">{ev.slice(ev.indexOf(' ') + 1)}</p>
+                                      <p className="text-[10px] text-slate-500 mt-0.5">🔒 Level {_evMinLvl}+ chahiye • Tumhara Level: {_userLevel}</p>
+                                    </div>
+                                    <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-slate-500/20 text-slate-500 shrink-0">LOCKED</span>
+                                  </div>
+                                );
+                              }
                               const endCountdown = (() => {
                                 if (!isFinite(msLeft) || msLeft <= 0) return null;
                                 const h = Math.floor(msLeft / 3600000);
@@ -19495,6 +19571,56 @@ RULES:
                       color: _fl.color,
                       active: true,
                     }] : []),
+                    // ── Event access by level ──
+                    {
+                      emoji: '🏷️',
+                      title: `Discount Event: ${_fl.level >= EVENT_MIN_LEVELS.specialDiscount ? '✓ Accessible' : `🔒 Level ${EVENT_MIN_LEVELS.specialDiscount}+ chahiye`}`,
+                      desc: `Level ${EVENT_MIN_LEVELS.specialDiscount} pe unlock — store discount events ka pura fayda milega`,
+                      color: _fl.level >= EVENT_MIN_LEVELS.specialDiscount ? '#f59e0b' : '#475569',
+                      active: _fl.level >= EVENT_MIN_LEVELS.specialDiscount,
+                    },
+                    {
+                      emoji: '🎁',
+                      title: `Credit Bonus Event: ${_fl.level >= EVENT_MIN_LEVELS.creditBonus ? '✓ Accessible' : `🔒 Level ${EVENT_MIN_LEVELS.creditBonus}+ chahiye`}`,
+                      desc: `Level ${EVENT_MIN_LEVELS.creditBonus} pe unlock — MCQ prizes aur gifts pe extra % bonus credits milenge`,
+                      color: _fl.level >= EVENT_MIN_LEVELS.creditBonus ? '#22c55e' : '#475569',
+                      active: _fl.level >= EVENT_MIN_LEVELS.creditBonus,
+                    },
+                    {
+                      emoji: '📈',
+                      title: `Daily Limit Boost Event: ${_fl.level >= EVENT_MIN_LEVELS.dailyLimitBoost ? '✓ Accessible' : `🔒 Level ${EVENT_MIN_LEVELS.dailyLimitBoost}+ chahiye`}`,
+                      desc: `Level ${EVENT_MIN_LEVELS.dailyLimitBoost} pe unlock — daily score limit boost event ka full fayda milega`,
+                      color: _fl.level >= EVENT_MIN_LEVELS.dailyLimitBoost ? '#10b981' : '#475569',
+                      active: _fl.level >= EVENT_MIN_LEVELS.dailyLimitBoost,
+                    },
+                    {
+                      emoji: '🚀',
+                      title: `Score Boost Event: ${_fl.level >= EVENT_MIN_LEVELS.scoreBoost ? '✓ Accessible' : `🔒 Level ${EVENT_MIN_LEVELS.scoreBoost}+ chahiye`}`,
+                      desc: `Level ${EVENT_MIN_LEVELS.scoreBoost} pe unlock — boosted scores + Theme Studio access event ke dauran`,
+                      color: _fl.level >= EVENT_MIN_LEVELS.scoreBoost ? '#f97316' : '#475569',
+                      active: _fl.level >= EVENT_MIN_LEVELS.scoreBoost,
+                    },
+                    {
+                      emoji: '🎨',
+                      title: `Theme Studio Event: ${_fl.level >= EVENT_MIN_LEVELS.themeStudio ? '✓ Accessible' : `🔒 Level ${EVENT_MIN_LEVELS.themeStudio}+ chahiye`}`,
+                      desc: `Level ${EVENT_MIN_LEVELS.themeStudio} pe unlock — event ke dauran app ka theme customize karo freely`,
+                      color: _fl.level >= EVENT_MIN_LEVELS.themeStudio ? '#8b5cf6' : '#475569',
+                      active: _fl.level >= EVENT_MIN_LEVELS.themeStudio,
+                    },
+                    {
+                      emoji: '🪙',
+                      title: `Credit Free Event: ${_fl.level >= EVENT_MIN_LEVELS.creditFree ? '✓ Accessible' : `🔒 Level ${EVENT_MIN_LEVELS.creditFree}+ chahiye`}`,
+                      desc: `Level ${EVENT_MIN_LEVELS.creditFree} pe unlock — event ke dauran bina credits ke content unlock karo`,
+                      color: _fl.level >= EVENT_MIN_LEVELS.creditFree ? '#06b6d4' : '#475569',
+                      active: _fl.level >= EVENT_MIN_LEVELS.creditFree,
+                    },
+                    {
+                      emoji: '🌍',
+                      title: `Global Free Access Event: ${_fl.level >= EVENT_MIN_LEVELS.globalFreeAccess ? '✓ Accessible' : `🔒 Level ${EVENT_MIN_LEVELS.globalFreeAccess}+ chahiye`}`,
+                      desc: `Level ${EVENT_MIN_LEVELS.globalFreeAccess} pe unlock — global free access event mein sab kuch free milega`,
+                      color: _fl.level >= EVENT_MIN_LEVELS.globalFreeAccess ? '#10b981' : '#475569',
+                      active: _fl.level >= EVENT_MIN_LEVELS.globalFreeAccess,
+                    },
                   ];
                   return (
                     <>
@@ -19583,10 +19709,10 @@ RULES:
                     const baseLimit = getDailyScoreLimit(user.subscriptionLevel, user.isPremium, (user as any).scoreLimitBoostPercent);
                     const isUltra = user.isPremium && user.subscriptionLevel === 'ULTRA';
                     const isBasic = user.isPremium && user.subscriptionLevel === 'BASIC';
-                    // Daily Limit Boost Event extra pts
+                    // Daily Limit Boost Event extra pts (requires L3+)
                     const dlbEvent = (settings as any)?.dailyLimitBoostEvent;
                     const dlbNow = Date.now();
-                    const dlbActive = dlbEvent?.enabled &&
+                    const dlbActive = dlbEvent?.enabled && meetsEventLevel(EVENT_MIN_LEVELS.dailyLimitBoost) &&
                       (dlbEvent.startsAt ? new Date(dlbEvent.startsAt).getTime() <= dlbNow : true) &&
                       (dlbEvent.endsAt ? new Date(dlbEvent.endsAt).getTime() > dlbNow : true);
                     const eventExtra = dlbActive
@@ -19850,6 +19976,41 @@ RULES:
             color: '#10b981',
             active: true,
           }] : []),
+          // ── Events newly unlocking at this level ──
+          ...(l.level === 1 ? [
+            { emoji: '🏷️', title: '🎉 Discount Event — Unlocked!', desc: 'Ab discount sale events ka full fayda uthao — store pe special % off milega', color: '#f59e0b', active: true },
+            { emoji: '🎁', title: '🎉 Credit Bonus Event — Unlocked!', desc: 'MCQ prizes aur gifts pe extra % bonus credits — yahan se shuru', color: '#22c55e', active: true },
+          ] : []),
+          ...(l.level === 3 ? [
+            { emoji: '📈', title: '🎉 Daily Limit Boost Event — Unlocked!', desc: `Level 3 mil gaya! Ab Limit Boost events mein daily score limit extra badhegi`, color: '#10b981', active: true },
+          ] : []),
+          ...(l.level === 5 ? [
+            { emoji: '🚀', title: '🎉 Score Boost Event — Unlocked!', desc: 'Level 5 pe Score Boost events fully active — boosted scores + Theme Studio perk', color: '#f97316', active: true },
+          ] : []),
+          ...(l.level === 7 ? [
+            { emoji: '🎨', title: '🎉 Theme Studio Event — Unlocked!', desc: 'Level 7 pe Theme Studio events access milega — app ka look customize karo', color: '#8b5cf6', active: true },
+          ] : []),
+          ...(l.level === 8 ? [
+            { emoji: '🪙', title: '🎉 Credit Free Event — Unlocked!', desc: 'Level 8 pe Credit Free events ka fayda — bina coins ke content unlock karo', color: '#06b6d4', active: true },
+          ] : []),
+          ...(l.level === 10 ? [
+            { emoji: '🌍', title: '🎉 Global Free Access Event — Unlocked!', desc: 'Level 10 pe Global Free Access events mein sab kuch bilkul free!', color: '#10b981', active: true },
+          ] : []),
+          // ── Events summary for all levels ──
+          {
+            emoji: '🎪',
+            title: 'Events Access Summary',
+            desc: [
+              l.level >= 1 ? '✓ Discount + Credit Bonus' : '🔒 Discount/Credit Bonus (L1)',
+              l.level >= 3 ? '✓ Limit Boost' : `🔒 Limit Boost (L3)`,
+              l.level >= 5 ? '✓ Score Boost' : `🔒 Score Boost (L5)`,
+              l.level >= 7 ? '✓ Theme Studio' : `🔒 Theme Studio (L7)`,
+              l.level >= 8 ? '✓ Credit Free' : `🔒 Credit Free (L8)`,
+              l.level >= 10 ? '✓ Global Free' : `🔒 Global Free (L10)`,
+            ].join(' · '),
+            color: '#6366f1',
+            active: true,
+          },
         ];
         return (
           <div className="fixed inset-0 z-[9999] flex items-end justify-center" style={{ background: 'rgba(0,0,0,0.8)' }} onClick={() => setSelectedLevelDetail(null)}>

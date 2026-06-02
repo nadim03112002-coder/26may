@@ -947,6 +947,16 @@ export interface SystemSettings {
     endsAt?: string;
     days?: number;
   };
+  creditBonusEvent?: {
+    enabled: boolean;
+    eventName?: string;
+    startsAt?: string;
+    endsAt?: string;
+    bonusPercent: number;
+    applyToMcqPrize?: boolean;
+    applyToGifts?: boolean;
+    applyToLoginBonus?: boolean;
+  };
   dailyChallengeConfig?: {
     mode: 'AUTO' | 'MANUAL';
     rewardPercentage: number;

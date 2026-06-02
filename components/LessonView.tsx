@@ -1212,7 +1212,16 @@ export const LessonView: React.FC<Props> = ({
         if (!user || !onUpdateUser) return;
 
         let cost = 10;
-        if (settings?.isCreditFreeEvent || settings?.isGlobalFreeMode) {
+        // Level gates: creditFreeEvent requires L8, globalFreeMode requires L10
+        const _dlUserLevel = (() => {
+          if (!user) return 1;
+          const score = user.totalScore || 0;
+          const levels = [0, 100, 250, 500, 1000, 2000, 3500, 5500, 8000, 11000, 15000, 20000, 26000, 33000, 41000];
+          let lvl = 1;
+          for (let i = levels.length - 1; i >= 0; i--) { if (score >= levels[i]) { lvl = i + 1; break; } }
+          return lvl;
+        })();
+        if ((settings?.isCreditFreeEvent && _dlUserLevel >= 8) || (settings?.isGlobalFreeMode && _dlUserLevel >= 10)) {
             cost = 0;
         }
 

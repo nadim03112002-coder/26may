@@ -40,7 +40,10 @@ const safeParse = <T>(raw: string | null, fallback: T): T => {
   if (!raw) return fallback;
   try {
     const v = JSON.parse(raw);
-    return Array.isArray(v) ? (v as unknown as T) : fallback;
+    if (!Array.isArray(v)) return fallback;
+    // Filter out any null/undefined/malformed entries to prevent crashes
+    const filtered = v.filter((item: any) => item != null && typeof item === 'object' && item.id != null);
+    return filtered as unknown as T;
   } catch {
     return fallback;
   }
