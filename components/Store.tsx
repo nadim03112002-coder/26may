@@ -842,7 +842,7 @@ export const Store: React.FC<Props> = ({ user, settings, onUserUpdate, renderEar
         )}
 
         {/* ── PRO / MAX PLANS ── */}
-        {tierType !== 'EARN' && tierType !== 'CREDITS' && (
+        {tierType !== 'EARN' && tierType !== 'CREDITS' && tierType !== 'HISTORY' && (
           <>
             {subscriptionPlans.length === 0 ? (
               <div className="rounded-2xl p-12 text-center" style={{ border: `1.5px dashed ${C.border}` }}>
@@ -924,7 +924,7 @@ export const Store: React.FC<Props> = ({ user, settings, onUserUpdate, renderEar
 
                     return (
                       <button key={plan.id} onClick={() => setSelectedPlanId(plan.id)}
-                        className="w-[60%] mx-auto block px-5 py-4 rounded-2xl text-left transition-all relative overflow-hidden"
+                        className="w-full block px-4 py-2.5 rounded-2xl text-left transition-all relative overflow-hidden"
                         style={isSelected
                           ? { background: ac.bg, border: `2px solid ${ac.border}`, boxShadow: `0 0 28px ${ac.glow}` }
                           : { background: C.surface, border: `1.5px solid ${C.border}` }}>
@@ -947,7 +947,7 @@ export const Store: React.FC<Props> = ({ user, settings, onUserUpdate, renderEar
                           <div className="flex-1 pr-2">
                             <p className="text-sm font-black mb-1" style={{ color: isSelected ? ac.color : C.text }}>{plan.name}</p>
                             <div className="flex items-baseline gap-2.5">
-                              <span className="text-3xl font-black" style={{ color: C.text }}>₹{price.toLocaleString('en-IN')}</span>
+                              <span className="text-2xl font-black" style={{ color: C.text }}>₹{price.toLocaleString('en-IN')}</span>
                               {original > price && (
                                 <span className="text-sm line-through" style={{ color: C.textDim }}>₹{original.toLocaleString('en-IN')}</span>
                               )}

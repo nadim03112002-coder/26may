@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
-import { ChevronLeft, ChevronDown, ChevronUp, TrendingUp, Award, Calendar, Zap } from "lucide-react";
+import { ChevronLeft, ChevronDown, ChevronUp, TrendingUp, Award, Calendar, Zap, ArrowUp, ArrowDown, Minus } from "lucide-react";
 import { getScoreLog, ScoreLogEntry } from "../utils/scoreSystem";
-import { getLevelInfo } from "../utils/levelSystem";
+import { getLevelInfo, getNextLevelInfo, LEVEL_INFO } from "../utils/levelSystem";
 
 interface Props {
   user: { id: string; totalScore?: number; subscriptionLevel?: string; isPremium?: boolean };
@@ -24,7 +24,6 @@ const ACTIVITY_META: Record<string, { emoji: string; label: string; color: strin
 };
 
 const getMeta = (activity: string) => ACTIVITY_META[activity] ?? ACTIVITY_META['OTHER'];
-
 const fmt = (n: number) => n.toLocaleString('en-IN');
 
 const formatDate = (dateStr: string) => {
@@ -36,8 +35,20 @@ const formatDate = (dateStr: string) => {
   return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', weekday: 'short' });
 };
 
+const getWeekRange = (weeksAgo: number) => {
+  const now = Date.now();
+  const start = now - (weeksAgo + 1) * 7 * 86400000;
+  const end   = now - weeksAgo * 7 * 86400000;
+  const days: string[] = [];
+  for (let i = 0; i < 7; i++) {
+    days.push(new Date(start + i * 86400000).toISOString().split('T')[0]);
+  }
+  return days;
+};
+
 export const ScoreHistoryDashboard: React.FC<Props> = ({ user, onBack }) => {
   const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set(['today']));
+  const [touchedBarIdx, setTouchedBarIdx] = useState<number | null>(null);
 
   const log = useMemo(() => getScoreLog(user.id), [user.id]);
 
@@ -70,14 +81,15 @@ export const ScoreHistoryDashboard: React.FC<Props> = ({ user, onBack }) => {
 
   const maxChartPts = Math.max(...chartDays.map(d => d.pts), 1);
 
-  const thisWeekTotal = useMemo(() => {
-    let t = 0;
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(Date.now() - i * 86400000).toISOString().split('T')[0];
-      t += dayMap[d]?.total ?? 0;
-    }
-    return t;
-  }, [dayMap]);
+  const thisWeekDays  = useMemo(() => getWeekRange(0), []);
+  const lastWeekDays  = useMemo(() => getWeekRange(1), []);
+
+  const thisWeekTotal = useMemo(() => thisWeekDays.reduce((t, d) => t + (dayMap[d]?.total ?? 0), 0), [dayMap, thisWeekDays]);
+  const lastWeekTotal = useMemo(() => lastWeekDays.reduce((t, d) => t + (dayMap[d]?.total ?? 0), 0), [dayMap, lastWeekDays]);
+
+  const growthPercent = lastWeekTotal === 0
+    ? (thisWeekTotal > 0 ? 100 : 0)
+    : Math.round(((thisWeekTotal - lastWeekTotal) / lastWeekTotal) * 100);
 
   const bestDay = useMemo(() => {
     let best = { date: '', pts: 0 };
@@ -86,8 +98,6 @@ export const ScoreHistoryDashboard: React.FC<Props> = ({ user, onBack }) => {
     }
     return best;
   }, [dayMap]);
-
-  const allTimeTotal = useMemo(() => log.reduce((s, e) => s + e.pts, 0), [log]);
 
   const topActivity = useMemo(() => {
     const totals: Record<string, number> = {};
@@ -98,6 +108,17 @@ export const ScoreHistoryDashboard: React.FC<Props> = ({ user, onBack }) => {
   }, [log]);
 
   const currentLevel = getLevelInfo(user.totalScore || 0);
+  const nextLevel    = getNextLevelInfo(user.totalScore || 0);
+  const score        = user.totalScore || 0;
+
+  const levelProgress = (() => {
+    if (!nextLevel) return 100;
+    const range  = nextLevel.minScore - currentLevel.minScore;
+    const gained = score - currentLevel.minScore;
+    return Math.min(100, Math.max(0, Math.round((gained / range) * 100)));
+  })();
+
+  const ptsToNext = nextLevel ? Math.max(0, nextLevel.minScore - score) : 0;
 
   const toggleDay = (date: string) => {
     setExpandedDays(prev => {
@@ -134,9 +155,9 @@ export const ScoreHistoryDashboard: React.FC<Props> = ({ user, onBack }) => {
         {/* Summary Stats */}
         <div className="grid grid-cols-3 gap-2">
           {[
-            { icon: <Calendar size={14} />, label: 'Is Hafte', value: `+${fmt(thisWeekTotal)} pts`, color: '#3b82f6' },
-            { icon: <Award size={14} />, label: 'Best Din', value: bestDay.pts > 0 ? `+${fmt(bestDay.pts)} pts` : '—', color: '#f59e0b' },
-            { icon: <TrendingUp size={14} />, label: 'Kul (Logged)', value: `+${fmt(allTimeTotal)} pts`, color: '#10b981' },
+            { icon: <Calendar size={14} />, label: 'Is Hafte',    value: `+${fmt(thisWeekTotal)} pts`, color: '#3b82f6' },
+            { icon: <Award   size={14} />, label: 'Best Din',     value: bestDay.pts > 0 ? `+${fmt(bestDay.pts)} pts` : '—', color: '#f59e0b' },
+            { icon: <TrendingUp size={14}/>, label: 'Kul (Logged)', value: `+${fmt(log.reduce((s,e)=>s+e.pts,0))} pts`, color: '#10b981' },
           ].map(s => (
             <div key={s.label} className="rounded-2xl p-3 text-center"
               style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
@@ -145,6 +166,87 @@ export const ScoreHistoryDashboard: React.FC<Props> = ({ user, onBack }) => {
               <p className="text-[11px] font-black text-white mt-0.5 leading-tight">{s.value}</p>
             </div>
           ))}
+        </div>
+
+        {/* ── Weekly Summary ── */}
+        <div className="rounded-2xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+          <div className="flex items-center gap-2 px-4 pt-4 pb-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+            <Zap size={13} color="#a855f7" />
+            <p className="text-[10px] font-black text-white uppercase tracking-wider">Weekly Summary</p>
+          </div>
+          <div className="grid grid-cols-3 divide-x" style={{ divideColor: 'rgba(255,255,255,0.06)' }}>
+            <div className="p-3 text-center" style={{ borderRight: '1px solid rgba(255,255,255,0.06)' }}>
+              <p className="text-[9px] text-slate-500 mb-1">This Week</p>
+              <p className="text-base font-black text-white">+{fmt(thisWeekTotal)}</p>
+              <p className="text-[9px] text-slate-600">pts</p>
+            </div>
+            <div className="p-3 text-center" style={{ borderRight: '1px solid rgba(255,255,255,0.06)' }}>
+              <p className="text-[9px] text-slate-500 mb-1">Last Week</p>
+              <p className="text-base font-black text-white">+{fmt(lastWeekTotal)}</p>
+              <p className="text-[9px] text-slate-600">pts</p>
+            </div>
+            <div className="p-3 text-center">
+              <p className="text-[9px] text-slate-500 mb-1">Growth</p>
+              <div className="flex items-center justify-center gap-1">
+                {growthPercent > 0
+                  ? <ArrowUp size={12} color="#22c55e" />
+                  : growthPercent < 0
+                    ? <ArrowDown size={12} color="#f87171" />
+                    : <Minus size={12} color="#64748b" />}
+                <p className="text-base font-black"
+                  style={{ color: growthPercent > 0 ? '#22c55e' : growthPercent < 0 ? '#f87171' : '#64748b' }}>
+                  {Math.abs(growthPercent)}%
+                </p>
+              </div>
+              <p className="text-[9px] text-slate-600">vs last week</p>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Level Progress Card ── */}
+        <div className="rounded-2xl p-4 relative overflow-hidden"
+          style={{ background: `${currentLevel.color}0d`, border: `1.5px solid ${currentLevel.color}30` }}>
+          <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full pointer-events-none"
+            style={{ background: `${currentLevel.color}10`, filter: 'blur(24px)' }} />
+          <div className="relative">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">{currentLevel.emoji}</span>
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-wider" style={{ color: currentLevel.color }}>Current Level</p>
+                  <p className="font-black text-white text-sm">{currentLevel.label} · L{currentLevel.level}</p>
+                </div>
+              </div>
+              {nextLevel && (
+                <div className="text-right">
+                  <p className="text-[9px] text-slate-500">Next Level</p>
+                  <p className="font-black text-sm" style={{ color: nextLevel.color }}>{nextLevel.emoji} L{nextLevel.level}</p>
+                </div>
+              )}
+            </div>
+
+            {nextLevel ? (
+              <>
+                {/* Progress bar */}
+                <div className="w-full rounded-full h-2.5 mb-2" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                  <div className="h-2.5 rounded-full transition-all duration-500"
+                    style={{ width: `${levelProgress}%`, background: `linear-gradient(90deg, ${currentLevel.color}, ${nextLevel.color})` }} />
+                </div>
+                <div className="flex justify-between items-center">
+                  <p className="text-[10px] font-black" style={{ color: currentLevel.color }}>
+                    {fmt(score - currentLevel.minScore)} / {fmt(nextLevel.minScore - currentLevel.minScore)} pts
+                  </p>
+                  <p className="text-[10px] font-bold text-slate-400">
+                    <span style={{ color: '#f87171' }}>{fmt(ptsToNext)} pts</span> remaining
+                  </p>
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-1">
+                <p className="text-[11px] font-black" style={{ color: currentLevel.color }}>🏆 Max Level Reached!</p>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Top Activity */}
@@ -163,36 +265,57 @@ export const ScoreHistoryDashboard: React.FC<Props> = ({ user, onBack }) => {
           </div>
         )}
 
-        {/* Bar Chart — last 14 days */}
+        {/* ── Bar Chart — last 14 days (touch to see exact score) ── */}
         <div className="rounded-2xl p-4" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
           <div className="flex items-center gap-2 mb-3">
             <Zap size={12} color="#fbbf24" />
             <p className="text-[10px] font-black text-white uppercase tracking-wider">Pichle 14 Din</p>
+            {touchedBarIdx !== null && (
+              <span className="ml-auto text-[10px] font-black px-2 py-0.5 rounded-full"
+                style={{ background: 'rgba(251,191,36,0.15)', color: '#fbbf24' }}>
+                {new Date(chartDays[touchedBarIdx].date + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                {' · '}+{fmt(chartDays[touchedBarIdx].pts)} pts
+              </span>
+            )}
           </div>
           <div className="flex items-end gap-1 h-20">
-            {chartDays.map(d => {
+            {chartDays.map((d, i) => {
               const h = d.pts > 0 ? Math.max(4, Math.round((d.pts / maxChartPts) * 72)) : 2;
-              const isToday = d.date === today;
-              const dayLabel = new Date(d.date + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric' });
+              const isToday   = d.date === today;
+              const isTouched = touchedBarIdx === i;
+              const dayLabel  = new Date(d.date + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric' });
               return (
-                <div key={d.date} className="flex flex-col items-center flex-1 gap-1">
+                <div key={d.date}
+                  className="flex flex-col items-center flex-1 gap-1 cursor-pointer relative"
+                  onClick={() => setTouchedBarIdx(prev => prev === i ? null : i)}>
+                  {/* Tooltip */}
+                  {isTouched && d.pts > 0 && (
+                    <div className="absolute -top-7 left-1/2 -translate-x-1/2 whitespace-nowrap text-[8px] font-black px-1.5 py-0.5 rounded-md z-10"
+                      style={{ background: '#fbbf24', color: '#000' }}>
+                      +{fmt(d.pts)}
+                    </div>
+                  )}
                   <div className="w-full rounded-t-sm transition-all"
                     style={{
                       height: `${h}px`,
-                      background: isToday
+                      background: isTouched
                         ? 'linear-gradient(180deg, #fbbf24, #f59e0b)'
-                        : d.pts > 0
-                          ? 'linear-gradient(180deg, #3b82f6aa, #1d4ed8aa)'
-                          : 'rgba(255,255,255,0.06)',
+                        : isToday
+                          ? 'linear-gradient(180deg, #fbbf24, #f59e0b)'
+                          : d.pts > 0
+                            ? 'linear-gradient(180deg, #3b82f6aa, #1d4ed8aa)'
+                            : 'rgba(255,255,255,0.06)',
+                      boxShadow: isTouched ? '0 0 8px rgba(251,191,36,0.6)' : undefined,
                     }} />
-                  <p className="text-[7px] text-slate-600 leading-none" style={{ color: isToday ? '#fbbf24' : undefined }}>{dayLabel}</p>
+                  <p className="text-[7px] text-slate-600 leading-none"
+                    style={{ color: isToday || isTouched ? '#fbbf24' : undefined }}>{dayLabel}</p>
                 </div>
               );
             })}
           </div>
           <div className="flex justify-between mt-1">
             <p className="text-[8px] text-slate-600">14 din pehle</p>
-            <p className="text-[8px] text-amber-500">Aaj</p>
+            <p className="text-[8px] text-amber-500">Aaj · tap to see score</p>
           </div>
         </div>
 
@@ -220,7 +343,6 @@ export const ScoreHistoryDashboard: React.FC<Props> = ({ user, onBack }) => {
                   <div key={date} className="rounded-2xl overflow-hidden"
                     style={{ background: isToday ? 'rgba(251,191,36,0.05)' : 'rgba(255,255,255,0.03)', border: `1px solid ${isToday ? 'rgba(251,191,36,0.25)' : 'rgba(255,255,255,0.07)'}` }}>
 
-                    {/* Day header */}
                     <button className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-white/5 transition-colors"
                       onClick={() => toggleDay(date)}>
                       <div className="w-10 h-10 rounded-xl flex flex-col items-center justify-center shrink-0"
@@ -256,12 +378,11 @@ export const ScoreHistoryDashboard: React.FC<Props> = ({ user, onBack }) => {
                       }
                     </button>
 
-                    {/* Expanded activity breakdown */}
                     {isExpanded && (
                       <div className="px-4 pb-3.5 space-y-1.5 border-t" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
                         <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider pt-2.5 mb-2">Activity Breakdown</p>
                         {activityGroups.map(([act, pts]) => {
-                          const meta = getMeta(act);
+                          const meta  = getMeta(act);
                           const count = data.entries.filter(e => e.activity === act).length;
                           return (
                             <div key={act} className="flex items-center gap-2.5 rounded-xl px-3 py-2"
@@ -276,7 +397,6 @@ export const ScoreHistoryDashboard: React.FC<Props> = ({ user, onBack }) => {
                           );
                         })}
 
-                        {/* Hourly timeline — last 5 entries of the day */}
                         {data.entries.length > 0 && (
                           <div className="mt-2 pt-2 border-t" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
                             <p className="text-[9px] text-slate-600 mb-1.5">Recent Activity</p>
@@ -306,25 +426,6 @@ export const ScoreHistoryDashboard: React.FC<Props> = ({ user, onBack }) => {
               })}
             </div>
           )}
-        </div>
-
-        {/* Level Info Card */}
-        <div className="rounded-2xl p-4"
-          style={{ background: `${currentLevel.color}10`, border: `1px solid ${currentLevel.color}30` }}>
-          <p className="text-[9px] font-black uppercase tracking-wider mb-2" style={{ color: currentLevel.color }}>Tera Current Level</p>
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">{currentLevel.emoji}</span>
-            <div>
-              <p className="font-black text-white">{currentLevel.label} · Level {currentLevel.level}</p>
-              <p className="text-[10px] text-slate-400 mt-0.5">Total Score: {fmt(user.totalScore || 0)} pts</p>
-            </div>
-            {currentLevel.discount > 0 && (
-              <div className="ml-auto text-right">
-                <p className="text-[9px] text-slate-500">Store Discount</p>
-                <p className="font-black" style={{ color: currentLevel.color }}>{currentLevel.discount}% OFF</p>
-              </div>
-            )}
-          </div>
         </div>
 
       </div>

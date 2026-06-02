@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { SystemSettings } from '../../types';
-import { Save, Calendar, Clock, ChevronDown, ChevronUp, Zap, TrendingUp, Globe, Coins, Palette, Tag, Gift } from 'lucide-react';
+import { Save, Calendar, Clock, ChevronDown, ChevronUp, Zap, TrendingUp, Globe, Coins, Palette, Tag, Gift, Timer } from 'lucide-react';
 
 interface Props {
   settings: SystemSettings;
@@ -67,14 +67,37 @@ interface EventCardProps {
   extraSettings?: React.ReactNode;
 }
 
+function formatCountdown(ms: number): string {
+  if (ms <= 0) return '00:00:00';
+  const d = Math.floor(ms / 86400000);
+  const h = Math.floor((ms % 86400000) / 3600000);
+  const m = Math.floor((ms % 3600000) / 60000);
+  const s = Math.floor((ms % 60000) / 1000);
+  if (d > 0) return `${d}d ${String(h).padStart(2,'0')}h ${String(m).padStart(2,'0')}m`;
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+
 const EventCard: React.FC<EventCardProps> = ({
   cardKey, title, icon, accentColor, description,
   enabled, eventName, startsAt, endsAt,
   onToggle, onNameChange, onStartChange, onEndChange, extraSettings,
 }) => {
   const [open, setOpen] = useState(false);
+  const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => setTick(t => t + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+
   const status = getStatus(enabled, startsAt, endsAt);
   const sb = STATUS_BADGE[status];
+
+  const now = Date.now();
+  const startMs = startsAt ? new Date(startsAt).getTime() : 0;
+  const endMs   = endsAt   ? new Date(endsAt).getTime()   : 0;
+  const cooldownMs  = status === 'SCHEDULED' ? Math.max(0, startMs - now) : 0;
+  const remainingMs = status === 'LIVE' && endMs ? Math.max(0, endMs - now) : 0;
 
   return (
     <div className="rounded-2xl border-2 overflow-hidden transition-all"
@@ -112,6 +135,34 @@ const EventCard: React.FC<EventCardProps> = ({
         </div>
       </div>
 
+      {/* ── Cool Down / Time Remaining banner ── */}
+      {(cooldownMs > 0 || remainingMs > 0) && (
+        <div className="flex items-center gap-3 px-4 py-2.5 border-t"
+          style={{
+            background: cooldownMs > 0 ? 'rgba(245,158,11,0.07)' : 'rgba(16,185,129,0.07)',
+            borderColor: cooldownMs > 0 ? 'rgba(245,158,11,0.2)' : 'rgba(16,185,129,0.2)',
+          }}>
+          <Timer size={14} style={{ color: cooldownMs > 0 ? '#f59e0b' : '#10b981', flexShrink: 0 }} />
+          <div className="flex-1 min-w-0">
+            <p className="text-[9px] font-black uppercase tracking-widest"
+              style={{ color: cooldownMs > 0 ? '#f59e0b' : '#10b981' }}>
+              {cooldownMs > 0 ? '⏳ Cool Down — Time Until Start' : '🟢 Time Remaining'}
+            </p>
+            <p className="text-base font-black font-mono leading-none mt-0.5"
+              style={{ color: cooldownMs > 0 ? '#92400e' : '#065f46' }}>
+              {formatCountdown(cooldownMs > 0 ? cooldownMs : remainingMs)}
+            </p>
+          </div>
+          <div className="text-right shrink-0">
+            <p className="text-[9px] text-slate-400">
+              {cooldownMs > 0
+                ? `Starts: ${new Date(startMs).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}`
+                : endMs ? `Ends: ${new Date(endMs).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}` : ''}
+            </p>
+          </div>
+        </div>
+      )}
+
       {open && (
         <div className="border-t border-slate-100 p-4 space-y-4 bg-white">
           <div>
@@ -125,35 +176,106 @@ const EventCard: React.FC<EventCardProps> = ({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider flex items-center gap-1 mb-1">
-                <Calendar size={9} /> Starts At
-              </label>
-              <input
-                type="datetime-local"
-                value={toLocalInput(startsAt)}
-                onChange={e => onStartChange(fromLocalInput(e.target.value))}
-                className="w-full p-2 border border-slate-200 rounded-xl text-[11px] outline-none focus:ring-2 focus:ring-indigo-200"
-              />
-              <p className="text-[9px] text-slate-400 mt-0.5">Empty = turant shuru</p>
+          {/* ── Start Time ── */}
+          <div>
+            <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider flex items-center gap-1 mb-1">
+              <Calendar size={9} /> Starts At
+            </label>
+            <input
+              type="datetime-local"
+              value={toLocalInput(startsAt)}
+              onChange={e => onStartChange(fromLocalInput(e.target.value))}
+              className="w-full p-2 border border-slate-200 rounded-xl text-[11px] outline-none focus:ring-2 focus:ring-indigo-200 mb-1.5"
+            />
+            <div className="flex gap-1.5 flex-wrap">
+              <p className="text-[9px] text-slate-400 mr-0.5 self-center">Quick:</p>
+              {[
+                { label: 'Now',   ms: 0 },
+                { label: '+1hr',  ms: 3600000 },
+                { label: '+6hr',  ms: 6 * 3600000 },
+                { label: '+1day', ms: 86400000 },
+                { label: '+3day', ms: 3 * 86400000 },
+              ].map(({ label, ms }) => (
+                <button key={label} type="button"
+                  onClick={() => onStartChange(new Date(Date.now() + ms).toISOString())}
+                  className="text-[9px] font-black px-2 py-0.5 rounded-lg border transition-colors hover:text-white"
+                  style={{ borderColor: accentColor, color: accentColor, background: 'transparent' }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = accentColor; (e.currentTarget as HTMLButtonElement).style.color = '#fff'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = accentColor; }}
+                >{label}</button>
+              ))}
+              {startsAt && (
+                <button type="button" onClick={() => onStartChange('')}
+                  className="text-[9px] font-black px-2 py-0.5 rounded-lg border border-slate-300 text-slate-400 hover:bg-slate-100">
+                  Clear
+                </button>
+              )}
             </div>
-            <div>
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider flex items-center gap-1 mb-1">
-                <Clock size={9} /> Ends At
-              </label>
-              <input
-                type="datetime-local"
-                value={toLocalInput(endsAt)}
-                onChange={e => {
-                  const raw = fromLocalInput(e.target.value);
-                  onEndChange(startsAt ? enforceMax7Days(startsAt, raw) : raw);
-                }}
-                className="w-full p-2 border border-slate-200 rounded-xl text-[11px] outline-none focus:ring-2 focus:ring-indigo-200"
-              />
-              <p className="text-[9px] text-amber-600 mt-0.5">Max 7 din start se</p>
-            </div>
+            <p className="text-[9px] text-slate-400 mt-1">Empty = turant shuru</p>
           </div>
+
+          {/* ── End Time ── */}
+          <div>
+            <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider flex items-center gap-1 mb-1">
+              <Clock size={9} /> Ends At
+            </label>
+            <input
+              type="datetime-local"
+              value={toLocalInput(endsAt)}
+              onChange={e => {
+                const raw = fromLocalInput(e.target.value);
+                onEndChange(startsAt ? enforceMax7Days(startsAt, raw) : raw);
+              }}
+              className="w-full p-2 border border-slate-200 rounded-xl text-[11px] outline-none focus:ring-2 focus:ring-indigo-200 mb-1.5"
+            />
+            <div className="flex gap-1.5 flex-wrap">
+              <p className="text-[9px] text-slate-400 mr-0.5 self-center">Duration:</p>
+              {[
+                { label: '1hr',  ms: 3600000 },
+                { label: '6hr',  ms: 6 * 3600000 },
+                { label: '12hr', ms: 12 * 3600000 },
+                { label: '1day', ms: 86400000 },
+                { label: '3day', ms: 3 * 86400000 },
+                { label: '7day', ms: 7 * 86400000 },
+              ].map(({ label, ms }) => {
+                const base = startsAt ? new Date(startsAt).getTime() : Date.now();
+                const target = new Date(Math.min(base + ms, base + 7 * 86400000)).toISOString();
+                return (
+                  <button key={label} type="button"
+                    onClick={() => onEndChange(target)}
+                    className="text-[9px] font-black px-2 py-0.5 rounded-lg border transition-colors"
+                    style={{ borderColor: accentColor, color: accentColor, background: 'transparent' }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = accentColor; (e.currentTarget as HTMLButtonElement).style.color = '#fff'; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = accentColor; }}
+                  >{label}</button>
+                );
+              })}
+            </div>
+            <p className="text-[9px] text-amber-600 mt-1">Max 7 din start se</p>
+          </div>
+
+          {/* ── Chain Next Event ── */}
+          {endsAt && (
+            <div className="flex items-center gap-3 p-3 rounded-xl border border-dashed"
+              style={{ borderColor: `${accentColor}60`, background: `${accentColor}08` }}>
+              <div className="text-lg">🔗</div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-black text-slate-700">Chain Next Event</p>
+                <p className="text-[9px] text-slate-400 leading-tight">
+                  Is event ke khatam hone ke baad turant agla event schedule karo —
+                  Start time automatically set ho jayega <span className="font-bold text-slate-600">
+                    {new Date(endsAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                  </span> pe.
+                </p>
+              </div>
+              <button type="button"
+                onClick={() => { onStartChange(endsAt); onEndChange(''); }}
+                className="text-[10px] font-black px-3 py-1.5 rounded-xl text-white shrink-0 transition-all hover:scale-105 active:scale-95"
+                style={{ background: accentColor }}>
+                Chain ↗
+              </button>
+            </div>
+          )}
 
           {extraSettings}
         </div>

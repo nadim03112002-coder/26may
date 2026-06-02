@@ -2973,9 +2973,10 @@ export const StudentDashboard: React.FC<Props> = ({
   const [showStreakPopup, setShowStreakPopup] = useState(false);
   const [showEventDrawer, setShowEventDrawer] = useState(false);
   const [_eventTick, _setEventTick] = useState(0);
-  // Re-check event active/upcoming status every 60s so button auto-hides when event ends
+  // Re-check event active/upcoming status every second so countdown is live and
+  // SCHEDULED → LIVE transition happens automatically without page refresh
   React.useEffect(() => {
-    const id = setInterval(() => _setEventTick(t => t + 1), 60000);
+    const id = setInterval(() => _setEventTick(t => t + 1), 1000);
     return () => clearInterval(id);
   }, []);
   const [streakHistoryView, setStreakHistoryView] = useState(false);
@@ -5628,7 +5629,7 @@ export const StudentDashboard: React.FC<Props> = ({
                         if (hwMilestoneSessionRef.current) {
                           const result = awardMilestone(user.id, hwMilestoneSessionRef.current, hwMilestonePrevPctRef.current, pctNow, user.subscriptionLevel, user.isPremium, getActiveBoost(user));
                           hwMilestonePrevPctRef.current = pctNow;
-                          if (result && result.earned > 0) { triggerRewardEffect(result.earned, `+${result.earned} pts 📖`); logScoreActivity(user.id, 'MILESTONE', result.earned); }
+                          if (result && result.earned > 0) { triggerRewardEffect(result.earned, `+${result.earned} pts 📖`); logScoreActivity(user.id, 'MILESTONE', result.earned); handleUserUpdate({ ...user, totalScore: (user.totalScore || 0) + result.earned }); }
                         }
                       } else {
                         localStorage.removeItem(key);
@@ -9403,8 +9404,10 @@ export const StudentDashboard: React.FC<Props> = ({
               pushUpcoming('🚀 Score Boost', settings?.scoreBoostEvent?.enabled ?? false, settings?.scoreBoostEvent?.startsAt, settings?.scoreBoostEvent?.endsAt);
               pushUpcoming(`🏷️ ${settings?.specialDiscountEvent?.eventName || 'Discount'}`, settings?.specialDiscountEvent?.enabled ?? false, settings?.specialDiscountEvent?.startsAt, settings?.specialDiscountEvent?.endsAt);
               pushUpcoming('🌍 Free Access', settings?.globalFreeAccessEvent?.enabled ?? false, settings?.globalFreeAccessEvent?.startsAt, settings?.globalFreeAccessEvent?.endsAt);
+              pushUpcoming('🪙 Credit Free', settings?.creditFreeEvent?.enabled ?? (settings?.isCreditFreeEvent ?? false), (settings?.creditFreeEvent as any)?.startsAt, (settings?.creditFreeEvent as any)?.endsAt);
               pushUpcoming('📈 Limit Boost', (settings as any)?.dailyLimitBoostEvent?.enabled ?? false, (settings as any)?.dailyLimitBoostEvent?.startsAt, (settings as any)?.dailyLimitBoostEvent?.endsAt);
               pushUpcoming('🎨 Theme Studio', (settings as any)?.themeStudioEvent?.enabled ?? false, (settings as any)?.themeStudioEvent?.startsAt, (settings as any)?.themeStudioEvent?.endsAt);
+              pushUpcoming(`🎁 ${settings?.creditBonusEvent?.eventName || 'Credit Bonus'}`, settings?.creditBonusEvent?.enabled ?? false, settings?.creditBonusEvent?.startsAt, settings?.creditBonusEvent?.endsAt);
 
               if (activeEvents.length === 0 && upcomingEvents.length === 0) return null;
 
@@ -12766,7 +12769,7 @@ export const StudentDashboard: React.FC<Props> = ({
                       speakText(fullText, null, 1.0, 'hi-IN', () => setSpeakingId('gk_readall'), () => { setSpeakingId(null); setTtsProgressPercent(0); setTtsSessionKey(null); }, (pct) => {
                         setTtsProgressPercent(pct);
                         const result = awardMilestone(user.id, gkSessionKey, prevTtsPct, pct, user.subscriptionLevel, user.isPremium, getActiveBoost(user));
-                        if (result && result.earned > 0) logScoreActivity(user.id, 'PDF', result.earned);
+                        if (result && result.earned > 0) { logScoreActivity(user.id, 'PDF', result.earned); handleUserUpdate({ ...user, totalScore: (user.totalScore || 0) + result.earned }); }
                         prevTtsPct = pct;
                         if (result && result.earned > 0) triggerRewardEffect(result.earned, `+${result.earned} pts 🎧`);
                       });
@@ -16085,7 +16088,7 @@ export const StudentDashboard: React.FC<Props> = ({
                   // Award milestone score for lucent/notes reading progress
                   if (lucentMilestoneSessionRef.current) {
                     const result = awardMilestone(user.id, lucentMilestoneSessionRef.current, lucentMilestonePrevPctRef.current, pct, user.subscriptionLevel, user.isPremium, getActiveBoost(user));
-                    if (result && result.earned > 0) logScoreActivity(user.id, 'PDF', result.earned);
+                    if (result && result.earned > 0) { logScoreActivity(user.id, 'PDF', result.earned); handleUserUpdate({ ...user, totalScore: (user.totalScore || 0) + result.earned }); }
                     lucentMilestonePrevPctRef.current = pct;
                     if (result && result.earned > 0) triggerRewardEffect(result.earned, `+${result.earned} pts 📚`);
                   }
@@ -20928,22 +20931,8 @@ RULES:
 
       {/* ═══════════ SCORE HISTORY DIRECT OVERLAY ═══════════ */}
       {showScoreHistoryDirect && (
-        <div className="fixed inset-0 z-[9999] flex flex-col" style={{ background: 'var(--bg, #f8fafc)' }}>
-          <div className="flex items-center gap-3 px-4 pt-safe-top pt-4 pb-3 border-b border-slate-200 bg-white shrink-0">
-            <button
-              onClick={() => setShowScoreHistoryDirect(false)}
-              className="p-2 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
-            >
-              <ChevronLeft size={18} />
-            </button>
-            <div>
-              <h2 className="text-base font-black text-slate-800">Score History</h2>
-              <p className="text-[11px] text-slate-500">Apna activity score ka pura record</p>
-            </div>
-          </div>
-          <div className="flex-1 overflow-y-auto">
-            <ScoreHistoryDashboard userId={user.id} />
-          </div>
+        <div className="fixed inset-0 z-[9999] overflow-y-auto">
+          <ScoreHistoryDashboard user={user} onBack={() => setShowScoreHistoryDirect(false)} />
         </div>
       )}
 
