@@ -20,6 +20,7 @@ import { UniversalChat } from './UniversalChat';
 import { ChallengeCreator20 } from './admin/ChallengeCreator20';
 import { FeatureAccessPage } from './admin/FeatureAccessPage';
 import { AdminPowerManager } from './AdminPowerManager';
+import { EventManager } from './admin/EventManager';
 import AdminHelp from './AdminHelp';
 import { AdminTrendingNotes } from './AdminTrendingNotes';
 import { FeatureGroupList } from './admin/FeatureGroupList';
@@ -4355,45 +4356,11 @@ const AdminDashboardInner: React.FC<Props> = ({ onNavigate, settings, onUpdateSe
                   <h3 className="text-xl font-black text-slate-800">Event Manager</h3>
               </div>
 
+              <EventManager settings={localSettings} onUpdate={setLocalSettings} onSave={handleSaveSettings} />
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* DISCOUNT EVENT */}
-                  <div className={`p-6 rounded-2xl border-2 transition-all ${localSettings.specialDiscountEvent?.enabled ? 'bg-green-50 border-green-200' : 'bg-slate-50 border-slate-200'}`}>
-                      <div className="flex justify-between items-center mb-4">
-                          <h4 className="font-black text-lg text-slate-800 flex items-center gap-2">
-                              <Ticket size={20} className="text-pink-600"/> Discount Sale
-                          </h4>
-                                                      {localSettings.specialDiscountEvent?.enabled && (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 bg-orange-50/50 p-4 rounded-xl border border-orange-100">
-                                    <div>
-                                        <label className="text-[10px] font-bold text-slate-600 uppercase">Starts At (Optional)</label>
-                                        <input type="datetime-local" value={localSettings.specialDiscountEvent?.startsAt ? new Date(new Date(localSettings.specialDiscountEvent.startsAt).getTime() - (new Date().getTimezoneOffset() * 60000)).toISOString().slice(0, 16) : ''} onChange={e => {
-                                            setLocalSettings(prev => ({
-                                                ...prev,
-                                                specialDiscountEvent: { ...prev.specialDiscountEvent!, startsAt: e.target.value ? new Date(e.target.value).toISOString() : undefined }
-                                            }));
-                                        }} className="w-full p-2 border rounded-lg mt-1 text-sm bg-white" />
-                                    </div>
-                                    <div>
-                                        <label className="text-[10px] font-bold text-slate-600 uppercase">Ends At (Optional)</label>
-                                        <input type="datetime-local" value={localSettings.specialDiscountEvent?.endsAt ? new Date(new Date(localSettings.specialDiscountEvent.endsAt).getTime() - (new Date().getTimezoneOffset() * 60000)).toISOString().slice(0, 16) : ''} onChange={e => {
-                                            setLocalSettings(prev => ({
-                                                ...prev,
-                                                specialDiscountEvent: { ...prev.specialDiscountEvent!, endsAt: e.target.value ? new Date(e.target.value).toISOString() : undefined }
-                                            }));
-                                        }} className="w-full p-2 border rounded-lg mt-1 text-sm bg-white" />
-                                    </div>
-                                    <div>
-                                        <label className="text-[10px] font-bold text-slate-600 uppercase">Discount Percent (%)</label>
-                                        <input type="number" value={localSettings.specialDiscountEvent?.discountPercent || 0} onChange={e => {
-                                            setLocalSettings(prev => ({
-                                                ...prev,
-                                                specialDiscountEvent: { ...prev.specialDiscountEvent!, discountPercent: Number(e.target.value) }
-                                            }));
-                                        }} className="w-full p-2 border rounded-lg mt-1 text-sm bg-white" />
-                                    </div>
-                                </div>
-                            )}
-                        </div>
+                  {/* Bonus & Settings */}
+                  <div>
 
                         <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200 mt-4">
                             <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2"><Zap size={18} className="text-blue-500" /> Daily Login Bonus Settings</h3>

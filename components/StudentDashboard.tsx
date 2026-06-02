@@ -2904,6 +2904,7 @@ export const StudentDashboard: React.FC<Props> = ({
   }, [globalNoteStars, applyStarBoost]);
   const [readingStreak, setReadingStreak] = useState<StreakInfo>({ current: 0, longest: 0, readToday: false });
   const [showStreakPopup, setShowStreakPopup] = useState(false);
+  const [showEventDrawer, setShowEventDrawer] = useState(false);
   const [streakHistoryView, setStreakHistoryView] = useState(false);
   const [showLifetimePopup, setShowLifetimePopup] = useState(false);
   const [lifetimeQuoteIdx, setLifetimeQuoteIdx] = useState(0);
@@ -7967,13 +7968,6 @@ export const StudentDashboard: React.FC<Props> = ({
         </div>
       );
     }
-    if ((activeTab as string) === "APP_FEEDBACK") {
-      return (
-        <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-          <AppFeedback user={user} onBack={() => onTabChange('PROFILE' as any)} />
-        </div>
-      );
-    }
     if (activeTab === "PROFILE") {
       // Profile page always uses the official tier theme — never changed by user's custom theme
       // eslint-disable-next-line no-shadow
@@ -8603,21 +8597,6 @@ export const StudentDashboard: React.FC<Props> = ({
               </button>
             )}
 
-            {/* ── App Feedback Button ── */}
-            <button
-              onClick={() => onTabChange('APP_FEEDBACK' as any)}
-              className={`w-full px-4 py-4 flex items-center gap-3.5 ${_pHovCls} transition-colors`}
-              style={{ borderBottom: _pSep }}>
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.30)' }}>
-                <span className="text-base leading-none">💬</span>
-              </div>
-              <div className="flex-1 text-left">
-                <p className={`text-sm font-bold ${_pTxt}`}>App Feedback</p>
-                <p className={`text-[10px] mt-0.5 ${_pTxtSub}`}>Apna anubhav share karo</p>
-              </div>
-              <ChevronRight size={15} style={{ color: _pTxtMutedColor }} className="shrink-0" />
-            </button>
-
             {/* ── Settings Button ── */}
             <button
               onClick={() => setShowProfileSettings(v => !v)}
@@ -9166,6 +9145,81 @@ export const StudentDashboard: React.FC<Props> = ({
               <span className="text-[13px] leading-none">🔥</span>
               <span>{user.streak}d</span>
             </button>
+
+            {/* Event badge */}
+            {(() => {
+              const now = Date.now();
+              const isActive = (en: boolean, s?: string, e?: string) => {
+                if (!en) return false;
+                const st = s ? new Date(s).getTime() : 0;
+                const en2 = e ? new Date(e).getTime() : Infinity;
+                return now >= st && now < en2;
+              };
+              const activeEvents: string[] = [];
+              if (isActive(settings?.scoreBoostEvent?.enabled ?? false, settings?.scoreBoostEvent?.startsAt, settings?.scoreBoostEvent?.endsAt)) activeEvents.push('🚀 Score Boost');
+              if (isActive(settings?.specialDiscountEvent?.enabled ?? false, settings?.specialDiscountEvent?.startsAt, settings?.specialDiscountEvent?.endsAt)) activeEvents.push(`🏷️ ${settings?.specialDiscountEvent?.eventName || 'Discount Sale'}`);
+              const gfEnabled = settings?.globalFreeAccessEvent?.enabled ?? (settings?.isGlobalFreeMode ?? false);
+              if (isActive(gfEnabled, settings?.globalFreeAccessEvent?.startsAt, settings?.globalFreeAccessEvent?.endsAt)) activeEvents.push('🌍 Free Access');
+              const cfEnabled = settings?.creditFreeEvent?.enabled ?? (settings?.isCreditFreeEvent ?? false);
+              if (isActive(cfEnabled, (settings?.creditFreeEvent as any)?.startsAt, (settings?.creditFreeEvent as any)?.endsAt)) activeEvents.push('🪙 Credit Free');
+              if (isActive((settings as any)?.dailyLimitBoostEvent?.enabled ?? false, (settings as any)?.dailyLimitBoostEvent?.startsAt, (settings as any)?.dailyLimitBoostEvent?.endsAt)) activeEvents.push('📈 Limit Boost');
+              if (isActive((settings as any)?.themeStudioEvent?.enabled ?? false, (settings as any)?.themeStudioEvent?.startsAt, (settings as any)?.themeStudioEvent?.endsAt)) activeEvents.push('🎨 Theme Studio');
+
+              if (activeEvents.length === 0) return null;
+              return (
+                <>
+                  <button
+                    onClick={() => setShowEventDrawer(true)}
+                    className="relative inline-flex items-center gap-0.5 px-2 py-1 rounded-full text-[10px] font-black shrink-0 active:scale-90 transition-all"
+                    style={{ background: 'rgba(245,158,11,0.25)', color: '#fcd34d', border: '1px solid rgba(245,158,11,0.5)' }}
+                    title={`${activeEvents.length} event(s) active`}
+                  >
+                    <span className="text-[11px] leading-none">⚡</span>
+                    <span>{activeEvents.length}</span>
+                    <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+                    <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-amber-400" />
+                  </button>
+
+                  {showEventDrawer && (
+                    <>
+                      <div className="fixed inset-0 z-[99997] bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+                        onClick={() => setShowEventDrawer(false)} />
+                      <div className="fixed bottom-0 left-0 right-0 z-[99998] rounded-t-3xl overflow-hidden animate-in slide-in-from-bottom duration-300"
+                        style={{ background: '#0d0d14', border: '1px solid rgba(245,158,11,0.3)', maxHeight: '80dvh' }}>
+                        <div className="p-4 border-b flex items-center justify-between"
+                          style={{ borderColor: 'rgba(245,158,11,0.2)', background: 'rgba(245,158,11,0.08)' }}>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xl">⚡</span>
+                            <div>
+                              <p className="font-black text-white text-sm">Live Events</p>
+                              <p className="text-[10px] text-amber-400">{activeEvents.length} event{activeEvents.length > 1 ? 's' : ''} abhi active hai!</p>
+                            </div>
+                          </div>
+                          <button onClick={() => setShowEventDrawer(false)}
+                            className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white">
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+                          </button>
+                        </div>
+                        <div className="p-4 space-y-3 overflow-y-auto" style={{ maxHeight: 'calc(80dvh - 80px)' }}>
+                          {activeEvents.map((ev, i) => (
+                            <div key={i} className="rounded-2xl p-4 flex items-center gap-3"
+                              style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)' }}>
+                              <span className="text-2xl shrink-0">{ev.split(' ')[0]}</span>
+                              <div>
+                                <p className="font-black text-white text-sm">{ev.slice(ev.indexOf(' ') + 1)}</p>
+                                <p className="text-[10px] text-amber-400 mt-0.5">Abhi active — enjoy karo! 🎉</p>
+                              </div>
+                              <span className="ml-auto text-[9px] font-black px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400">LIVE</span>
+                            </div>
+                          ))}
+                          <p className="text-[10px] text-slate-600 text-center pt-2">Yeh events admin ke dwara set kiye gaye hain.</p>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </>
+              );
+            })()}
 
             {/* Mail */}
             {(() => {
@@ -16183,12 +16237,10 @@ RULES:
                             )}
                             <div className="space-y-1.5 mb-3">
                               {(cq.options || []).map((opt: string, oi: number) => {
-                                const isOpt = oi === cq.correctAnswer;
                                 const isSel = selected === oi;
                                 let cls = 'px-3 py-2.5 rounded-xl text-xs font-bold border-2 transition-all flex items-center gap-2 w-full text-left ';
                                 if (isAnswered) {
-                                  if (isOpt) cls += 'bg-emerald-50 border-emerald-400 text-emerald-800';
-                                  else if (isSel) cls += 'bg-rose-50 border-rose-400 text-rose-800';
+                                  if (isSel) cls += 'bg-indigo-50 border-indigo-400 text-indigo-800';
                                   else cls += 'bg-slate-50 border-slate-200 text-slate-400 opacity-60';
                                 } else {
                                   cls += 'bg-white border-slate-200 text-slate-700 hover:border-indigo-300 hover:bg-indigo-50 active:scale-95 cursor-pointer';
@@ -16201,12 +16253,10 @@ RULES:
                                     onClick={() => handleOptionClick(oi)}
                                     className={cls}
                                   >
-                                    <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center text-[10px] font-black shrink-0 ${isAnswered && isOpt ? 'bg-emerald-500 border-emerald-500 text-white' : isAnswered && isSel ? 'bg-rose-500 border-rose-500 text-white' : 'border-slate-300 text-slate-500'}`}>
+                                    <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center text-[10px] font-black shrink-0 ${isAnswered && isSel ? 'bg-indigo-500 border-indigo-500 text-white' : 'border-slate-300 text-slate-500'}`}>
                                       {String.fromCharCode(65 + oi)}
                                     </span>
                                     <span className="flex-1">{opt}</span>
-                                    {isAnswered && isOpt && <span className="text-emerald-600 text-sm">✅</span>}
-                                    {isAnswered && isSel && !isOpt && <span className="text-rose-600 text-sm">❌</span>}
                                   </button>
                                 );
                               })}

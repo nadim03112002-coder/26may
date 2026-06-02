@@ -4,8 +4,9 @@ import {
   Sparkles, Check, MessageSquare, Lock, Ticket, ShieldCheck, Star,
   ChevronRight, Flame, BadgeCheck, History, TrendingDown,
   Calendar, Clock, Crown, DollarSign, ArrowLeft, Zap, Gift, Coins,
-  Package
+  Package, Wallet
 } from 'lucide-react';
+import { saveUserToLive } from '../firebase';
 import { getLevelInfo, getNextLevelInfo, getLevelProgress, getScoreDiscountFromScore } from '../utils/levelSystem';
 
 interface Props {
@@ -129,7 +130,17 @@ const SubHistory: React.FC<{ user: User; onBack: () => void; themeColor?: string
 };
 
 /* ─── Main Store ─── */
-export const Store: React.FC<Props> = ({ user, settings, renderEarnContent, onBack, themeColor }) => {
+function getCreditPrice(planDuration: string, isUltra: boolean): number {
+  const d = (planDuration || '').toLowerCase();
+  let base = 3500;
+  if (d.includes('year') || d.includes('365') || d.includes('annual') || d.includes('1 yr')) base = 35000;
+  else if (d.includes('3 month') || d.includes('90') || d.includes('quarter') || d.includes('tri')) base = 10000;
+  else if (d.includes('month') || d.includes('30')) base = 3500;
+  else if (d.includes('week') || d.includes('7')) base = 1000;
+  return isUltra ? base : Math.round(base * 0.75);
+}
+
+export const Store: React.FC<Props> = ({ user, settings, onUserUpdate, renderEarnContent, onBack, themeColor }) => {
   const rgb = hexToRgb(themeColor || '#6366f1');
   const [tierType, setTierType] = useState<'BASIC' | 'ULTRA' | 'EARN' | 'CREDITS'>('BASIC');
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
@@ -219,6 +230,63 @@ export const Store: React.FC<Props> = ({ user, settings, renderEarnContent, onBa
     const id = setInterval(calc, 1000);
     return () => clearInterval(id);
   }, [event]);
+
+  const [creditPurchaseMsg, setCreditPurchaseMsg] = useState<string | null>(null);
+
+  const handleCreditPurchase = async (plan: any) => {
+    const isUltra = tierType === 'ULTRA';
+    const creditCost = getCreditPrice(plan.duration || plan.name || '', isUltra);
+    const userCredits = (user.credits || 0) + (user.bonusCredits || 0);
+    if (userCredits < creditCost) {
+      setCreditPurchaseMsg(`Credits kam hain! Chahiye: ${creditCost.toLocaleString('en-IN')} CR, Aapke paas: ${userCredits.toLocaleString('en-IN')} CR`);
+      setTimeout(() => setCreditPurchaseMsg(null), 4000);
+      return;
+    }
+
+    const now = new Date();
+    const dur = (plan.duration || plan.name || '').toLowerCase();
+    let days = 30;
+    if (dur.includes('year') || dur.includes('365') || dur.includes('annual')) days = 365;
+    else if (dur.includes('3 month') || dur.includes('90') || dur.includes('quarter')) days = 90;
+    else if (dur.includes('month') || dur.includes('30')) days = 30;
+    else if (dur.includes('week') || dur.includes('7')) days = 7;
+
+    const endDate = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+    const subTier = days <= 7 ? 'WEEKLY' : days <= 30 ? 'MONTHLY' : days <= 90 ? '3_MONTHLY' : 'YEARLY';
+    const subLevel = isUltra ? 'ULTRA' : 'BASIC';
+    const newSub = { id: `sub_${Date.now()}`, tier: subTier, level: subLevel, startDate: now.toISOString(), endDate: endDate.toISOString(), source: 'CREDITS' };
+
+    const histEntry = {
+      id: `hist-${Date.now()}`,
+      tier: subTier, level: subLevel,
+      startDate: now.toISOString(), endDate: endDate.toISOString(),
+      durationHours: days * 24,
+      price: 0, originalPrice: creditCost, isFree: false,
+      grantSource: 'CREDITS'
+    };
+
+    let updatedUser = {
+      ...user,
+      credits: Math.max(0, (user.credits || 0) - creditCost),
+      activeSubscriptions: [...(user.activeSubscriptions || []), newSub as any],
+      subscriptionTier: subTier,
+      subscriptionLevel: subLevel,
+      subscriptionEndDate: endDate.toISOString(),
+      isPremium: true,
+      grantedByAdmin: false,
+      subscriptionHistory: [histEntry, ...(user.subscriptionHistory || [])],
+    };
+
+    try {
+      await saveUserToLive(updatedUser);
+      onUserUpdate(updatedUser);
+      setCreditPurchaseMsg(`✅ ${isUltra ? 'MAX' : 'PRO'} Plan activate ho gaya! ${days} din ke liye. (${creditCost.toLocaleString('en-IN')} CR deducted)`);
+      setTimeout(() => setCreditPurchaseMsg(null), 5000);
+    } catch {
+      setCreditPurchaseMsg('❌ Kuch galat hua. Dobara try karo.');
+      setTimeout(() => setCreditPurchaseMsg(null), 4000);
+    }
+  };
 
   const handleSupportClick = (numEntry: any) => {
     if (!purchaseItem) return;
@@ -684,6 +752,14 @@ export const Store: React.FC<Props> = ({ user, settings, renderEarnContent, onBa
                   })}
                 </div>
 
+                {/* Credit purchase feedback message */}
+                {creditPurchaseMsg && (
+                  <div className="mb-3 p-3 rounded-2xl text-sm font-bold text-center"
+                    style={{ background: creditPurchaseMsg.startsWith('✅') ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)', color: creditPurchaseMsg.startsWith('✅') ? '#6ee7b7' : '#fca5a5', border: `1px solid ${creditPurchaseMsg.startsWith('✅') ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}` }}>
+                    {creditPurchaseMsg}
+                  </div>
+                )}
+
                 {/* CTA button */}
                 <button
                   onClick={() => {
@@ -693,7 +769,7 @@ export const Store: React.FC<Props> = ({ user, settings, renderEarnContent, onBa
                     if (settings?.creditFreeEvent?.enabled) finalPrice = 0;
                     initiatePurchase({ ...selectedPlan, finalPrice });
                   }}
-                  className="w-full py-4 rounded-2xl font-black text-sm tracking-wide text-white relative overflow-hidden group mb-4 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                  className="w-full py-4 rounded-2xl font-black text-sm tracking-wide text-white relative overflow-hidden group mb-3 transition-all hover:scale-[1.02] active:scale-[0.98]"
                   style={{ background: ac.grad, boxShadow: `0 8px 24px ${ac.glow}` }}>
                   <span className="absolute inset-0 bg-white/15 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 skew-x-12 pointer-events-none" />
                   <span className="relative flex items-center justify-center gap-2">
@@ -701,6 +777,30 @@ export const Store: React.FC<Props> = ({ user, settings, renderEarnContent, onBa
                     Get {isPro ? 'PRO' : 'MAX'} — Abhi Unlock Karo
                   </span>
                 </button>
+
+                {/* Buy with Credits */}
+                {selectedPlan && (() => {
+                  const creditCost = getCreditPrice(selectedPlan.duration || selectedPlan.name || '', !isPro);
+                  const userCredits = (user.credits || 0) + (user.bonusCredits || 0);
+                  const hasEnough = userCredits >= creditCost;
+                  return (
+                    <button
+                      onClick={() => handleCreditPurchase(selectedPlan)}
+                      className="w-full py-3.5 rounded-2xl font-black text-sm mb-4 transition-all hover:scale-[1.01] active:scale-[0.98] flex items-center justify-center gap-2 relative overflow-hidden"
+                      style={{
+                        background: hasEnough ? 'rgba(245,158,11,0.12)' : 'rgba(255,255,255,0.04)',
+                        border: `1.5px solid ${hasEnough ? 'rgba(245,158,11,0.5)' : 'rgba(255,255,255,0.1)'}`,
+                        color: hasEnough ? '#fcd34d' : '#4b5563',
+                      }}>
+                      <Wallet size={14} />
+                      <span>Credits se kharido — {creditCost.toLocaleString('en-IN')} CR</span>
+                      <span className="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+                        style={{ background: hasEnough ? 'rgba(245,158,11,0.2)' : 'rgba(255,255,255,0.06)', color: hasEnough ? '#f59e0b' : '#6b7280' }}>
+                        Balance: {userCredits.toLocaleString('en-IN')}
+                      </span>
+                    </button>
+                  );
+                })()}
 
                 {/* Trust badges */}
                 <div className="flex justify-center gap-5 mb-4">

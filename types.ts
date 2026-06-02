@@ -921,6 +921,31 @@ export interface SystemSettings {
   };
   creditFreeEvent?: {
     enabled: boolean;
+    eventName?: string;
+    startsAt?: string;
+    endsAt?: string;
+  };
+  globalFreeAccessEvent?: {
+    enabled: boolean;
+    eventName?: string;
+    startsAt?: string;
+    endsAt?: string;
+  };
+  dailyLimitBoostEvent?: {
+    enabled: boolean;
+    eventName?: string;
+    startsAt?: string;
+    endsAt?: string;
+    mcqBoostFree?: number;
+    mcqBoostBasic?: number;
+    mcqBoostUltra?: number;
+  };
+  themeStudioEvent?: {
+    enabled: boolean;
+    eventName?: string;
+    startsAt?: string;
+    endsAt?: string;
+    days?: number;
   };
   dailyChallengeConfig?: {
     mode: 'AUTO' | 'MANUAL';
