@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { FeatureHints, FeatureTipsList } from "./FeatureHints";
 import { TopBarEffectsLayer } from "../utils/topBarEffects";
-import { getLevelInfo, getNextLevelInfo, getLevelProgress, LEVEL_INFO, ACTIVITY_SCORES, getLevelTopBarEffects, getLevelLimitBonus, getLevelDailyLimits, getLevelDailyLimitsWithOverride, getEffectiveDailyLimit, UNLIMITED, getScoreDiscountFromScore } from "../utils/levelSystem";
+import { getLevelInfo, getNextLevelInfo, getLevelProgress, LEVEL_INFO, ACTIVITY_SCORES, getLevelTopBarEffects, getLevelLimitBonus, getLevelDailyLimits, getLevelDailyLimitsWithOverride, getEffectiveDailyLimit, UNLIMITED } from "../utils/levelSystem";
 import { tryEarnScore, awardMilestone, getDailyScoreEarned, DAILY_SCORE_LIMIT, getDailyScoreLimit, getActiveBoost, logScoreActivity } from "../utils/scoreSystem";
 import { ScoreHistoryDashboard } from "./ScoreHistoryDashboard";
 import { applyDeduction, getTotalCredits } from "../utils/creditSystem";
@@ -555,7 +555,7 @@ export const StudentDashboard: React.FC<Props> = ({
     if (_adminGlobal.expiresAt && new Date(_adminGlobal.expiresAt) <= new Date()) return false;
     const _isAdminRole = user.role === 'ADMIN' || user.role === 'SUB_ADMIN';
     if (!_isAdminRole && _adminGlobal.targetTier !== 'all' && getUserTier(user) !== _adminGlobal.targetTier) return false;
-    const _lvl = getLevelInfo(user.totalScore || 0).level;
+    const _lvl = _isAdminRole ? 15 : getLevelInfo(user.totalScore || 0).level;
     if (_adminGlobal.minLevel && _lvl < _adminGlobal.minLevel) return false;
     if (_adminGlobal.maxLevel && _lvl > _adminGlobal.maxLevel) return false;
     return true;
@@ -1801,6 +1801,34 @@ export const StudentDashboard: React.FC<Props> = ({
   const [isDocFullscreen, setIsDocFullscreen] = useState(false);
   const rotateFullscreenRef = useRef(false);
   const themeOpenerRef = useRef<'PROFILE' | 'HOME'>('HOME');
+
+  // Real-time Theme Studio access guard — redirect if event expires while user is inside
+  useEffect(() => {
+    const _isAdminUser = user.role === 'ADMIN' || user.role === 'SUB_ADMIN' || isImpersonating;
+    if (_isAdminUser || (activeTab as string) !== 'THEME_CUSTOMIZER') return;
+
+    const checkAndRedirect = () => {
+      const _now = Date.now();
+      const _tse = (settings as any)?.themeStudioEvent;
+      const _tseActive = _tse?.enabled &&
+        (_tse.startsAt ? new Date(_tse.startsAt).getTime() <= _now : true) &&
+        (_tse.endsAt ? new Date(_tse.endsAt).getTime() > _now : true);
+      const _sbe = (settings as any)?.scoreBoostEvent;
+      const _sbeTheme = _sbe?.enabled && _sbe?.themeStudioEnabled &&
+        (_sbe.startsAt ? new Date(_sbe.startsAt).getTime() <= _now : true) &&
+        (_sbe.endsAt ? new Date(_sbe.endsAt).getTime() > _now : true);
+      if (!_tseActive && !_sbeTheme) {
+        onTabChange('HOME' as any);
+      }
+    };
+
+    // Check immediately, then every 30 seconds
+    checkAndRedirect();
+    const _timer = setInterval(checkAndRedirect, 30000);
+    return () => clearInterval(_timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, user.role, isImpersonating, settings]);
+
   const topBarScrollRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const handler = () => {
@@ -1879,7 +1907,7 @@ export const StudentDashboard: React.FC<Props> = ({
     const storedNotified = Number(localStorage.getItem(`nst_last_notified_level_${user.id}`) || '0');
     if (lvl.level > storedNotified) {
       localStorage.setItem(`nst_last_notified_level_${user.id}`, String(lvl.level));
-      if (storedNotified > 0) {
+      if (storedNotified > 0 && user.role !== 'ADMIN' && user.role !== 'SUB_ADMIN') {
         // Only celebrate if the user was already at some level before (not first login)
         setLevelUpCelebration({ level: lvl.level, emoji: lvl.emoji, label: lvl.label });
         setTimeout(() => setLevelUpCelebration(null), 4000);
@@ -1891,6 +1919,7 @@ export const StudentDashboard: React.FC<Props> = ({
 
   const [showLevelModal, setShowLevelModal] = useState(false);
   const [showScoreHistory, setShowScoreHistory] = useState(false);
+  const [showScoreHistoryDirect, setShowScoreHistoryDirect] = useState(false);
   const [expandedLevelRow, setExpandedLevelRow] = useState<number | null>(null);
   const [selectedLevelDetail, setSelectedLevelDetail] = useState<typeof LEVEL_INFO[0] | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -2989,6 +3018,8 @@ export const StudentDashboard: React.FC<Props> = ({
     // correct key as soon as it mounts.
     if (entry.classLevel) {
       setActiveSessionClass(entry.classLevel as any);
+      // Keep syllabusMode in sync — competition chapters must not show school UI and vice versa
+      setSyllabusMode(entry.classLevel === 'COMPETITION' ? 'COMPETITION' : 'SCHOOL');
     }
     if (entry.board === 'CBSE' || entry.board === 'BSEB') {
       setActiveSessionBoard(entry.board);
@@ -4173,10 +4204,22 @@ export const StudentDashboard: React.FC<Props> = ({
         triggerRewardEffect(0, 'Subscription Unlocked! 🎉');
       }
     } else if (reward) {
-      const duration = reward.durationHours || 4;
-      applySubscription(reward.tier, reward.level, duration);
-      updatedUser.totalScore = (user.totalScore || 0) + 5;
-      triggerRewardEffect(0, 'Reward Claimed! 🎉');
+      if (reward.type === 'COINS') {
+        const coinAmt = Number(reward.amount || 0);
+        updatedUser.credits = (user.credits || 0) + coinAmt;
+        updatedUser.totalScore = (user.totalScore || 0) + 5;
+        successMsg = `🎯 MCQ Prize! +${coinAmt} Coins earn kiye!`;
+        triggerRewardEffect(coinAmt, `+${coinAmt} Coins 🎯`);
+        try { recordCreditTx(user.id, coinAmt, 'EARN_GIFT', `MCQ Prize: +${coinAmt} CR`, updatedUser.credits); } catch {}
+      } else {
+        // SUBSCRIPTION reward — MCQ prize uses subTier/subLevel/durationHours
+        const duration = reward.durationHours || reward.duration || 4;
+        const tier = reward.subTier || reward.tier;
+        const level = reward.subLevel || reward.level;
+        applySubscription(tier, level, duration);
+        updatedUser.totalScore = (user.totalScore || 0) + 5;
+        triggerRewardEffect(0, 'MCQ Prize! Subscription Unlocked! 🎉');
+      }
     }
     handleUserUpdate(updatedUser);
     showAlert(successMsg, "SUCCESS", "Rewards Claimed");
@@ -4675,6 +4718,15 @@ export const StudentDashboard: React.FC<Props> = ({
     const newCredits = getTotalCredits(updatedUser);
     if (newCredits < prevCredits) {
       const deducted = prevCredits - newCredits;
+      // Auto-add score for credit spend if caller didn't already update it
+      // (handleSpendCoins pre-adds score before calling here; direct applyDeduction callers don't)
+      const prevScore = user.totalScore || 0;
+      const newScore = updatedUser.totalScore || 0;
+      if (newScore <= prevScore && deducted > 0 && updatedUser.role !== 'ADMIN' && updatedUser.role !== 'SUB_ADMIN') {
+        const scoreGain = Math.max(1, Math.floor(deducted * ACTIVITY_SCORES.CREDIT_SPEND));
+        updatedUser = { ...updatedUser, totalScore: prevScore + scoreGain };
+        logScoreActivity(updatedUser.id, 'CREDIT_SPEND', scoreGain);
+      }
       if (creditToastTimerRef.current) clearTimeout(creditToastTimerRef.current);
       setCreditDeductToast({ visible: true, previous: prevCredits, deducted, current: newCredits, type: 'DEDUCT' });
       creditToastTimerRef.current = setTimeout(() => {
@@ -4895,6 +4947,8 @@ export const StudentDashboard: React.FC<Props> = ({
   const renderContentSection = (
     type: "VIDEO" | "PDF" | "MCQ" | "AUDIO" | "GENERIC",
   ) => {
+    // Active board for this render — used to filter board-specific admin content
+    const _curBoard = (activeSessionBoard || user.board || 'CBSE') as 'CBSE' | 'BSEB';
     const goBack = () => {
       if (document.fullscreenElement) {
           document.exitFullscreen().catch(err => console.log(err));
@@ -4939,7 +4993,7 @@ export const StudentDashboard: React.FC<Props> = ({
       const { classLevel: cv, subject: sv } = class612SubjectView;
       const _allLucent = (settings?.lucentNotes || []) as LucentNoteEntry[];
       const classLessons = _allLucent
-        .filter(n => String(n.classLevel) === String(cv) && String(n.subject) === String(sv.id))
+        .filter(n => String(n.classLevel) === String(cv) && String(n.subject) === String(sv.id) && (!n.board || n.board === _curBoard))
         .sort((a, b) => (a.lessonTitle || '').localeCompare(b.lessonTitle || ''));
 
       return (
@@ -5081,7 +5135,7 @@ export const StudentDashboard: React.FC<Props> = ({
         return Number.isFinite(n) ? n : Number.POSITIVE_INFINITY;
       };
       const filteredHw = (settings?.homework || [])
-        .filter(hw => hw.targetSubject === homeworkSubjectView)
+        .filter(hw => hw.targetSubject === homeworkSubjectView && (!hw.board || hw.board === _curBoard))
         .sort((a, b) => {
           if (isPageWiseSubject) {
             const pa = _toPage(a), pb = _toPage(b);
@@ -5167,7 +5221,7 @@ export const StudentDashboard: React.FC<Props> = ({
         return m === Infinity ? 99999 : m;
       };
       const subjectLucentLessons = ((settings?.lucentNotes || []) as LucentNoteEntry[])
-        .filter(n => n.subject === homeworkSubjectView)
+        .filter(n => n.subject === homeworkSubjectView && (!n.board || n.board === _curBoard))
         .sort((a, b) => _subjLucentMinPg(a) - _subjLucentMinPg(b));
       const showLucentSection = subjectLucentLessons.length > 0
         && hwYear === null && hwMonth === null && hwWeek === null && !hwActiveHwId;
@@ -6559,8 +6613,9 @@ export const StudentDashboard: React.FC<Props> = ({
         (n.pages || []).forEach(p => { const x = parseInt(p.pageNo || '', 10); if (!isNaN(x) && x < m) m = x; });
         return m === Infinity ? 99999 : m;
       };
-      // All COMPETITION-level admin notes
-      const competitionNotes = (settings?.lucentNotes || []) as LucentNoteEntry[];
+      // All COMPETITION-level admin notes — filtered by active board
+      const competitionNotes = ((settings?.lucentNotes || []) as LucentNoteEntry[])
+        .filter(n => !n.board || n.board === _curBoard);
       // Unique book names — entries with no bookName fall under 'Lucent'
       const uniqueBooks: string[] = Array.from(
         new Set(competitionNotes.map(n => (n.bookName?.trim()) || 'Lucent'))
@@ -6661,10 +6716,10 @@ export const StudentDashboard: React.FC<Props> = ({
                   });
                   return m === Infinity ? 99999 : m;
                 };
-                // Admin lessons for this subject under 'Lucent' book
+                // Admin lessons for this subject under 'Lucent' book — board-filtered
                 const allLucentNotes = (settings?.lucentNotes || []) as LucentNoteEntry[];
                 const subjectEntries = allLucentNotes
-                  .filter(n => n.subject === cat.id && (n.bookName?.trim() || 'Lucent') === 'Lucent')
+                  .filter(n => n.subject === cat.id && (n.bookName?.trim() || 'Lucent') === 'Lucent' && (!n.board || n.board === _curBoard))
                   .sort((a, b) => _minPg(a) - _minPg(b));
 
                 // If exactly 1 lesson → skip chapters, go straight to page list
@@ -7757,8 +7812,10 @@ export const StudentDashboard: React.FC<Props> = ({
                   return;
                 }
                 // Class 6-12 school subjects → show admin Lucent lessons for that class+subject
+                // Guard: only trigger when NOT in competition mode (syllabusMode check prevents
+                // cross-contamination when activeSessionClass is null/stale)
                 const currentClass = String(activeSessionClass || user.classLevel || '10');
-                if (['6','7','8','9','10','11','12'].includes(currentClass)) {
+                if (syllabusMode !== 'COMPETITION' && ['6','7','8','9','10','11','12'].includes(currentClass)) {
                   setClass612SubjectView({ classLevel: currentClass, subject });
                   return;
                 }
@@ -7971,6 +8028,24 @@ export const StudentDashboard: React.FC<Props> = ({
       return <AppStore settings={settings} />;
     }
     if ((activeTab as string) === "THEME_CUSTOMIZER") {
+      // Gate access for non-admin users — Theme Studio only available during active event
+      const _isAdminTC = user.role === 'ADMIN' || user.role === 'SUB_ADMIN' || isImpersonating;
+      if (!_isAdminTC) {
+        const _nowTC = Date.now();
+        const _tseTC = (settings as any)?.themeStudioEvent;
+        const _tseActiveTC = _tseTC?.enabled &&
+          (_tseTC.startsAt ? new Date(_tseTC.startsAt).getTime() <= _nowTC : true) &&
+          (_tseTC.endsAt ? new Date(_tseTC.endsAt).getTime() > _nowTC : true);
+        const _sbeTC = (settings as any)?.scoreBoostEvent;
+        const _sbeThemeTC = _sbeTC?.enabled && _sbeTC?.themeStudioEnabled &&
+          (_sbeTC.startsAt ? new Date(_sbeTC.startsAt).getTime() <= _nowTC : true) &&
+          (_sbeTC.endsAt ? new Date(_sbeTC.endsAt).getTime() > _nowTC : true);
+        if (!_tseActiveTC && !_sbeThemeTC) {
+          // Event over — silently redirect away
+          setTimeout(() => onTabChange('HOME' as any), 0);
+          return null;
+        }
+      }
       return (
         <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
           <ThemeCustomizer
@@ -8649,6 +8724,21 @@ export const StudentDashboard: React.FC<Props> = ({
               </button>
             )}
 
+            {/* ── Score History Button ── */}
+            <button
+              onClick={() => setShowScoreHistoryDirect(true)}
+              className={`w-full px-4 py-4 flex items-center gap-3.5 ${_pHovCls} transition-colors`}
+              style={{ borderBottom: _pSep }}>
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: _pIconBg, border: _pIconBdr }}>
+                <TrendingUp size={18} style={{ color: tierTheme.primary }} />
+              </div>
+              <div className="flex-1 text-left">
+                <p className={`text-sm font-bold ${_pTxt}`}>Score History</p>
+                <p className={`text-[10px] mt-0.5 ${_pTxtSub}`}>Apna activity score ka pura record</p>
+              </div>
+              <ChevronRight size={14} style={{ color: _pTxtMutedColor }} className="shrink-0" />
+            </button>
+
             {/* ── Settings Button ── */}
             <button
               onClick={() => setShowProfileSettings(v => !v)}
@@ -8985,6 +9075,7 @@ export const StudentDashboard: React.FC<Props> = ({
           <div className="grid grid-cols-2 gap-3">
             <button
               onClick={() => {
+                setSyllabusMode('SCHOOL');
                 setActiveSessionClass(showBoardPromptForClass);
                 setActiveSessionBoard("CBSE");
                 setShowBoardPromptForClass(null);
@@ -9001,6 +9092,7 @@ export const StudentDashboard: React.FC<Props> = ({
             </button>
             <button
               onClick={() => {
+                setSyllabusMode('SCHOOL');
                 setActiveSessionClass(showBoardPromptForClass);
                 setActiveSessionBoard("BSEB");
                 setShowBoardPromptForClass(null);
@@ -9557,10 +9649,10 @@ export const StudentDashboard: React.FC<Props> = ({
                             )}
                             {/* ── Tera Store Discount ── */}
                             {(() => {
-                              const lvlDiscount = getLevelInfo(user.totalScore || 0).discount;
+                              const lvlDiscount = (LEVEL_INFO[_userLevel - 1] ?? getLevelInfo(user.totalScore || 0)).discount;
                               const personalDiscount = user.storeDiscount && user.storeDiscount > 0 ? user.storeDiscount : 0;
-                              const scoreDisc = getScoreDiscountFromScore(user.totalScore || 0);
-                              const total = lvlDiscount + personalDiscount + scoreDisc;
+                              const subBonus = (user.isPremium && user.subscriptionEndDate && new Date(user.subscriptionEndDate) > new Date()) ? 5 : 0;
+                              const total = Math.min(lvlDiscount + personalDiscount + subBonus, 100);
                               if (total <= 0) return null;
                               return (
                                 <div className="mt-3 pt-3 border-t border-white/6">
@@ -9572,7 +9664,7 @@ export const StudentDashboard: React.FC<Props> = ({
                                       <div className="flex gap-1.5 flex-wrap">
                                         {lvlDiscount > 0 && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400">+{lvlDiscount}% Level</span>}
                                         {personalDiscount > 0 && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400">+{personalDiscount}% Personal</span>}
-                                        {scoreDisc > 0 && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400">+{scoreDisc}% Score</span>}
+                                        {subBonus > 0 && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400">+{subBonus}% Subscriber</span>}
                                       </div>
                                       <p className="text-[9px] text-slate-500 mt-1">Store mein sabhi purchases pe</p>
                                     </div>
@@ -14214,6 +14306,11 @@ export const StudentDashboard: React.FC<Props> = ({
         type SideBtn = { label: string; icon: React.ElementType; color: string; action: () => void; locked: boolean; badge?: boolean };
 
         const essentialItems: SideBtn[] = [
+          {
+            label: 'Score History', icon: TrendingUp, color: 'cyan',
+            action: () => { setShowScoreHistoryDirect(true); setShowSidebar(false); },
+            locked: false,
+          },
           ...(!hwAccess.isHidden && !(settings?.hiddenBottomNavButtons || []).includes('HOMEWORK') ? [{
             label: 'Homework', icon: GraduationCap, color: 'emerald',
             action: () => { onTabChange("HOMEWORK"); setShowSidebar(false); },
@@ -20667,6 +20764,27 @@ RULES:
           </div>
         );
       })()}
+
+      {/* ═══════════ SCORE HISTORY DIRECT OVERLAY ═══════════ */}
+      {showScoreHistoryDirect && (
+        <div className="fixed inset-0 z-[9999] flex flex-col" style={{ background: 'var(--bg, #f8fafc)' }}>
+          <div className="flex items-center gap-3 px-4 pt-safe-top pt-4 pb-3 border-b border-slate-200 bg-white shrink-0">
+            <button
+              onClick={() => setShowScoreHistoryDirect(false)}
+              className="p-2 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
+            >
+              <ChevronLeft size={18} />
+            </button>
+            <div>
+              <h2 className="text-base font-black text-slate-800">Score History</h2>
+              <p className="text-[11px] text-slate-500">Apna activity score ka pura record</p>
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            <ScoreHistoryDashboard userId={user.id} />
+          </div>
+        </div>
+      )}
 
       {/* ═══════════ LOGIN HISTORY OVERLAY ═══════════ */}
       {showLoginHistory && (() => {

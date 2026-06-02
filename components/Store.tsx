@@ -18,36 +18,41 @@ interface Props {
   themeColor?: string;
 }
 
-/* ─── Fixed color palette — never changes with user theme ─── */
+/* ─── Fixed color palette ─── */
 const C = {
-  bg:           '#09090f',
-  surface:      '#111118',
-  surfaceHigh:  '#1a1a25',
+  bg:           '#07070e',
+  surface:      '#0f0f1a',
+  surfaceHigh:  '#181826',
+  surfaceMid:   '#13131f',
   border:       'rgba(255,255,255,0.07)',
-  borderMed:    'rgba(255,255,255,0.12)',
+  borderMed:    'rgba(255,255,255,0.13)',
   text:         '#f1f5f9',
   textMuted:    '#64748b',
-  textDim:      '#334155',
+  textDim:      '#2d3748',
 
-  pro:          '#22d3ee',   /* cyan-400 */
-  proBg:        'rgba(34,211,238,0.09)',
-  proBorder:    'rgba(34,211,238,0.35)',
-  proGlow:      'rgba(34,211,238,0.18)',
-  proGrad:      'linear-gradient(135deg,#0891b2,#22d3ee)',
+  pro:          '#22d3ee',
+  proBg:        'rgba(34,211,238,0.08)',
+  proBorder:    'rgba(34,211,238,0.30)',
+  proGlow:      'rgba(34,211,238,0.20)',
+  proGrad:      'linear-gradient(135deg,#0891b2 0%,#22d3ee 60%,#67e8f9 100%)',
 
-  max:          '#a78bfa',   /* violet-400 */
-  maxBg:        'rgba(167,139,250,0.09)',
-  maxBorder:    'rgba(167,139,250,0.35)',
-  maxGlow:      'rgba(167,139,250,0.18)',
-  maxGrad:      'linear-gradient(135deg,#7c3aed,#a78bfa)',
+  max:          '#c084fc',
+  maxBg:        'rgba(192,132,252,0.08)',
+  maxBorder:    'rgba(192,132,252,0.30)',
+  maxGlow:      'rgba(192,132,252,0.20)',
+  maxGrad:      'linear-gradient(135deg,#7c3aed 0%,#a855f7 50%,#e879f9 100%)',
 
   gold:         '#fbbf24',
-  goldBg:       'rgba(251,191,36,0.1)',
-  goldBorder:   'rgba(251,191,36,0.3)',
+  goldBg:       'rgba(251,191,36,0.10)',
+  goldBorder:   'rgba(251,191,36,0.28)',
+
+  earn:         '#34d399',
+  earnBg:       'rgba(52,211,153,0.08)',
+  earnBorder:   'rgba(52,211,153,0.28)',
 
   green:        '#34d399',
   greenBg:      'rgba(52,211,153,0.09)',
-  greenBorder:  'rgba(52,211,153,0.3)',
+  greenBorder:  'rgba(52,211,153,0.30)',
 };
 
 /* ─── Subscription History ─── */
@@ -60,10 +65,10 @@ const SubHistory: React.FC<{ user: User; onBack: () => void }> = ({ user, onBack
   return (
     <div className="min-h-screen pb-28 animate-in fade-in slide-in-from-right duration-300" style={{ background: C.bg }}>
       {/* Header */}
-      <div className="px-4 pt-5 pb-5" style={{ background: C.surface, borderBottom: `1px solid ${C.border}` }}>
+      <div className="px-4 pt-6 pb-5" style={{ background: C.surface, borderBottom: `1px solid ${C.border}` }}>
         <div className="flex items-center gap-3">
           <button onClick={onBack}
-            className="w-10 h-10 rounded-2xl flex items-center justify-center active:scale-90 transition-transform"
+            className="w-11 h-11 rounded-2xl flex items-center justify-center active:scale-90 transition-transform"
             style={{ background: C.surfaceHigh, border: `1px solid ${C.borderMed}` }}>
             <ArrowLeft size={18} color={C.text} />
           </button>
@@ -74,19 +79,19 @@ const SubHistory: React.FC<{ user: User; onBack: () => void }> = ({ user, onBack
         </div>
       </div>
 
-      <div className="px-4 pt-4 space-y-4">
+      <div className="px-4 pt-5 space-y-4">
         {history.length > 0 && (
           <div className="grid grid-cols-2 gap-3">
             <div className="rounded-2xl p-4" style={{ background: C.greenBg, border: `1px solid ${C.greenBorder}` }}>
-              <div className="w-8 h-8 rounded-xl flex items-center justify-center mb-3" style={{ background: 'rgba(52,211,153,0.2)' }}>
-                <TrendingDown size={15} color={C.green} />
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-3" style={{ background: 'rgba(52,211,153,0.2)' }}>
+                <TrendingDown size={16} color={C.green} />
               </div>
               <p className="text-[10px] font-black uppercase tracking-wide mb-1" style={{ color: C.textMuted }}>Total Paid</p>
               <p className="text-2xl font-black" style={{ color: C.text }}>₹{totalPaid}</p>
             </div>
             <div className="rounded-2xl p-4" style={{ background: C.proBg, border: `1px solid ${C.proBorder}` }}>
-              <div className="w-8 h-8 rounded-xl flex items-center justify-center mb-3" style={{ background: 'rgba(34,211,238,0.2)' }}>
-                <Gift size={15} color={C.pro} />
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-3" style={{ background: 'rgba(34,211,238,0.2)' }}>
+                <Gift size={16} color={C.pro} />
               </div>
               <p className="text-[10px] font-black uppercase tracking-wide mb-1" style={{ color: C.textMuted }}>Free Value</p>
               <p className="text-2xl font-black" style={{ color: C.pro }}>₹{totalFree}</p>
@@ -99,8 +104,8 @@ const SubHistory: React.FC<{ user: User; onBack: () => void }> = ({ user, onBack
             <History size={12} /> Recent Plans
           </p>
           {sorted.length === 0 ? (
-            <div className="rounded-2xl p-10 text-center" style={{ border: `1.5px dashed ${C.border}` }}>
-              <Crown size={36} className="mx-auto mb-3" style={{ color: C.textDim }} />
+            <div className="rounded-2xl p-12 text-center" style={{ border: `1.5px dashed ${C.border}` }}>
+              <Crown size={38} className="mx-auto mb-3" style={{ color: C.textDim }} />
               <p className="font-bold text-sm mb-1" style={{ color: C.textMuted }}>Abhi tak koi plan nahi</p>
               <p className="text-xs" style={{ color: C.textDim }}>Pehla plan lo — yahan record aayega</p>
             </div>
@@ -109,9 +114,9 @@ const SubHistory: React.FC<{ user: User; onBack: () => void }> = ({ user, onBack
               {sorted.map((item) => (
                 <div key={item.id} className="rounded-2xl p-4" style={{ background: C.surface, border: `1px solid ${C.border}` }}>
                   <div className="flex items-center gap-3 mb-3">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                    <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
                       style={{ background: item.isFree ? C.greenBg : C.maxBg }}>
-                      {item.isFree ? <Gift size={17} color={C.green} /> : <DollarSign size={17} color={C.max} />}
+                      {item.isFree ? <Gift size={18} color={C.green} /> : <DollarSign size={18} color={C.max} />}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-black text-sm" style={{ color: C.text }}>
@@ -328,14 +333,14 @@ export const Store: React.FC<Props> = ({ user, settings, onUserUpdate, renderEar
   const isGameEnabled = settings?.isGameEnabled !== false;
 
   const ac = isPro
-    ? { color: C.pro, bg: C.proBg, border: C.proBorder, glow: C.proGlow, grad: C.proGrad, pill: 'rgba(34,211,238,0.15)', label: 'PRO', emoji: '⭐' }
-    : { color: C.max, bg: C.maxBg, border: C.maxBorder, glow: C.maxGlow, grad: C.maxGrad, pill: 'rgba(167,139,250,0.15)', label: 'MAX', emoji: '⚡' };
+    ? { color: C.pro, bg: C.proBg, border: C.proBorder, glow: C.proGlow, grad: C.proGrad, pill: 'rgba(34,211,238,0.14)', label: 'PRO', emoji: '⭐' }
+    : { color: C.max, bg: C.maxBg, border: C.maxBorder, glow: C.maxGlow, grad: C.maxGrad, pill: 'rgba(192,132,252,0.14)', label: 'MAX', emoji: '⚡' };
 
   const allTabs = [
-    { id: 'BASIC'   as const, label: 'Pro',     emoji: '⭐', color: C.pro, bg: C.proBg, border: C.proBorder },
-    { id: 'ULTRA'   as const, label: 'Max',     emoji: '⚡', color: C.max, bg: C.maxBg, border: C.maxBorder },
-    ...(packages.length > 0 ? [{ id: 'CREDITS' as const, label: 'Credits', emoji: '🪙', color: C.gold, bg: C.goldBg, border: C.goldBorder }] : []),
-    ...(isGameEnabled ? [{ id: 'EARN' as const, label: 'Earn', emoji: '🎁', color: C.green, bg: C.greenBg, border: C.greenBorder }] : []),
+    { id: 'BASIC'   as const, label: 'Pro',     emoji: '⭐', color: C.pro,  bg: C.proBg,  border: C.proBorder,  glow: C.proGlow  },
+    { id: 'ULTRA'   as const, label: 'Max',     emoji: '⚡', color: C.max,  bg: C.maxBg,  border: C.maxBorder,  glow: C.maxGlow  },
+    ...(packages.length > 0 ? [{ id: 'CREDITS' as const, label: 'Credits', emoji: '🪙', color: C.gold, bg: C.goldBg, border: C.goldBorder, glow: 'rgba(251,191,36,0.18)' }] : []),
+    ...(isGameEnabled ? [{ id: 'EARN' as const, label: 'Earn', emoji: '🎁', color: C.earn, bg: C.earnBg, border: C.earnBorder, glow: 'rgba(52,211,153,0.18)' }] : []),
   ];
 
   const totalDiscount = (() => {
@@ -390,8 +395,8 @@ export const Store: React.FC<Props> = ({ user, settings, onUserUpdate, renderEar
               style={{ background: C.surface, border: `1px solid ${C.borderMed}` }}>
               <div className="px-5 pt-5 pb-4 flex items-center justify-between" style={{ borderBottom: `1px solid ${C.border}` }}>
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: ac.bg, border: `1px solid ${ac.border}` }}>
-                    <MessageSquare size={18} color={ac.color} />
+                  <div className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ background: ac.bg, border: `1px solid ${ac.border}` }}>
+                    <MessageSquare size={19} color={ac.color} />
                   </div>
                   <div>
                     <h3 className="font-black text-base" style={{ color: C.text }}>Payment Channel</h3>
@@ -399,7 +404,7 @@ export const Store: React.FC<Props> = ({ user, settings, onUserUpdate, renderEar
                   </div>
                 </div>
                 <button onClick={() => setShowSupportModal(false)}
-                  className="w-8 h-8 rounded-full flex items-center justify-center"
+                  className="w-9 h-9 rounded-full flex items-center justify-center"
                   style={{ background: C.surfaceHigh }}>
                   <X size={14} color={C.textMuted} />
                 </button>
@@ -411,10 +416,10 @@ export const Store: React.FC<Props> = ({ user, settings, onUserUpdate, renderEar
                   const isFast = traffic < 30;
                   return (
                     <button key={num.id} onClick={() => handleSupportClick(num)}
-                      className="w-full p-3.5 rounded-2xl flex items-center justify-between transition-all active:scale-[0.98]"
+                      className="w-full p-4 rounded-2xl flex items-center justify-between transition-all active:scale-[0.98]"
                       style={{ background: C.surfaceHigh, border: `1px solid ${C.border}` }}>
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm"
+                        <div className="w-11 h-11 rounded-xl flex items-center justify-center font-black text-sm"
                           style={{ background: isFast ? C.greenBg : 'rgba(251,146,60,0.12)', color: isFast ? C.green : '#fb923c' }}>
                           {num.name.charAt(0).toUpperCase()}
                         </div>
@@ -430,7 +435,7 @@ export const Store: React.FC<Props> = ({ user, settings, onUserUpdate, renderEar
               </div>
               <div className="px-4 pb-5">
                 <button onClick={() => setShowSupportModal(false)}
-                  className="w-full py-3 rounded-2xl text-sm font-bold transition-colors"
+                  className="w-full py-3.5 rounded-2xl text-sm font-bold transition-colors"
                   style={{ color: C.textMuted, background: C.surfaceHigh }}>
                   Cancel
                 </button>
@@ -457,7 +462,6 @@ export const Store: React.FC<Props> = ({ user, settings, onUserUpdate, renderEar
             <div className="fixed inset-0 z-[301] flex items-center justify-center p-5 pointer-events-none">
               <div className="pointer-events-auto w-full max-w-sm rounded-3xl overflow-hidden animate-in zoom-in-95 fade-in duration-300"
                 style={{ background: C.surface, border: `1px solid ${C.borderMed}` }}>
-                {/* Header */}
                 <div className="px-5 pt-5 pb-4 flex items-center justify-between" style={{ borderBottom: `1px solid ${C.border}` }}>
                   <div>
                     <p className="text-[10px] font-black uppercase tracking-widest mb-0.5" style={{ color: C.textMuted }}>Payment Method</p>
@@ -472,14 +476,12 @@ export const Store: React.FC<Props> = ({ user, settings, onUserUpdate, renderEar
                     <X size={14} color={C.textMuted} />
                   </button>
                 </div>
-                {/* Options */}
                 <div className="p-4 space-y-3">
-                  {/* ₹ Payment */}
                   <button
                     onClick={() => { setShowPaymentChooser(false); initiatePurchase({ ...selectedPlan, finalPrice }); }}
                     className="w-full p-4 rounded-2xl text-left transition-all active:scale-[0.98] flex items-center gap-3"
                     style={{ background: ac.bg, border: `1.5px solid ${ac.border}` }}>
-                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 text-lg font-black"
+                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 text-xl font-black"
                       style={{ background: ac.pill, color: ac.color }}>₹</div>
                     <div className="flex-1">
                       <p className="font-black text-sm" style={{ color: C.text }}>₹{finalPrice.toLocaleString('en-IN')} se Kharido</p>
@@ -487,7 +489,6 @@ export const Store: React.FC<Props> = ({ user, settings, onUserUpdate, renderEar
                     </div>
                     <ChevronRight size={16} color={C.textDim} />
                   </button>
-                  {/* Credits */}
                   {!isLifetimePlan && (
                     <button
                       onClick={() => { setShowPaymentChooser(false); setShowCreditConfirm(true); }}
@@ -578,43 +579,56 @@ export const Store: React.FC<Props> = ({ user, settings, onUserUpdate, renderEar
         );
       })()}
 
-      {/* ══════════ HEADER ══════════ */}
-      <div style={{ background: C.surface, borderBottom: `1px solid ${C.border}` }}>
-        <div className="px-4 pt-5 pb-4">
+      {/* ══════════ HERO HEADER ══════════ */}
+      <div className="relative overflow-hidden" style={{ background: C.surface, borderBottom: `1px solid ${C.border}` }}>
+        {/* Ambient glow blobs */}
+        <div className="absolute -top-10 -left-10 w-48 h-48 rounded-full pointer-events-none"
+          style={{ background: isPro ? 'rgba(34,211,238,0.07)' : 'rgba(192,132,252,0.07)', filter: 'blur(40px)' }} />
+        <div className="absolute -bottom-10 right-0 w-40 h-40 rounded-full pointer-events-none"
+          style={{ background: C.goldBg, filter: 'blur(30px)' }} />
+
+        <div className="relative px-4 pt-5 pb-4">
+          {/* Back button */}
           {onBack && (
             <button onClick={onBack}
-              className="flex items-center gap-2 mb-4 active:scale-95 transition-transform"
+              className="flex items-center gap-2 mb-5 active:scale-95 transition-transform w-fit"
               style={{ color: C.textMuted }}>
-              <ArrowLeft size={16} />
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: C.surfaceHigh, border: `1px solid ${C.border}` }}>
+                <ArrowLeft size={15} color={C.textMuted} />
+              </div>
               <span className="text-sm font-bold">Back</span>
             </button>
           )}
 
-          {/* Title + Credits */}
-          <div className="flex items-start justify-between mb-4">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'rgba(251,191,36,0.15)' }}>
-                  <Crown size={16} color={C.gold} />
-                </div>
-                <h1 className="text-xl font-black" style={{ color: C.text }}>Premium Store</h1>
+          {/* Title row */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              {/* Crown icon with glow */}
+              <div className="relative w-12 h-12 rounded-2xl flex items-center justify-center shrink-0"
+                style={{ background: 'linear-gradient(135deg,rgba(251,191,36,0.22),rgba(251,191,36,0.08))', border: `1.5px solid ${C.goldBorder}`, boxShadow: `0 0 18px rgba(251,191,36,0.22)` }}>
+                <Crown size={22} color={C.gold} />
               </div>
-              <p className="text-[12px]" style={{ color: C.textMuted }}>Plan lo — sab kuch unlock karo</p>
+              <div>
+                <h1 className="text-2xl font-black leading-none" style={{ color: C.text }}>Premium Store</h1>
+                <p className="text-[12px] mt-0.5 font-medium" style={{ color: C.textMuted }}>Sab kuch unlock karo</p>
+              </div>
             </div>
-            <div className="flex flex-col items-end gap-1.5">
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
-                style={{ background: C.goldBg, border: `1px solid ${C.goldBorder}` }}>
-                <span className="text-sm">🪙</span>
-                <span className="font-black text-sm" style={{ color: C.gold }}>
+
+            {/* Credits + Status */}
+            <div className="flex flex-col items-end gap-2">
+              <div className="flex items-center gap-1.5 px-3 py-2 rounded-2xl"
+                style={{ background: C.goldBg, border: `1.5px solid ${C.goldBorder}`, boxShadow: `0 0 12px rgba(251,191,36,0.12)` }}>
+                <span className="text-base leading-none">🪙</span>
+                <span className="font-black text-base leading-none" style={{ color: C.gold }}>
                   {userCredits.toLocaleString('en-IN')}
                 </span>
-                <span className="text-[9px] font-bold" style={{ color: 'rgba(251,191,36,0.5)' }}>CR</span>
+                <span className="text-[10px] font-black" style={{ color: 'rgba(251,191,36,0.55)' }}>CR</span>
               </div>
               {user.isPremium && user.subscriptionEndDate && new Date(user.subscriptionEndDate) > new Date() && (
-                <div className="flex items-center gap-1 px-2 py-0.5 rounded-full"
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl"
                   style={{ background: C.greenBg, border: `1px solid ${C.greenBorder}` }}>
-                  <BadgeCheck size={9} color={C.green} />
-                  <span className="text-[9px] font-black" style={{ color: C.green }}>
+                  <BadgeCheck size={11} color={C.green} />
+                  <span className="text-[11px] font-black" style={{ color: C.green }}>
                     {user.subscriptionLevel === 'ULTRA' ? 'MAX' : 'PRO'} Active
                   </span>
                 </div>
@@ -622,84 +636,85 @@ export const Store: React.FC<Props> = ({ user, settings, onUserUpdate, renderEar
             </div>
           </div>
 
-          {/* Store / History tabs */}
-          <div className="flex gap-2 p-1 rounded-2xl" style={{ background: C.surfaceHigh }}>
+          {/* Store / History toggle */}
+          <div className="flex gap-1.5 p-1.5 rounded-2xl mb-4" style={{ background: C.surfaceHigh, border: `1px solid ${C.border}` }}>
             <button onClick={() => setShowHistory(false)}
-              className="flex-1 py-2 rounded-xl text-xs font-black transition-all"
+              className="flex-1 py-2.5 rounded-xl text-[13px] font-black transition-all flex items-center justify-center gap-1.5"
               style={!showHistory
-                ? { background: C.surface, color: C.text, boxShadow: '0 2px 8px rgba(0,0,0,0.35)' }
+                ? { background: C.surface, color: C.text, boxShadow: '0 2px 10px rgba(0,0,0,0.4)' }
                 : { color: C.textMuted }}>
-              🛒 Store
+              🛒 <span>Store</span>
             </button>
             <button onClick={() => setShowHistory(true)}
-              className="flex-1 py-2 rounded-xl text-xs font-black transition-all"
+              className="flex-1 py-2.5 rounded-xl text-[13px] font-black transition-all flex items-center justify-center gap-1.5"
               style={showHistory
-                ? { background: C.surface, color: C.text, boxShadow: '0 2px 8px rgba(0,0,0,0.35)' }
+                ? { background: C.surface, color: C.text, boxShadow: '0 2px 10px rgba(0,0,0,0.4)' }
                 : { color: C.textMuted }}>
-              📋 History
+              📋 <span>History</span>
             </button>
           </div>
-        </div>
 
-        {/* Tab bar */}
-        <div className={`grid gap-2 px-4 pb-4 ${allTabs.length === 2 ? 'grid-cols-2' : allTabs.length === 3 ? 'grid-cols-3' : 'grid-cols-4'}`}>
-          {allTabs.map(tab => {
-            const isActive = tierType === tab.id;
-            return (
-              <button key={tab.id} onClick={() => setTierType(tab.id)}
-                className="py-2.5 rounded-2xl text-[11px] font-black transition-all flex flex-col items-center gap-1"
-                style={isActive
-                  ? { background: tab.bg, border: `1.5px solid ${tab.border}`, color: tab.color }
-                  : { background: C.surfaceHigh, border: `1.5px solid ${C.border}`, color: C.textMuted }}>
-                <span className="text-base leading-none">{tab.emoji}</span>
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
+          {/* Plan type tabs */}
+          <div className={`grid gap-2.5 ${allTabs.length === 2 ? 'grid-cols-2' : allTabs.length === 3 ? 'grid-cols-3' : 'grid-cols-4'}`}>
+            {allTabs.map(tab => {
+              const isActive = tierType === tab.id;
+              return (
+                <button key={tab.id} onClick={() => setTierType(tab.id)}
+                  className="py-3.5 rounded-2xl font-black transition-all flex flex-col items-center gap-1.5 relative overflow-hidden"
+                  style={isActive
+                    ? { background: tab.bg, border: `2px solid ${tab.border}`, boxShadow: `0 0 18px ${tab.glow}, inset 0 1px 0 rgba(255,255,255,0.08)` }
+                    : { background: C.surfaceHigh, border: `1.5px solid ${C.border}` }}>
+                  {isActive && (
+                    <div className="absolute inset-0 pointer-events-none"
+                      style={{ background: `radial-gradient(ellipse at 50% 0%, ${tab.glow} 0%, transparent 70%)` }} />
+                  )}
+                  <span className="text-xl leading-none relative z-10">{tab.emoji}</span>
+                  <span className="text-[12px] relative z-10" style={{ color: isActive ? tab.color : C.textMuted }}>{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
       {/* ══════════ BODY ══════════ */}
-      <div className="px-4 pt-4">
+      <div className="px-4 pt-5">
 
         {/* ── DISCOUNT BANNER ── */}
-        {totalDiscount > 0 && (
-          <div className="mb-4 space-y-2 animate-in fade-in">
-            {showEventBanner && (
-              <div className="p-4 rounded-2xl"
-                style={activeEvent
-                  ? { background: 'linear-gradient(135deg,rgba(251,191,36,0.12),rgba(234,88,12,0.08))', border: `1px solid ${C.goldBorder}` }
-                  : { background: C.surfaceHigh, border: `1px solid ${C.border}` }}>
-                <div className="flex items-center gap-3">
-                  <span className="text-2xl">{activeEvent ? '🔥' : '⏳'}</span>
-                  <div className="flex-1">
-                    <p className="text-sm font-black" style={{ color: activeEvent ? C.gold : C.text }}>
-                      {activeEvent
-                        ? `${event?.eventName || 'Flash Sale'} — ${event?.discountPercent || 0}% OFF!`
-                        : `${event?.eventName || 'Sale'} — Jald aane wala hai!`}
-                    </p>
-                    {activeEvent && <p className="text-[11px] mt-0.5" style={{ color: '#fb923c' }}>Sabhi plans pe discount laga hua hai</p>}
-                  </div>
+        {totalDiscount > 0 && showEventBanner && (
+          <div className="mb-5 animate-in fade-in">
+            <div className="p-4 rounded-2xl"
+              style={activeEvent
+                ? { background: 'linear-gradient(135deg,rgba(251,191,36,0.13),rgba(234,88,12,0.07))', border: `1.5px solid ${C.goldBorder}` }
+                : { background: C.surfaceHigh, border: `1px solid ${C.border}` }}>
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">{activeEvent ? '🔥' : '⏳'}</span>
+                <div className="flex-1">
+                  <p className="text-sm font-black" style={{ color: activeEvent ? C.gold : C.text }}>
+                    {activeEvent
+                      ? `${event?.eventName || 'Flash Sale'} — ${event?.discountPercent || 0}% OFF!`
+                      : `${event?.eventName || 'Sale'} — Jald aane wala hai!`}
+                  </p>
+                  {activeEvent && <p className="text-[11px] mt-0.5" style={{ color: '#fb923c' }}>Sabhi plans pe discount laga hua hai</p>}
                 </div>
-                {timeLeft && (
-                  <div className="flex gap-2 mt-3 justify-center">
-                    {timeLeft.days > 0 && (
-                      <div className="rounded-xl px-3 py-1.5 text-center min-w-[44px]" style={{ background: 'rgba(0,0,0,0.4)' }}>
-                        <p className="text-base font-black font-mono leading-none" style={{ color: C.text }}>{String(timeLeft.days).padStart(2,'0')}</p>
-                        <p className="text-[8px] uppercase mt-0.5" style={{ color: C.textMuted }}>Days</p>
-                      </div>
-                    )}
-                    {[{v:timeLeft.hours,l:'Hrs'},{v:timeLeft.minutes,l:'Min'},{v:timeLeft.seconds,l:'Sec'}].map(t => (
-                      <div key={t.l} className="rounded-xl px-3 py-1.5 text-center min-w-[44px]" style={{ background: 'rgba(0,0,0,0.4)' }}>
-                        <p className="text-base font-black font-mono leading-none" style={{ color: C.text }}>{String(t.v).padStart(2,'0')}</p>
-                        <p className="text-[8px] uppercase mt-0.5" style={{ color: C.textMuted }}>{t.l}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
-            )}
-
+              {timeLeft && (
+                <div className="flex gap-2 mt-3 justify-center">
+                  {timeLeft.days > 0 && (
+                    <div className="rounded-xl px-3 py-2 text-center min-w-[48px]" style={{ background: 'rgba(0,0,0,0.4)' }}>
+                      <p className="text-lg font-black font-mono leading-none" style={{ color: C.text }}>{String(timeLeft.days).padStart(2,'0')}</p>
+                      <p className="text-[8px] uppercase mt-0.5" style={{ color: C.textMuted }}>Days</p>
+                    </div>
+                  )}
+                  {[{v:timeLeft.hours,l:'Hrs'},{v:timeLeft.minutes,l:'Min'},{v:timeLeft.seconds,l:'Sec'}].map(t => (
+                    <div key={t.l} className="rounded-xl px-3 py-2 text-center min-w-[48px]" style={{ background: 'rgba(0,0,0,0.4)' }}>
+                      <p className="text-lg font-black font-mono leading-none" style={{ color: C.text }}>{String(t.v).padStart(2,'0')}</p>
+                      <p className="text-[8px] uppercase mt-0.5" style={{ color: C.textMuted }}>{t.l}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -707,8 +722,8 @@ export const Store: React.FC<Props> = ({ user, settings, onUserUpdate, renderEar
         {tierType === 'EARN' && isGameEnabled && (
           <div className="animate-in fade-in duration-200">
             {renderEarnContent ?? (
-              <div className="text-center py-12" style={{ color: C.textMuted }}>
-                <p className="text-3xl mb-3">🎁</p>
+              <div className="text-center py-16" style={{ color: C.textMuted }}>
+                <p className="text-4xl mb-3">🎁</p>
                 <p className="font-bold text-sm">Earn content loading...</p>
               </div>
             )}
@@ -718,7 +733,9 @@ export const Store: React.FC<Props> = ({ user, settings, onUserUpdate, renderEar
         {/* ── CREDITS TAB ── */}
         {tierType === 'CREDITS' && packages.length > 0 && (
           <div className="animate-in fade-in duration-200 space-y-3">
-            <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: C.textMuted }}>Credits Kharido</p>
+            <p className="text-[11px] font-black uppercase tracking-widest mb-4 flex items-center gap-2" style={{ color: C.textMuted }}>
+              <span className="text-base">🪙</span> Credits Kharido
+            </p>
             {packages.map((pkg) => {
               let finalPrice = pkg.price;
               if (totalDiscount > 0) finalPrice = Math.round(finalPrice * (1 - totalDiscount / 100));
@@ -726,38 +743,38 @@ export const Store: React.FC<Props> = ({ user, settings, onUserUpdate, renderEar
               const isPopular = pkg.credits === 500;
               return (
                 <button key={pkg.id} onClick={() => initiatePurchase(pkg)}
-                  className="w-full p-4 rounded-2xl text-left transition-all active:scale-[0.99] relative overflow-hidden"
+                  className="w-full p-5 rounded-2xl text-left transition-all active:scale-[0.99] relative overflow-hidden"
                   style={isPopular
-                    ? { background: C.goldBg, border: `1.5px solid ${C.goldBorder}` }
-                    : { background: C.surface, border: `1px solid ${C.border}` }}>
+                    ? { background: C.goldBg, border: `2px solid ${C.goldBorder}`, boxShadow: `0 0 20px rgba(251,191,36,0.12)` }
+                    : { background: C.surface, border: `1.5px solid ${C.border}` }}>
                   {isPopular && (
-                    <div className="absolute top-0 right-0 text-[8px] font-black px-2.5 py-1 rounded-bl-xl rounded-tr-xl"
+                    <div className="absolute top-0 right-0 text-[9px] font-black px-3 py-1.5 rounded-bl-xl rounded-tr-xl"
                       style={{ background: C.gold, color: '#000' }}>POPULAR</div>
                   )}
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl shrink-0"
-                      style={{ background: C.goldBg, border: `1px solid ${C.goldBorder}` }}>🪙</div>
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shrink-0"
+                      style={{ background: C.goldBg, border: `1.5px solid ${C.goldBorder}` }}>🪙</div>
                     <div className="flex-1">
-                      <p className="text-sm font-black" style={{ color: C.text }}>{pkg.credits.toLocaleString('en-IN')} Credits</p>
-                      <p className="text-[10px] mt-0.5" style={{ color: C.textMuted }}>₹{perCredit} per credit</p>
+                      <p className="text-base font-black" style={{ color: C.text }}>{pkg.credits.toLocaleString('en-IN')} Credits</p>
+                      <p className="text-[11px] mt-0.5" style={{ color: C.textMuted }}>₹{perCredit} per credit</p>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right shrink-0">
                       {totalDiscount > 0 && (
-                        <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full block mb-1"
-                          style={{ background: C.goldBg, color: C.gold }}>
+                        <span className="text-[10px] font-black px-2 py-0.5 rounded-full block mb-1.5"
+                          style={{ background: C.goldBg, color: C.gold, border: `1px solid ${C.goldBorder}` }}>
                           {totalDiscount}% OFF
                         </span>
                       )}
-                      <p className="text-lg font-black" style={{ color: C.text }}>₹{finalPrice.toLocaleString('en-IN')}</p>
-                      {totalDiscount > 0 && <p className="text-[9px] line-through" style={{ color: C.textDim }}>₹{pkg.price.toLocaleString('en-IN')}</p>}
+                      <p className="text-xl font-black" style={{ color: C.text }}>₹{finalPrice.toLocaleString('en-IN')}</p>
+                      {totalDiscount > 0 && <p className="text-[10px] line-through mt-0.5" style={{ color: C.textDim }}>₹{pkg.price.toLocaleString('en-IN')}</p>}
                     </div>
                   </div>
                 </button>
               );
             })}
-            <div className="flex justify-center gap-6 pt-1">
-              {[{icon:<ShieldCheck size={12}/>,text:'Secure'},{icon:<Zap size={12}/>,text:'Instant'},{icon:<Star size={12}/>,text:'No Expiry'}].map(b=>(
-                <div key={b.text} className="flex items-center gap-1 text-[10px] font-bold" style={{ color: C.textDim }}>{b.icon}<span>{b.text}</span></div>
+            <div className="flex justify-center gap-8 pt-2">
+              {[{icon:<ShieldCheck size={13}/>,text:'Secure'},{icon:<Zap size={13}/>,text:'Instant'},{icon:<Star size={13}/>,text:'No Expiry'}].map(b=>(
+                <div key={b.text} className="flex items-center gap-1.5 text-[11px] font-bold" style={{ color: C.textDim }}>{b.icon}<span>{b.text}</span></div>
               ))}
             </div>
           </div>
@@ -767,51 +784,75 @@ export const Store: React.FC<Props> = ({ user, settings, onUserUpdate, renderEar
         {tierType !== 'EARN' && tierType !== 'CREDITS' && (
           <>
             {subscriptionPlans.length === 0 ? (
-              <div className="rounded-2xl p-10 text-center" style={{ border: `1.5px dashed ${C.border}` }}>
-                <Package size={32} className="mx-auto mb-4" style={{ color: C.textDim }} />
+              <div className="rounded-2xl p-12 text-center" style={{ border: `1.5px dashed ${C.border}` }}>
+                <Package size={36} className="mx-auto mb-4" style={{ color: C.textDim }} />
                 <p className="font-black text-base mb-1" style={{ color: C.textMuted }}>Plans Coming Soon</p>
                 <p className="text-[12px] leading-relaxed" style={{ color: C.textDim }}>Admin jald hi plans add karega.</p>
               </div>
             ) : (
               <>
-                {/* Features card */}
-                <div className="mb-4 rounded-2xl p-4 relative overflow-hidden" style={{ background: ac.bg, border: `1.5px solid ${ac.border}` }}>
-                  <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full pointer-events-none"
-                    style={{ background: ac.glow, filter: 'blur(28px)' }} />
-                  <div className="relative z-10">
-                    <div className="flex items-center justify-between mb-4">
-                      <div>
-                        <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full inline-block mb-2"
-                          style={{ background: ac.pill, color: ac.color, border: `1px solid ${ac.border}` }}>
-                          {ac.emoji} {ac.label} Plan
-                        </span>
-                        <p className="text-lg font-black leading-none" style={{ color: ac.color }}>
-                          {isPro ? 'Pro Features' : 'Max Features'}
-                        </p>
+                {/* ── Features card (redesigned) ── */}
+                <div className="mb-5 rounded-3xl relative overflow-hidden"
+                  style={{ background: ac.bg, border: `2px solid ${ac.border}`, boxShadow: `0 0 32px ${ac.glow}` }}>
+                  {/* Top gradient stripe */}
+                  <div className="h-1.5 w-full" style={{ background: ac.grad }} />
+                  {/* Glow blob */}
+                  <div className="absolute -top-12 -right-12 w-40 h-40 rounded-full pointer-events-none"
+                    style={{ background: ac.glow, filter: 'blur(32px)' }} />
+
+                  <div className="relative p-5">
+                    {/* Header */}
+                    <div className="flex items-start justify-between mb-5">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl"
+                          style={{ background: ac.pill, border: `1.5px solid ${ac.border}` }}>
+                          {ac.emoji}
+                        </div>
+                        <div>
+                          <div className="text-[10px] font-black uppercase tracking-widest mb-0.5" style={{ color: ac.color }}>
+                            {ac.label} Plan
+                          </div>
+                          <p className="text-xl font-black leading-none" style={{ color: C.text }}>
+                            {isPro ? 'Pro Features' : 'Max Features'}
+                          </p>
+                        </div>
                       </div>
                       {isSubscribed && (
-                        <span className="text-[9px] font-black px-2 py-1 rounded-xl flex items-center gap-1 shrink-0 self-start"
+                        <span className="text-[10px] font-black px-2.5 py-1.5 rounded-xl flex items-center gap-1.5 shrink-0"
                           style={{ background: C.greenBg, color: C.green, border: `1px solid ${C.greenBorder}` }}>
-                          <BadgeCheck size={10} /> Active
+                          <BadgeCheck size={11} /> Active
                         </span>
                       )}
                     </div>
-                    <div className="space-y-2">
+
+                    {/* Feature list */}
+                    <div className="space-y-2.5">
                       {featuresList.map((f, i) => (
-                        <div key={i} className="flex items-center gap-2.5">
-                          <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0"
-                            style={{ background: ac.pill }}>
-                            <Check size={10} color={ac.color} strokeWidth={3} />
+                        <div key={i} className="flex items-center gap-3">
+                          <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
+                            style={{ background: ac.pill, border: `1px solid ${ac.border}` }}>
+                            <Check size={12} color={ac.color} strokeWidth={3} />
                           </div>
-                          <span className="text-[12px] font-medium" style={{ color: C.text }}>{f}</span>
+                          <span className="text-[13px] font-semibold" style={{ color: C.text }}>{f}</span>
                         </div>
                       ))}
                     </div>
+
+                    {/* Discount summary if any */}
+                    {totalDiscount > 0 && (
+                      <div className="mt-4 flex items-center gap-2 px-3 py-2 rounded-xl"
+                        style={{ background: 'rgba(0,0,0,0.25)', border: `1px solid ${ac.border}` }}>
+                        <span className="text-base">🏷️</span>
+                        <span className="text-[12px] font-black" style={{ color: C.gold }}>
+                          {totalDiscount}% total discount apply hai
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                {/* Plan cards */}
-                <div className="space-y-2.5 mb-4">
+                {/* ── Plan cards ── */}
+                <div className="space-y-3 mb-5">
                   {subscriptionPlans.map((plan, idx) => {
                     const isSelected = selectedPlanId === plan.id;
                     const original = isPro ? plan.basicOriginalPrice : plan.ultraOriginalPrice;
@@ -822,37 +863,43 @@ export const Store: React.FC<Props> = ({ user, settings, onUserUpdate, renderEar
 
                     return (
                       <button key={plan.id} onClick={() => setSelectedPlanId(plan.id)}
-                        className="w-full px-4 py-3.5 rounded-2xl text-left transition-all relative overflow-hidden"
+                        className="w-full px-5 py-4 rounded-2xl text-left transition-all relative overflow-hidden"
                         style={isSelected
-                          ? { background: ac.bg, border: `2px solid ${ac.border}`, boxShadow: `0 0 24px ${ac.glow}` }
+                          ? { background: ac.bg, border: `2px solid ${ac.border}`, boxShadow: `0 0 28px ${ac.glow}` }
                           : { background: C.surface, border: `1.5px solid ${C.border}` }}>
+                        {/* shimmer on selected */}
                         {isSelected && (
                           <div className="absolute inset-0 pointer-events-none"
-                            style={{ background: 'linear-gradient(105deg,transparent 40%,rgba(255,255,255,0.025) 50%,transparent 60%)', animation: 'shimmer-sweep 2.5s linear infinite' }} />
+                            style={{ background: 'linear-gradient(105deg,transparent 40%,rgba(255,255,255,0.03) 50%,transparent 60%)', animation: 'shimmer-sweep 2.5s linear infinite' }} />
                         )}
+                        {/* Popular badge */}
                         {isPopular && !isSelected && (
-                          <div className="absolute top-0 right-0 text-[8px] font-black px-2.5 py-1 rounded-bl-xl rounded-tr-xl"
+                          <div className="absolute top-0 right-0 text-[9px] font-black px-3 py-1.5 rounded-bl-xl rounded-tr-xl"
                             style={{ background: C.gold, color: '#000' }}>POPULAR</div>
                         )}
+                        {/* Selected badge */}
                         {isSelected && (
-                          <div className="absolute top-0 right-0 text-[8px] font-black px-2.5 py-1 rounded-bl-xl rounded-tr-xl"
+                          <div className="absolute top-0 right-0 text-[9px] font-black px-3 py-1.5 rounded-bl-xl rounded-tr-xl"
                             style={{ background: ac.grad, color: '#fff' }}>✓ SELECTED</div>
                         )}
                         <div className="flex justify-between items-center relative z-10">
-                          <div className="flex-1">
-                            <p className="text-sm font-black mb-0.5" style={{ color: isSelected ? ac.color : C.text }}>{plan.name}</p>
-                            <div className="flex items-baseline gap-2">
-                              <span className="text-2xl font-black" style={{ color: C.text }}>₹{price.toLocaleString('en-IN')}</span>
-                              {original > price && <span className="text-xs line-through" style={{ color: C.textDim }}>₹{original.toLocaleString('en-IN')}</span>}
+                          <div className="flex-1 pr-2">
+                            <p className="text-sm font-black mb-1" style={{ color: isSelected ? ac.color : C.text }}>{plan.name}</p>
+                            <div className="flex items-baseline gap-2.5">
+                              <span className="text-3xl font-black" style={{ color: C.text }}>₹{price.toLocaleString('en-IN')}</span>
+                              {original > price && (
+                                <span className="text-sm line-through" style={{ color: C.textDim }}>₹{original.toLocaleString('en-IN')}</span>
+                              )}
                             </div>
-                            {perMonth && <p className="text-[10px] mt-0.5" style={{ color: C.textMuted }}>≈ ₹{perMonth}/month</p>}
+                            {perMonth && (
+                              <p className="text-[11px] mt-0.5 font-medium" style={{ color: C.textMuted }}>≈ ₹{perMonth}/month</p>
+                            )}
                           </div>
-                          {totalDiscount > 0 && (
-                            <span className="text-[10px] font-black px-2 py-0.5 rounded-full shrink-0"
-                              style={{ background: C.goldBg, color: C.gold, border: `1px solid ${C.goldBorder}` }}>
-                              {totalDiscount}% OFF
-                            </span>
-                          )}
+                          {/* Radio indicator */}
+                          <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
+                            style={{ background: isSelected ? ac.bg : C.surfaceHigh, border: `2px solid ${isSelected ? ac.color : C.borderMed}` }}>
+                            {isSelected && <div className="w-2.5 h-2.5 rounded-full" style={{ background: ac.color }} />}
+                          </div>
                         </div>
                       </button>
                     );
@@ -861,7 +908,7 @@ export const Store: React.FC<Props> = ({ user, settings, onUserUpdate, renderEar
 
                 {/* Credit purchase success/error message */}
                 {creditPurchaseMsg && (
-                  <div className="mb-3 p-3 rounded-2xl text-sm font-bold text-center"
+                  <div className="mb-4 p-4 rounded-2xl text-sm font-bold text-center"
                     style={{
                       background: creditPurchaseMsg.startsWith('✅') ? C.greenBg : 'rgba(248,113,113,0.1)',
                       color: creditPurchaseMsg.startsWith('✅') ? C.green : '#f87171',
@@ -871,26 +918,26 @@ export const Store: React.FC<Props> = ({ user, settings, onUserUpdate, renderEar
                   </div>
                 )}
 
-                {/* CTA */}
+                {/* ── CTA Button ── */}
                 <button
                   onClick={() => { if (!selectedPlan) return; setShowPaymentChooser(true); }}
-                  className="w-full py-4 rounded-2xl font-black text-sm tracking-wide text-white relative overflow-hidden group mb-3 transition-all active:scale-[0.98]"
-                  style={{ background: ac.grad, boxShadow: `0 6px 20px ${ac.glow}` }}>
+                  className="w-full py-5 rounded-2xl font-black text-base tracking-wide text-white relative overflow-hidden group mb-4 transition-all active:scale-[0.98]"
+                  style={{ background: ac.grad, boxShadow: `0 8px 28px ${ac.glow}` }}>
                   <span className="absolute inset-0 bg-white/10 translate-x-[-100%] group-active:translate-x-[100%] transition-transform duration-500 skew-x-12 pointer-events-none" />
-                  <span className="relative flex items-center justify-center gap-2">
-                    <Sparkles size={15} />
-                    {isPro ? 'PRO' : 'MAX'} Plan lo — Abhi Unlock Karo
+                  <span className="relative flex items-center justify-center gap-2.5">
+                    <Sparkles size={17} />
+                    {isPro ? 'PRO' : 'MAX'} Plan Lo — Abhi Unlock Karo
                   </span>
                 </button>
 
                 {/* Trust row */}
-                <div className="flex justify-center gap-6 mb-2">
+                <div className="flex justify-center gap-8 mb-2">
                   {[
-                    { icon: <ShieldCheck size={12} />, text: 'Secure' },
-                    { icon: <Flame size={12} />, text: 'Instant' },
-                    { icon: <Star size={12} />, text: 'Support' },
+                    { icon: <ShieldCheck size={13} />, text: 'Secure' },
+                    { icon: <Flame size={13} />, text: 'Instant' },
+                    { icon: <Star size={13} />, text: 'Support' },
                   ].map(b => (
-                    <div key={b.text} className="flex items-center gap-1.5 text-[10px] font-bold" style={{ color: C.textDim }}>
+                    <div key={b.text} className="flex items-center gap-1.5 text-[11px] font-bold" style={{ color: C.textDim }}>
                       {b.icon}<span>{b.text}</span>
                     </div>
                   ))}
