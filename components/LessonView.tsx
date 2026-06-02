@@ -1053,7 +1053,7 @@ export const LessonView: React.FC<Props> = ({
           setMcqState(prev => ({ ...prev, [qIdx]: oIdx }));
           const isCorrect = oIdx === displayData[qIdx].correctAnswer;
 
-          // Auto-Next Logic
+          // Auto-Next Logic — only for instantExplanation (premium) mode
           if (!showResults && (batchIndex + 1) * BATCH_SIZE < displayData.length) {
               if (instantExplanation) {
                   // PREMIUM FLOW
@@ -1065,8 +1065,6 @@ export const LessonView: React.FC<Props> = ({
                       const correctOpt = displayData[qIdx].options[displayData[qIdx].correctAnswer];
                       const explanation = displayData[qIdx].explanation || "";
 
-                      // Construct Feedback Text
-                      // "Wrong Answer. The correct answer is [Option]. [Explanation]"
                       const feedback = `Wrong Answer. The correct answer is ${stripHtml(correctOpt)}. ${stripHtml(explanation)}`;
 
                       speakText(
@@ -1076,15 +1074,12 @@ export const LessonView: React.FC<Props> = ({
                           language === 'Hindi' ? 'hi-IN' : 'en-US',
                           undefined,
                           () => {
-                              // On finish speaking, move next
                               nextQuestion();
                           }
                       );
                   }
-              } else {
-                  // STANDARD FLOW
-                  setTimeout(nextQuestion, 400);
               }
+              // STANDARD FLOW: No auto-next. User clicks Next button manually.
           }
       };
 
@@ -2336,7 +2331,8 @@ export const LessonView: React.FC<Props> = ({
                            {hasMore ? (
                                 <button
                                    onClick={handleNextPage}
-                                   className="flex-[2] py-3 bg-blue-600 text-white font-bold rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-blue-100"
+                                   disabled={!canGoNext}
+                                   className={`flex-[2] py-3 font-bold rounded-xl flex items-center justify-center gap-2 shadow-lg ${canGoNext ? 'bg-blue-600 text-white shadow-blue-100' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
                                >
                                    Next <ChevronRight size={20} />
                                </button>

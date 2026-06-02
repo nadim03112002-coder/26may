@@ -2181,6 +2181,8 @@ export const StudentDashboard: React.FC<Props> = ({
 
   // Ref to pass initial tab/viewMode through the useEffect reset when opening Lucent viewer
   const lucentInitialTabRef = useRef<{ tab?: 'NOTES' | 'MCQS' | 'VIDEO' | 'PDF'; viewMode?: 'html' | 'chunk' } | null>(null);
+  // Tracks the last opened lesson id — used to detect lesson change vs page change
+  const lucentPrevLessonIdRef = useRef<string | null>(null);
   // Live scroll % for the Lucent reader — drives the gradient progress bar at
   // the very top, mirroring Sar Sangrah / Speedy. Reset on page change.
   const [lucentScrollProgress, setLucentScrollProgress] = useState(0);
@@ -2478,6 +2480,8 @@ export const StudentDashboard: React.FC<Props> = ({
   const [lucentMcqCurrentIdx, setLucentMcqCurrentIdx] = useState<Record<string, number>>({});
   // Submitted state per pageKey — colors/explanation only shown after submit
   const [lucentMcqSubmitted, setLucentMcqSubmitted] = useState<Record<string, boolean>>({});
+  // Show review/result screen (per pageKey) — triggered by "Submit & Review" button
+  const [lucentMcqShowReview, setLucentMcqShowReview] = useState<Record<string, boolean>>({});
   const lucentAutoNextTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // 'html' = styled HTML view (default), 'chunk' = ChunkedNotesReader tappable lines
   const [lucentNotesViewMode, setLucentNotesViewMode] = useState<'html' | 'chunk'>('chunk');
@@ -2495,10 +2499,25 @@ export const StudentDashboard: React.FC<Props> = ({
     const hasNotes = !!(page?.chunkNotes?.trim() || page?.htmlNotes?.trim() || page?.content?.trim());
     const initOpts = lucentInitialTabRef.current;
     lucentInitialTabRef.current = null;
+    const lessonChanged = lucentNoteViewer?.id !== lucentPrevLessonIdRef.current;
+    lucentPrevLessonIdRef.current = lucentNoteViewer?.id || null;
     setLucentActiveTab(initOpts?.tab || (hasNotes ? 'NOTES' : 'MCQS'));
-    setLucentNotesViewMode(initOpts?.viewMode || 'chunk');
+    // Preserve viewMode when navigating pages within the same lesson.
+    // Only reset to 'chunk' (read mode) when a different lesson is opened,
+    // or when the caller explicitly requests a viewMode via lucentInitialTabRef.
+    if (initOpts?.viewMode) {
+      setLucentNotesViewMode(initOpts.viewMode);
+    } else if (lessonChanged) {
+      setLucentNotesViewMode('chunk');
+    }
+    // else: same lesson, different page — keep current viewMode (write or read)
     setLucentChunkHtmlMode('chunk');
     setLucentSaved(false);
+    setLucentMcqShowReview(prev => {
+      const n = { ...prev };
+      // Clear review flag for the new page key on page/lesson change
+      return n;
+    });
   }, [lucentPageIndex, lucentNoteViewer?.id]);
   const [hwScrollProgress, setHwScrollProgress] = useState(0);
   const hwScrollContainerRef = useRef<HTMLDivElement>(null);
@@ -15936,15 +15955,11 @@ RULES:
                       if (!cq) return null;
                       const ansKey = `${pageKey}_${ci}`;
                       const selected = lucentMcqAnswers[ansKey];
-                      const isSelected = selected !== undefined;
-                      // Per-question submission tracking (key = ansKey, not pageKey)
-                      const isCurrentSubmitted = lucentMcqSubmitted[ansKey] === true;
-                      const isAllSubmitted = mcqs.every((_: any, i: number) => lucentMcqSubmitted[`${pageKey}_${i}`] === true);
-                      // Colors/explanation shown after this question is submitted
-                      const isAnswered = isCurrentSubmitted;
+                      const isAnswered = lucentMcqSubmitted[ansKey] === true;
                       const isCorrect = isAnswered && selected === cq.correctAnswer;
+                      const showReview = lucentMcqShowReview[pageKey] === true;
 
-                      // Stats — count only submitted questions
+                      // Stats — only submitted questions
                       const attempted = mcqs.reduce((acc: number, _: any, i: number) => lucentMcqSubmitted[`${pageKey}_${i}`] ? acc + 1 : acc, 0);
                       const right = mcqs.reduce((acc: number, q2: any, i: number) => {
                         if (!lucentMcqSubmitted[`${pageKey}_${i}`]) return acc;
@@ -15952,15 +15967,17 @@ RULES:
                         return (s !== undefined && s === q2.correctAnswer) ? acc + 1 : acc;
                       }, 0);
                       const wrong = attempted - right;
+                      const submitThreshold = Math.min(20, totalQ);
+                      const canShowReview = attempted >= submitThreshold;
 
-                      // Submit current question and optionally advance
-                      const handleSubmitQuestion = (goNext: boolean) => {
-                        if (!isSelected || isCurrentSubmitted) return;
-                        const isCorrectAns = selected === cq.correctAnswer;
-                        setLucentMcqSubmitted(prev => ({ ...prev, [ansKey]: true }));
-                        // Track for daily MCQ reward system
+                      // Auto-submit + auto-advance on option click
+                      const handleOptionClick = (oi: number) => {
+                        if (isAnswered) return;
+                        const key = `${pageKey}_${ci}`;
+                        const isCorrectAns = oi === cq.correctAnswer;
+                        setLucentMcqAnswers(prev => ({ ...prev, [key]: oi }));
+                        setLucentMcqSubmitted(prev => ({ ...prev, [key]: true }));
                         trackDailyMcqAnswer(isCorrectAns);
-                        // Save wrong answer to My Mistake
                         if (!isCorrectAns) {
                           try {
                             addMistakes([{
@@ -15977,12 +15994,97 @@ RULES:
                             }]);
                           } catch {}
                         }
-                        if (goNext && ci < totalQ - 1) {
-                          setLucentMcqCurrentIdx(prev => ({ ...prev, [pageKey]: ci + 1 }));
+                        // Auto-advance after 400ms if not in review mode and more questions remain
+                        if (!showReview && ci < totalQ - 1) {
+                          if (lucentAutoNextTimerRef.current) clearTimeout(lucentAutoNextTimerRef.current);
+                          lucentAutoNextTimerRef.current = setTimeout(() => {
+                            setLucentMcqCurrentIdx(prev => ({ ...prev, [pageKey]: ci + 1 }));
+                          }, 400);
                         }
                       };
 
-                      const handleLucentSubmit = () => handleSubmitQuestion(false);
+                      const doRestart = () => {
+                        if (lucentAutoNextTimerRef.current) clearTimeout(lucentAutoNextTimerRef.current);
+                        setLucentMcqAnswers(prev => { const n = { ...prev }; mcqs.forEach((_: any, i: number) => delete n[`${pageKey}_${i}`]); return n; });
+                        setLucentMcqSubmitted(prev => { const n = { ...prev }; mcqs.forEach((_: any, i: number) => delete n[`${pageKey}_${i}`]); return n; });
+                        setLucentMcqCurrentIdx(prev => ({ ...prev, [pageKey]: 0 }));
+                        setLucentMcqShowReview(prev => ({ ...prev, [pageKey]: false }));
+                      };
+
+                      // ── REVIEW SCREEN ──
+                      if (showReview) {
+                        const pct = attempted > 0 ? Math.round((right / attempted) * 100) : 0;
+                        const grade = pct >= 80 ? { label: '🏆 Excellent!', color: 'text-emerald-700', bg: 'from-emerald-400 to-teal-500' }
+                          : pct >= 60 ? { label: '👍 Good Job!', color: 'text-indigo-700', bg: 'from-indigo-400 to-blue-500' }
+                          : pct >= 40 ? { label: '💪 Keep Trying!', color: 'text-amber-700', bg: 'from-amber-400 to-orange-500' }
+                          : { label: '📚 Study More', color: 'text-rose-700', bg: 'from-rose-400 to-pink-500' };
+                        return (
+                          <div>
+                            {/* Result card */}
+                            <div className="bg-white border border-indigo-100 rounded-2xl p-5 shadow-sm text-center mb-3">
+                              <div className={`w-14 h-14 mx-auto rounded-full bg-gradient-to-br ${grade.bg} flex items-center justify-center text-2xl mb-2 shadow-md`}>
+                                {pct >= 80 ? '🏆' : pct >= 60 ? '⭐' : pct >= 40 ? '💪' : '📚'}
+                              </div>
+                              <p className={`text-base font-black ${grade.color} mb-0.5`}>{grade.label}</p>
+                              <p className="text-3xl font-black text-slate-800 mb-0.5">{pct}%</p>
+                              <p className="text-[11px] text-slate-500 mb-3">Tumne {attempted} mein se {right} sahi jawab diye</p>
+                              <div className="grid grid-cols-3 gap-2 mb-3">
+                                <div className="bg-slate-50 rounded-xl py-2"><div className="text-[9px] font-bold text-slate-500 uppercase">Tried</div><div className="text-lg font-black text-slate-800">{attempted}</div></div>
+                                <div className="bg-emerald-50 rounded-xl py-2"><div className="text-[9px] font-bold text-emerald-600 uppercase">✅ Sahi</div><div className="text-lg font-black text-emerald-700">{right}</div></div>
+                                <div className="bg-rose-50 rounded-xl py-2"><div className="text-[9px] font-bold text-rose-600 uppercase">❌ Galat</div><div className="text-lg font-black text-rose-700">{wrong}</div></div>
+                              </div>
+                              {wrong > 0 && <p className="text-[10px] text-rose-600 font-bold bg-rose-50 rounded-xl px-3 py-2 mb-3">⚠️ {wrong} galat jawab "My Mistake" mein save ho gaye!</p>}
+                              <div className="flex gap-2">
+                                <button onClick={() => setLucentMcqShowReview(prev => ({ ...prev, [pageKey]: false }))}
+                                  className="flex-1 py-2.5 rounded-2xl bg-slate-100 text-slate-700 font-black text-sm active:scale-95 transition">
+                                  ▶ Continue
+                                </button>
+                                <button onClick={doRestart}
+                                  className="flex-1 py-2.5 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-black text-sm flex items-center justify-center gap-1.5 active:scale-95 transition shadow-md">
+                                  <RefreshCw size={13} /> Restart
+                                </button>
+                              </div>
+                            </div>
+                            {/* Review — only answered questions */}
+                            <p className="text-[11px] font-black text-slate-500 uppercase tracking-wide mb-2">📋 Jawab Review ({attempted} questions)</p>
+                            <div className="space-y-3">
+                              {mcqs.map((q2: any, qi: number) => {
+                                const qKey = `${pageKey}_${qi}`;
+                                if (!lucentMcqSubmitted[qKey]) return null;
+                                const userAns = lucentMcqAnswers[qKey];
+                                const isQ2Correct = userAns === q2.correctAnswer;
+                                return (
+                                  <div key={qi} className={`bg-white rounded-2xl p-3 border-2 ${isQ2Correct ? 'border-emerald-200' : 'border-rose-200'}`}>
+                                    <div className="flex items-start gap-2 mb-2">
+                                      <span className={`text-[10px] font-black px-2 py-0.5 rounded-full shrink-0 ${isQ2Correct ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>Q{qi + 1} {isQ2Correct ? '✅' : '❌'}</span>
+                                      <p className="text-xs font-bold text-slate-800 leading-snug flex-1">{q2.question}</p>
+                                    </div>
+                                    <div className="space-y-1 ml-1">
+                                      {(q2.options || []).map((opt: string, oi: number) => {
+                                        const isOpt = oi === q2.correctAnswer;
+                                        const isSel = userAns === oi;
+                                        let cls = 'text-[11px] font-bold px-2 py-1 rounded-lg flex items-center gap-1.5 ';
+                                        if (isOpt) cls += 'bg-emerald-50 text-emerald-800';
+                                        else if (isSel && !isOpt) cls += 'bg-rose-50 text-rose-800 line-through';
+                                        else cls += 'text-slate-400';
+                                        return (
+                                          <div key={oi} className={cls}>
+                                            <span className="w-4 h-4 rounded-full bg-slate-200 flex items-center justify-center text-[9px] font-black shrink-0">{String.fromCharCode(65+oi)}</span>
+                                            {opt}
+                                            {isOpt && <span className="ml-auto text-emerald-600">✅</span>}
+                                            {isSel && !isOpt && <span className="ml-auto text-rose-600">❌</span>}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                    {q2.explanation && <p className="mt-1.5 text-[10px] bg-slate-50 rounded-lg px-2 py-1 text-slate-600"><span className="font-black">💡</span> {q2.explanation}</p>}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      }
 
                       return (
                         <div>
@@ -16009,69 +16111,23 @@ RULES:
                           {/* Progress */}
                           <div className="flex items-center gap-2 mb-3">
                             <span className="text-[11px] font-black text-slate-600 shrink-0">
-                              <span className="text-indigo-600">{isAllSubmitted ? totalQ : ci + 1}</span>/{totalQ}
+                              <span className="text-indigo-600">{ci + 1}</span>/{totalQ}
                             </span>
                             <div className="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                              <div className="h-full bg-indigo-500 transition-all rounded-full" style={{ width: `${(isAllSubmitted ? 1 : (ci + 1) / Math.max(1, totalQ)) * 100}%` }} />
+                              <div className="h-full bg-indigo-500 transition-all rounded-full" style={{ width: `${((ci + 1) / Math.max(1, totalQ)) * 100}%` }} />
                             </div>
-                            {isAllSubmitted && <span className="text-[10px] font-black text-emerald-600 shrink-0">✅ Complete!</span>}
+                            {attempted > 0 && <span className="text-[10px] font-bold text-slate-500 shrink-0">{attempted} done</span>}
                           </div>
 
-                          {/* ── RESULT SCREEN when all questions done ── */}
-                          {isAllSubmitted && (() => {
-                            const pct = Math.round((right / totalQ) * 100);
-                            const grade = pct >= 80 ? { label: '🏆 Excellent!', color: 'text-emerald-700', bg: 'from-emerald-400 to-teal-500' }
-                              : pct >= 60 ? { label: '👍 Good Job!', color: 'text-indigo-700', bg: 'from-indigo-400 to-blue-500' }
-                              : pct >= 40 ? { label: '💪 Keep Trying!', color: 'text-amber-700', bg: 'from-amber-400 to-orange-500' }
-                              : { label: '📚 Study More', color: 'text-rose-700', bg: 'from-rose-400 to-pink-500' };
-                            return (
-                              <div className="bg-white border border-indigo-100 rounded-2xl p-5 shadow-sm text-center mb-3">
-                                <div className={`w-16 h-16 mx-auto rounded-full bg-gradient-to-br ${grade.bg} flex items-center justify-center text-2xl mb-3 shadow-md`}>
-                                  {pct >= 80 ? '🏆' : pct >= 60 ? '⭐' : pct >= 40 ? '💪' : '📚'}
-                                </div>
-                                <p className={`text-lg font-black ${grade.color} mb-1`}>{grade.label}</p>
-                                <p className="text-3xl font-black text-slate-800 mb-1">{pct}%</p>
-                                <p className="text-[11px] text-slate-500 mb-4">Tumne {totalQ} mein se {right} sahi jawab diye</p>
-                                <div className="grid grid-cols-3 gap-2 mb-4">
-                                  <div className="bg-slate-50 rounded-xl py-2">
-                                    <div className="text-[9px] font-bold text-slate-500 uppercase">Total</div>
-                                    <div className="text-lg font-black text-slate-800">{totalQ}</div>
-                                  </div>
-                                  <div className="bg-emerald-50 rounded-xl py-2">
-                                    <div className="text-[9px] font-bold text-emerald-600 uppercase">✅ Sahi</div>
-                                    <div className="text-lg font-black text-emerald-700">{right}</div>
-                                  </div>
-                                  <div className="bg-rose-50 rounded-xl py-2">
-                                    <div className="text-[9px] font-bold text-rose-600 uppercase">❌ Galat</div>
-                                    <div className="text-lg font-black text-rose-700">{wrong}</div>
-                                  </div>
-                                </div>
-                                {wrong > 0 && (
-                                  <p className="text-[10px] text-rose-600 font-bold bg-rose-50 rounded-xl px-3 py-2 mb-3">
-                                    ⚠️ {wrong} galat jawab "My Mistake" mein save ho gaye — wahan practice karo!
-                                  </p>
-                                )}
-                                <button
-                                  onClick={() => {
-                                    setLucentMcqAnswers(prev => {
-                                      const n = { ...prev };
-                                      mcqs.forEach((_: any, i: number) => delete n[`${pageKey}_${i}`]);
-                                      return n;
-                                    });
-                                    setLucentMcqSubmitted(prev => {
-                                      const n = { ...prev };
-                                      mcqs.forEach((_: any, i: number) => delete n[`${pageKey}_${i}`]);
-                                      return n;
-                                    });
-                                    setLucentMcqCurrentIdx(prev => ({ ...prev, [pageKey]: 0 }));
-                                  }}
-                                  className="w-full py-3 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-black text-sm flex items-center justify-center gap-1.5 active:scale-95 transition shadow-md"
-                                >
-                                  <RefreshCw size={14} /> Dobara Khelo (Restart)
-                                </button>
-                              </div>
-                            );
-                          })()}
+                          {/* Submit & Review banner — appears after submitThreshold questions answered */}
+                          {canShowReview && (
+                            <button
+                              onClick={() => setLucentMcqShowReview(prev => ({ ...prev, [pageKey]: true }))}
+                              className="w-full mb-3 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-black text-sm flex items-center justify-center gap-2 active:scale-95 transition shadow-md"
+                            >
+                              <CheckCircle size={15} /> Submit & Review ({attempted}/{totalQ})
+                            </button>
+                          )}
 
                           {/* Single question card */}
                           <div className="bg-white border border-purple-100 rounded-2xl p-4 shadow-sm">
@@ -16112,17 +16168,14 @@ RULES:
                                   else if (isSel) cls += 'bg-rose-50 border-rose-400 text-rose-800';
                                   else cls += 'bg-slate-50 border-slate-200 text-slate-400 opacity-60';
                                 } else {
-                                  cls += 'bg-white border-slate-200 text-slate-700 hover:border-indigo-300 hover:bg-indigo-50 cursor-pointer';
+                                  cls += 'bg-white border-slate-200 text-slate-700 hover:border-indigo-300 hover:bg-indigo-50 active:scale-95 cursor-pointer';
                                 }
                                 return (
                                   <button
                                     type="button"
                                     key={oi}
                                     disabled={isAnswered}
-                                    onClick={() => {
-                                      if (isCurrentSubmitted) return;
-                                      setLucentMcqAnswers(prev => ({ ...prev, [ansKey]: oi }));
-                                    }}
+                                    onClick={() => handleOptionClick(oi)}
                                     className={cls}
                                   >
                                     <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center text-[10px] font-black shrink-0 ${isAnswered && isOpt ? 'bg-emerald-500 border-emerald-500 text-white' : isAnswered && isSel ? 'bg-rose-500 border-rose-500 text-white' : 'border-slate-300 text-slate-500'}`}>
@@ -16135,22 +16188,14 @@ RULES:
                                 );
                               })}
                             </div>
-                            {/* Explanation after answering */}
-                            {isAnswered && (
-                              <div className="space-y-1.5 text-[11px] leading-relaxed mt-2">
-                                {cq.explanation && <p className="bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1.5 text-slate-700"><span className="font-black text-slate-700">🔎 Explanation:</span> {cq.explanation}</p>}
-                                {cq.concept && <p className="bg-blue-50 border border-blue-100 rounded-lg px-2.5 py-1.5 text-slate-700"><span className="font-black text-blue-700">💡 Concept:</span> {cq.concept}</p>}
-                                {cq.examTip && <p className="bg-amber-50 border border-amber-100 rounded-lg px-2.5 py-1.5 text-slate-700"><span className="font-black text-amber-700">🎯 Exam Tip:</span> {cq.examTip}</p>}
-                              </div>
-                            )}
+                            {/* No explanation during quiz — shown only in Review screen */}
                           </div>
 
-                          {/* Navigation: Prev | Submit & Next → */}
+                          {/* Navigation: Prev | Next */}
                           <div className="mt-3 flex gap-2">
-                            {/* Prev */}
                             {ci > 0 ? (
                               <button
-                                onClick={() => setLucentMcqCurrentIdx(prev => ({ ...prev, [pageKey]: ci - 1 }))}
+                                onClick={() => { if (lucentAutoNextTimerRef.current) clearTimeout(lucentAutoNextTimerRef.current); setLucentMcqCurrentIdx(prev => ({ ...prev, [pageKey]: ci - 1 })); }}
                                 className="py-3 px-4 rounded-2xl bg-white border-2 border-slate-200 text-slate-700 font-bold text-sm flex items-center justify-center gap-1 active:scale-95 transition"
                               >
                                 <ChevronLeft size={15} /> Prev
@@ -16160,69 +16205,22 @@ RULES:
                                 <ChevronLeft size={15} /> Prev
                               </div>
                             )}
-
-                            {/* Main action button */}
-                            {isAllSubmitted ? (
-                              /* All done — Restart */
+                            {ci < totalQ - 1 ? (
                               <button
-                                onClick={() => {
-                                  setLucentMcqAnswers(prev => {
-                                    const n = { ...prev };
-                                    mcqs.forEach((_: any, i: number) => delete n[`${pageKey}_${i}`]);
-                                    return n;
-                                  });
-                                  setLucentMcqSubmitted(prev => {
-                                    const n = { ...prev };
-                                    mcqs.forEach((_: any, i: number) => delete n[`${pageKey}_${i}`]);
-                                    return n;
-                                  });
-                                  setLucentMcqCurrentIdx(prev => ({ ...prev, [pageKey]: 0 }));
-                                }}
-                                className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-black text-sm flex items-center justify-center gap-1.5 active:scale-95 transition shadow-md"
+                                onClick={() => { if (lucentAutoNextTimerRef.current) clearTimeout(lucentAutoNextTimerRef.current); setLucentMcqCurrentIdx(prev => ({ ...prev, [pageKey]: ci + 1 })); }}
+                                disabled={!isAnswered}
+                                className={`flex-1 py-3 rounded-2xl font-black text-sm flex items-center justify-center gap-1.5 active:scale-95 transition shadow-md ${isAnswered ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
                               >
-                                <RefreshCw size={14} /> Restart
+                                Next <ChevronRight size={15} />
                               </button>
-                            ) : isCurrentSubmitted ? (
-                              /* This question answered — Next */
-                              ci < totalQ - 1 ? (
-                                <button
-                                  onClick={() => setLucentMcqCurrentIdx(prev => ({ ...prev, [pageKey]: ci + 1 }))}
-                                  className="flex-1 py-3 rounded-2xl bg-indigo-600 text-white font-black text-sm flex items-center justify-center gap-1.5 active:scale-95 transition shadow-md"
-                                >
-                                  Next <ChevronRight size={15} />
-                                </button>
-                              ) : (
-                                <div className="flex-1 py-3 rounded-2xl bg-emerald-100 border-2 border-emerald-300 text-emerald-700 font-black text-sm flex items-center justify-center gap-1.5 select-none">
-                                  <CheckCircle size={14} /> All Done!
-                                </div>
-                              )
+                            ) : isAnswered ? (
+                              <div className="flex-1 py-3 rounded-2xl bg-emerald-100 border-2 border-emerald-300 text-emerald-700 font-black text-sm flex items-center justify-center gap-1.5 select-none">
+                                <CheckCircle size={14} /> All Done!
+                              </div>
                             ) : (
-                              /* Not yet submitted — Submit & Next / Submit */
-                              ci < totalQ - 1 ? (
-                                <button
-                                  onClick={() => handleSubmitQuestion(true)}
-                                  disabled={!isSelected}
-                                  className={`flex-1 py-3 rounded-2xl font-black text-sm flex items-center justify-center gap-1.5 active:scale-95 transition shadow-md ${
-                                    isSelected
-                                      ? 'bg-slate-800 text-white'
-                                      : 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                                  }`}
-                                >
-                                  {isSelected ? <>✔ Submit & Next →</> : <>Next →</>}
-                                </button>
-                              ) : (
-                                <button
-                                  onClick={() => handleSubmitQuestion(false)}
-                                  disabled={!isSelected}
-                                  className={`flex-1 py-3 rounded-2xl font-black text-sm flex items-center justify-center gap-1.5 active:scale-95 transition shadow-md ${
-                                    isSelected
-                                      ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white'
-                                      : 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                                  }`}
-                                >
-                                  <CheckCircle size={14} /> {isSelected ? 'Submit →' : 'Next →'}
-                                </button>
-                              )
+                              <div className="flex-1 py-3 rounded-2xl bg-slate-100 border-2 border-slate-200 text-slate-400 font-black text-sm flex items-center justify-center select-none">
+                                Last Question
+                              </div>
                             )}
                           </div>
                         </div>
