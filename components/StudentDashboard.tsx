@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { FeatureHints, FeatureTipsList } from "./FeatureHints";
 import { TopBarEffectsLayer } from "../utils/topBarEffects";
-import { getLevelInfo, getNextLevelInfo, getLevelProgress, LEVEL_INFO, ACTIVITY_SCORES, getLevelTopBarEffects, getLevelLimitBonus, getLevelDailyLimits, getLevelDailyLimitsWithOverride, getEffectiveDailyLimit, UNLIMITED } from "../utils/levelSystem";
-import { tryEarnScore, awardMilestone, getDailyScoreEarned, DAILY_SCORE_LIMIT, getDailyScoreLimit, getActiveBoost } from "../utils/scoreSystem";
+import { getLevelInfo, getNextLevelInfo, getLevelProgress, LEVEL_INFO, ACTIVITY_SCORES, getLevelTopBarEffects, getLevelLimitBonus, getLevelDailyLimits, getLevelDailyLimitsWithOverride, getEffectiveDailyLimit, UNLIMITED, getScoreDiscountFromScore } from "../utils/levelSystem";
+import { tryEarnScore, awardMilestone, getDailyScoreEarned, DAILY_SCORE_LIMIT, getDailyScoreLimit, getActiveBoost, logScoreActivity } from "../utils/scoreSystem";
+import { ScoreHistoryDashboard } from "./ScoreHistoryDashboard";
 import { applyDeduction, getTotalCredits } from "../utils/creditSystem";
 import { LevelLeaderboard } from "./LevelLeaderboard";
 import {
@@ -538,7 +540,11 @@ export const StudentDashboard: React.FC<Props> = ({
   //   4. tempThemeColor (redeem code single-color, not expired)
   //   5. admin tier/global color override
   //   6. default tierTheme
-  const _personalTheme = (user as any).personalTheme as import('../types').UserCustomTheme | undefined;
+  const _personalThemeRaw = (user as any).personalTheme as import('../types').UserCustomTheme | undefined;
+  const _personalThemeExpiry = (user as any).personalThemeExpiry as string | undefined;
+  // personalTheme is valid if: no expiry set, OR expiry is in the future
+  const _personalTheme = _personalThemeRaw && (!_personalThemeExpiry || new Date(_personalThemeExpiry) > new Date())
+    ? _personalThemeRaw : undefined;
   const _customThemeRaw = (user as any).customTheme as (import('../types').UserCustomTheme & { activeThemeAppliedUntil?: string }) | undefined;
   const _customThemeActive = !!(_customThemeRaw && _customThemeRaw.activeThemeAppliedUntil && new Date(_customThemeRaw.activeThemeAppliedUntil) > new Date());
 
@@ -622,14 +628,14 @@ export const StudentDashboard: React.FC<Props> = ({
       // 2. User's chosen theme from admin history (if not expired)
       : _userHistoryTheme
         ? buildGranularTierTheme(getTierTheme(user), _userHistoryTheme)
-        // 3. Official tier theme — admin ne set kiya, puri tier ke liye override
-        : _officialTierTheme
-          ? buildGranularTierTheme(getTierTheme(user), _officialTierTheme)
-          // 4. User's own custom theme
-          : _personalTheme
-            ? buildGranularTierTheme(getTierTheme(user), _personalTheme)
-            : _customThemeActive && _customThemeRaw
-              ? buildGranularTierTheme(getTierTheme(user), _customThemeRaw)
+        // 3. User's own personal theme (highest user-level priority — beats officialTierTheme)
+        : _personalTheme
+          ? buildGranularTierTheme(getTierTheme(user), _personalTheme)
+          : _customThemeActive && _customThemeRaw
+            ? buildGranularTierTheme(getTierTheme(user), _customThemeRaw)
+            // 4. Official tier theme — admin ne set kiya, fallback when user has no personal theme
+            : _officialTierTheme
+              ? buildGranularTierTheme(getTierTheme(user), _officialTierTheme)
               // 5. Single-color override
               : _overrideColor
                 ? buildOverrideTierTheme(getTierTheme(user), _overrideColor, getUserTier(user))
@@ -1134,7 +1140,7 @@ export const StudentDashboard: React.FC<Props> = ({
       if (!isCorrect) {
         // Wrong answer → +1 score, reset streak
         localStorage.setItem(streakKey, '0');
-        const earned = tryEarnScore(freshUser.id, 1, freshUser.subscriptionLevel, freshUser.isPremium, boost);
+        const earned = tryEarnScore(freshUser.id, 1, freshUser.subscriptionLevel, freshUser.isPremium, boost, 'MCQ_WRONG');
         if (earned > 0) {
           handleUserUpdate({ ...freshUser, totalScore: (freshUser.totalScore || 0) + earned });
         }
@@ -1146,15 +1152,15 @@ export const StudentDashboard: React.FC<Props> = ({
         let bonusMsg = '';
         // Streak milestone: every 5 consecutive → +10 bonus (checked first for display priority)
         if (newStreak % 5 === 0) {
-          totalBonus += tryEarnScore(freshUser.id, 10, freshUser.subscriptionLevel, freshUser.isPremium, boost);
+          totalBonus += tryEarnScore(freshUser.id, 10, freshUser.subscriptionLevel, freshUser.isPremium, boost, 'MCQ_STREAK_5');
           bonusMsg = `⚡ ${newStreak} Streak! +10 Bonus Score!`;
         } else if (newStreak % 3 === 0) {
           // Every 3 consecutive (but not a multiple of 5) → +5 bonus
-          totalBonus += tryEarnScore(freshUser.id, 5, freshUser.subscriptionLevel, freshUser.isPremium, boost);
+          totalBonus += tryEarnScore(freshUser.id, 5, freshUser.subscriptionLevel, freshUser.isPremium, boost, 'MCQ_STREAK_3');
           bonusMsg = `🔥 ${newStreak} Streak! +5 Bonus Score!`;
         }
         if (bonusMsg) showAlert(bonusMsg, 'SUCCESS');
-        const baseEarned = tryEarnScore(freshUser.id, 2, freshUser.subscriptionLevel, freshUser.isPremium, boost);
+        const baseEarned = tryEarnScore(freshUser.id, 2, freshUser.subscriptionLevel, freshUser.isPremium, boost, 'MCQ_CORRECT');
         const totalEarned = baseEarned + totalBonus;
         if (totalEarned > 0) {
           handleUserUpdate({ ...freshUser, totalScore: (freshUser.totalScore || 0) + totalEarned });
@@ -1884,6 +1890,7 @@ export const StudentDashboard: React.FC<Props> = ({
   // Daily greeting disabled as requested by user
 
   const [showLevelModal, setShowLevelModal] = useState(false);
+  const [showScoreHistory, setShowScoreHistory] = useState(false);
   const [expandedLevelRow, setExpandedLevelRow] = useState<number | null>(null);
   const [selectedLevelDetail, setSelectedLevelDetail] = useState<typeof LEVEL_INFO[0] | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -2905,6 +2912,12 @@ export const StudentDashboard: React.FC<Props> = ({
   const [readingStreak, setReadingStreak] = useState<StreakInfo>({ current: 0, longest: 0, readToday: false });
   const [showStreakPopup, setShowStreakPopup] = useState(false);
   const [showEventDrawer, setShowEventDrawer] = useState(false);
+  const [_eventTick, _setEventTick] = useState(0);
+  // Re-check event active/upcoming status every 60s so button auto-hides when event ends
+  React.useEffect(() => {
+    const id = setInterval(() => _setEventTick(t => t + 1), 60000);
+    return () => clearInterval(id);
+  }, []);
   const [streakHistoryView, setStreakHistoryView] = useState(false);
   const [showLifetimePopup, setShowLifetimePopup] = useState(false);
   const [lifetimeQuoteIdx, setLifetimeQuoteIdx] = useState(0);
@@ -4651,6 +4664,7 @@ export const StudentDashboard: React.FC<Props> = ({
     if (!updated) return false;
     const scoreGain = Math.max(1, Math.floor(amount * ACTIVITY_SCORES.CREDIT_SPEND));
     const withScore = { ...updated, totalScore: (updated.totalScore || 0) + scoreGain };
+    logScoreActivity(user.id, 'CREDIT_SPEND', scoreGain);
     handleUserUpdate(withScore);
     return true;
   };
@@ -5507,7 +5521,7 @@ export const StudentDashboard: React.FC<Props> = ({
                         if (hwMilestoneSessionRef.current) {
                           const result = awardMilestone(user.id, hwMilestoneSessionRef.current, hwMilestonePrevPctRef.current, pctNow, user.subscriptionLevel, user.isPremium, getActiveBoost(user));
                           hwMilestonePrevPctRef.current = pctNow;
-                          if (result && result.earned > 0) triggerRewardEffect(result.earned, `+${result.earned} pts 📖`);
+                          if (result && result.earned > 0) { triggerRewardEffect(result.earned, `+${result.earned} pts 📖`); logScoreActivity(user.id, 'MILESTONE', result.earned); }
                         }
                       } else {
                         localStorage.removeItem(key);
@@ -8406,7 +8420,45 @@ export const StudentDashboard: React.FC<Props> = ({
               );
             }
 
-            /* ── REGULAR USERS: no theme picker shown ── */
+            /* ── REGULAR USERS: show Theme Studio button only when themeStudioEvent is active ── */
+            {
+              const _now2 = Date.now();
+              const _tse = (settings as any)?.themeStudioEvent;
+              const _tseActive = _tse?.enabled &&
+                (_tse.startsAt ? new Date(_tse.startsAt).getTime() <= _now2 : true) &&
+                (_tse.endsAt ? new Date(_tse.endsAt).getTime() > _now2 : true);
+              const _sbe = (settings as any)?.scoreBoostEvent;
+              const _sbeTheme = _sbe?.enabled && _sbe?.themeStudioEnabled &&
+                (_sbe.startsAt ? new Date(_sbe.startsAt).getTime() <= _now2 : true) &&
+                (_sbe.endsAt ? new Date(_sbe.endsAt).getTime() > _now2 : true);
+              if (_tseActive || _sbeTheme) {
+                const _days = _sbeTheme ? Math.min(_sbe.themeStudioDays ?? 7, 7) : undefined;
+                const _endsAt = _tseActive ? _tse.endsAt : _sbe.endsAt;
+                return (
+                  <div className="mx-3 rounded-2xl mb-3" style={{ background: _pCard, border: `1px solid rgba(139,92,246,0.3)` }}>
+                    <button
+                      onClick={() => { themeOpenerRef.current = 'PROFILE'; onTabChange('THEME_CUSTOMIZER' as any); }}
+                      className={`w-full px-4 py-3.5 flex items-center gap-3 transition-colors active:scale-[0.98]`}
+                    >
+                      <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                        style={{ background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.4)' }}>
+                        <span className="text-base">🎨</span>
+                      </div>
+                      <div className="flex-1 text-left min-w-0">
+                        <p className={`text-sm font-bold ${_pTxt}`}>Theme Studio
+                          <span className="ml-2 text-[9px] font-black px-1.5 py-0.5 rounded-full bg-violet-500/20 text-violet-400">EVENT</span>
+                        </p>
+                        <p className={`text-[10px] mt-0.5 text-violet-400/80`}>
+                          {_endsAt ? `${new Date(_endsAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} tak — ` : ''}
+                          {_days ? `${_days} din ke liye theme customize karo` : 'App ka theme apne hisaab se banao!'}
+                        </p>
+                      </div>
+                      <ChevronRight size={14} style={{ color: 'rgba(139,92,246,0.7)' }} className="shrink-0" />
+                    </button>
+                  </div>
+                );
+              }
+            }
             return null;
 
             // eslint-disable-next-line no-unreachable
@@ -9136,7 +9188,411 @@ export const StudentDashboard: React.FC<Props> = ({
           {/* RIGHT: streak + search + mail + dots */}
           <div className="flex items-center gap-1 shrink-0">
 
-            {/* Streak pill */}
+            {/* Event badge — shows BEFORE streak; auto-hides when no active/upcoming events */}
+            {(() => {
+              const now = Date.now();
+              const chk = (en: boolean, s?: string, e?: string) => {
+                if (!en) return false;
+                const st = s ? new Date(s).getTime() : 0;
+                const en2 = e ? new Date(e).getTime() : Infinity;
+                return now >= st && now < en2;
+              };
+              const upcoming = (en: boolean, s?: string, e?: string) => {
+                if (!en || !s) return false;
+                const st = new Date(s).getTime();
+                return st > now && (e ? now < new Date(e).getTime() : true);
+              };
+              // ── Active events ──
+              type ActiveEv = { label: string; startsAt?: string; endsAt?: string };
+              const activeEvents: ActiveEv[] = [];
+              const pushActive = (label: string, en: boolean, s?: string, e?: string) => {
+                if (chk(en, s, e)) activeEvents.push({ label, startsAt: s, endsAt: e });
+              };
+              pushActive('🚀 Score Boost', settings?.scoreBoostEvent?.enabled ?? false, settings?.scoreBoostEvent?.startsAt, settings?.scoreBoostEvent?.endsAt);
+              pushActive(`🏷️ ${settings?.specialDiscountEvent?.eventName || 'Discount Sale'}`, settings?.specialDiscountEvent?.enabled ?? false, settings?.specialDiscountEvent?.startsAt, settings?.specialDiscountEvent?.endsAt);
+              const gfEnabled = settings?.globalFreeAccessEvent?.enabled ?? (settings?.isGlobalFreeMode ?? false);
+              pushActive('🌍 Free Access', gfEnabled, settings?.globalFreeAccessEvent?.startsAt, settings?.globalFreeAccessEvent?.endsAt);
+              const cfEnabled = settings?.creditFreeEvent?.enabled ?? (settings?.isCreditFreeEvent ?? false);
+              pushActive('🪙 Credit Free', cfEnabled, (settings?.creditFreeEvent as any)?.startsAt, (settings?.creditFreeEvent as any)?.endsAt);
+              pushActive('📈 Limit Boost', (settings as any)?.dailyLimitBoostEvent?.enabled ?? false, (settings as any)?.dailyLimitBoostEvent?.startsAt, (settings as any)?.dailyLimitBoostEvent?.endsAt);
+              pushActive('🎨 Theme Studio', (settings as any)?.themeStudioEvent?.enabled ?? false, (settings as any)?.themeStudioEvent?.startsAt, (settings as any)?.themeStudioEvent?.endsAt);
+              // ── 80% elapsed detection ──
+              const elapsedPct = (s?: string, e?: string) => {
+                if (!s || !e) return 0;
+                const total = new Date(e).getTime() - new Date(s).getTime();
+                if (total <= 0) return 0;
+                return Math.min(1, (now - new Date(s).getTime()) / total);
+              };
+              const hasEndingEvent = activeEvents.some(ae => elapsedPct(ae.startsAt, ae.endsAt) >= 0.8);
+              // ── Expired events: track in localStorage for 7 days ──
+              const EVT_HIST_KEY = 'iic_event_history';
+              const sevenDays = 7 * 24 * 3600000;
+              try {
+                const allEvtDefs: ActiveEv[] = [
+                  { label: '🚀 Score Boost', startsAt: settings?.scoreBoostEvent?.startsAt, endsAt: settings?.scoreBoostEvent?.endsAt },
+                  { label: `🏷️ ${settings?.specialDiscountEvent?.eventName || 'Discount Sale'}`, startsAt: settings?.specialDiscountEvent?.startsAt, endsAt: settings?.specialDiscountEvent?.endsAt },
+                  { label: '🌍 Free Access', startsAt: settings?.globalFreeAccessEvent?.startsAt, endsAt: settings?.globalFreeAccessEvent?.endsAt },
+                  { label: '🪙 Credit Free', startsAt: (settings?.creditFreeEvent as any)?.startsAt, endsAt: (settings?.creditFreeEvent as any)?.endsAt },
+                  { label: '📈 Limit Boost', startsAt: (settings as any)?.dailyLimitBoostEvent?.startsAt, endsAt: (settings as any)?.dailyLimitBoostEvent?.endsAt },
+                  { label: '🎨 Theme Studio', startsAt: (settings as any)?.themeStudioEvent?.startsAt, endsAt: (settings as any)?.themeStudioEvent?.endsAt },
+                ];
+                const hist: any[] = JSON.parse(localStorage.getItem(EVT_HIST_KEY) || '[]').filter((h: any) => now - h.expiredAt < sevenDays);
+                allEvtDefs.forEach(ev => {
+                  if (!ev.endsAt) return;
+                  const expiredAt = new Date(ev.endsAt).getTime();
+                  if (expiredAt > now - sevenDays && expiredAt < now) {
+                    const already = hist.some(h => h.label === ev.label && Math.abs(h.expiredAt - expiredAt) < 3600000);
+                    if (!already) hist.push({ label: ev.label, expiredAt, startsAt: ev.startsAt, endsAt: ev.endsAt });
+                  }
+                });
+                localStorage.setItem(EVT_HIST_KEY, JSON.stringify(hist));
+              } catch {}
+              // ── Upcoming events (scheduled but not yet started) ──
+              type UpcomingEv = { label: string; startsAt: string; endsAt?: string };
+              const upcomingEvents: UpcomingEv[] = [];
+              const pushUpcoming = (label: string, en: boolean, s?: string, e?: string) => {
+                if (upcoming(en, s, e)) upcomingEvents.push({ label, startsAt: s!, endsAt: e });
+              };
+              pushUpcoming('🚀 Score Boost', settings?.scoreBoostEvent?.enabled ?? false, settings?.scoreBoostEvent?.startsAt, settings?.scoreBoostEvent?.endsAt);
+              pushUpcoming(`🏷️ ${settings?.specialDiscountEvent?.eventName || 'Discount'}`, settings?.specialDiscountEvent?.enabled ?? false, settings?.specialDiscountEvent?.startsAt, settings?.specialDiscountEvent?.endsAt);
+              pushUpcoming('🌍 Free Access', settings?.globalFreeAccessEvent?.enabled ?? false, settings?.globalFreeAccessEvent?.startsAt, settings?.globalFreeAccessEvent?.endsAt);
+              pushUpcoming('📈 Limit Boost', (settings as any)?.dailyLimitBoostEvent?.enabled ?? false, (settings as any)?.dailyLimitBoostEvent?.startsAt, (settings as any)?.dailyLimitBoostEvent?.endsAt);
+              pushUpcoming('🎨 Theme Studio', (settings as any)?.themeStudioEvent?.enabled ?? false, (settings as any)?.themeStudioEvent?.startsAt, (settings as any)?.themeStudioEvent?.endsAt);
+
+              if (activeEvents.length === 0 && upcomingEvents.length === 0) return null;
+
+              // ── Countdown helper ──
+              const cdText = (startsAt: string) => {
+                const ms = new Date(startsAt).getTime() - now;
+                if (ms <= 0) return 'Abhi!';
+                const h = Math.floor(ms / 3600000);
+                const m = Math.floor((ms % 3600000) / 60000);
+                if (h >= 48) return `${Math.floor(h/24)}d baad`;
+                if (h >= 1) return `${h}h ${m}m`;
+                return `${m}m`;
+              };
+
+              return (
+                <>
+                  {activeEvents.length > 0 ? (
+                    <button
+                      onClick={() => setShowEventDrawer(true)}
+                      className="relative inline-flex items-center gap-0.5 px-2 py-1 rounded-full text-[10px] font-black shrink-0 active:scale-90 transition-all"
+                      style={hasEndingEvent
+                        ? { background: 'rgba(239,68,68,0.22)', color: '#fca5a5', border: '1px solid rgba(239,68,68,0.55)', boxShadow: '0 0 8px rgba(239,68,68,0.45)' }
+                        : { background: 'rgba(245,158,11,0.25)', color: '#fcd34d', border: '1px solid rgba(245,158,11,0.5)' }}
+                      title={hasEndingEvent ? 'Event khatam hone wala hai!' : `${activeEvents.length} event(s) active`}
+                    >
+                      <span className="text-[11px] leading-none">⚡</span>
+                      <span>{activeEvents.length}</span>
+                      <span className={`absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full animate-ping ${hasEndingEvent ? 'bg-red-400' : 'bg-amber-400'}`} />
+                      <span className={`absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full ${hasEndingEvent ? 'bg-red-400' : 'bg-amber-400'}`} />
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setShowEventDrawer(true)}
+                      className="relative inline-flex items-center gap-0.5 px-2 py-1 rounded-full text-[10px] font-black shrink-0 active:scale-90 transition-all"
+                      style={{ background: 'rgba(99,102,241,0.2)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.4)' }}
+                      title={`Event aa raha hai: ${upcomingEvents[0].label}`}
+                    >
+                      <span className="text-[11px] leading-none">📅</span>
+                      <span>{cdText(upcomingEvents[0].startsAt)}</span>
+                    </button>
+                  )}
+
+                  {showEventDrawer && createPortal(
+                    <>
+                      <div className="fixed inset-0 z-[99997] bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+                        onClick={() => setShowEventDrawer(false)} />
+                      <div className="fixed inset-0 z-[99998] flex items-center justify-center p-6 pointer-events-none">
+                        <div className="pointer-events-auto w-full max-w-sm rounded-3xl overflow-hidden animate-in zoom-in-95 fade-in duration-300"
+                          style={{ background: '#0d0d14', border: '1px solid rgba(245,158,11,0.3)', maxHeight: '80dvh' }}>
+                          <div className="p-4 border-b flex items-center justify-between"
+                            style={{ borderColor: 'rgba(245,158,11,0.2)', background: 'rgba(245,158,11,0.08)' }}>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xl">⚡</span>
+                              <div>
+                                <p className="font-black text-white text-sm">Live Events</p>
+                                <p className="text-[10px]" style={{ color: hasEndingEvent ? '#fca5a5' : '#fbbf24' }}>
+                                  {activeEvents.length > 0
+                                    ? hasEndingEvent
+                                      ? `⚠️ Koi event khatam hone wala hai!`
+                                      : `${activeEvents.length} event${activeEvents.length > 1 ? 's' : ''} abhi active hai!`
+                                    : `${upcomingEvents.length} event aa raha hai jaldi!`}
+                                </p>
+                              </div>
+                            </div>
+                            <button onClick={() => setShowEventDrawer(false)}
+                              className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white">
+                              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+                            </button>
+                          </div>
+                          <div className="p-4 space-y-3 overflow-y-auto" style={{ maxHeight: 'calc(80dvh - 80px)' }}>
+                            {/* activeEvents here is ActiveEv[]; use .label for string ops */}
+                            {activeEvents.length === 0 && upcomingEvents.length > 0 && (
+                              <div className="rounded-2xl p-4 flex items-center gap-3 mb-2"
+                                style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)' }}>
+                                <span className="text-2xl">📅</span>
+                                <div>
+                                  <p className="font-black text-white text-sm">Koi event abhi active nahi</p>
+                                  <p className="text-[10px] text-indigo-400 mt-0.5">Neeche dekho — aane wale events ki list hai!</p>
+                                </div>
+                              </div>
+                            )}
+                            {activeEvents.map((ae, i) => {
+                              const ev = ae.label;
+                              const pct = elapsedPct(ae.startsAt, ae.endsAt);
+                              const isEndingSoon = pct >= 0.8;
+                              const msLeft = ae.endsAt ? new Date(ae.endsAt).getTime() - Date.now() : Infinity;
+                              const endCountdown = (() => {
+                                if (!isFinite(msLeft) || msLeft <= 0) return null;
+                                const h = Math.floor(msLeft / 3600000);
+                                const m = Math.floor((msLeft % 3600000) / 60000);
+                                return h >= 48 ? `${Math.floor(h/24)} din bacha` : h >= 1 ? `${h}h ${m}m bacha` : `${m} min bacha`;
+                              })();
+                              const isScoreBoost = ev.includes('Score Boost');
+                              const isLimitBoost = ev.includes('Limit Boost');
+                              if (isScoreBoost) {
+                                const bPct = (settings as any)?.scoreBoostEvent?.boostPercent || 0;
+                                const evName = (settings as any)?.scoreBoostEvent?.eventName || 'Score Boost Event';
+                                const endsAt = (settings as any)?.scoreBoostEvent?.endsAt;
+                                const exampleActivities = [
+                                  { label: 'MCQ Sahi Jawab', base: 2 },
+                                  { label: 'Video / Notes', base: 10 },
+                                  { label: 'Daily Login', base: 10 },
+                                  { label: 'Streak Bonus (5x)', base: 10 },
+                                ];
+                                return (
+                                  <div key={i} className="rounded-2xl overflow-hidden" style={{ background: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.35)' }}>
+                                    <div className="px-4 pt-3.5 pb-2 flex items-center justify-between">
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-xl">🚀</span>
+                                        <div>
+                                          <p className="font-black text-white text-sm">{evName}</p>
+                                          {endsAt && <p className="text-[9px] text-orange-400/70">{new Date(endsAt).toLocaleDateString('en-IN', { day:'numeric', month:'short' })} tak active</p>}
+                                        </div>
+                                      </div>
+                                      <div className="flex flex-col items-end gap-1">
+                                        <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-300">+{bPct}% BOOST</span>
+                                        {isEndingSoon && <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-red-500/20 text-red-400">ENDING</span>}
+                                      </div>
+                                    </div>
+                                    {isEndingSoon && endCountdown && (
+                                      <div className="px-4 pb-2">
+                                        <p className="text-[9px] font-black text-red-400">⏰ {endCountdown} — jaldi use karo!</p>
+                                      </div>
+                                    )}
+                                    <div className="px-4 pb-3 space-y-1.5 border-t border-orange-500/15 pt-2">
+                                      <p className="text-[9px] font-black text-orange-400/70 uppercase tracking-wider mb-2">Score Breakdown</p>
+                                      {exampleActivities.map(ex => {
+                                        const after = Math.round(ex.base * (1 + bPct / 100));
+                                        const extra = after - ex.base;
+                                        return (
+                                          <div key={ex.label} className="flex items-center justify-between">
+                                            <span className="text-[10px] text-slate-400">{ex.label}</span>
+                                            <div className="flex items-center gap-1.5">
+                                              <span className="text-[10px] text-slate-600 line-through">{ex.base} pts</span>
+                                              <span className="text-[9px] text-orange-500">→</span>
+                                              <span className="text-[10px] font-black text-orange-300">{after} pts</span>
+                                              <span className="text-[9px] text-orange-500/60">(+{extra})</span>
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                );
+                              }
+                              if (isLimitBoost) {
+                                const dlb = (settings as any)?.dailyLimitBoostEvent;
+                                const isUltraU = user.isPremium && user.subscriptionLevel === 'ULTRA';
+                                const isBasicU = user.isPremium && user.subscriptionLevel === 'BASIC';
+                                const baseLimit = getDailyScoreLimit(user.subscriptionLevel, user.isPremium, (user as any).scoreLimitBoostPercent);
+                                const extraPts = isUltraU ? (dlb?.mcqBoostUltra || 0) : isBasicU ? (dlb?.mcqBoostBasic || 0) : (dlb?.mcqBoostFree || 0);
+                                const totalLimit = baseLimit + extraPts;
+                                const endsAt = dlb?.endsAt;
+                                const evName = dlb?.eventName || 'Daily Limit Boost';
+                                return (
+                                  <div key={i} className="rounded-2xl overflow-hidden" style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.35)' }}>
+                                    <div className="px-4 pt-3.5 pb-2 flex items-center justify-between">
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-xl">📈</span>
+                                        <div>
+                                          <p className="font-black text-white text-sm">{evName}</p>
+                                          {endsAt && <p className="text-[9px] text-emerald-400/70">{new Date(endsAt).toLocaleDateString('en-IN', { day:'numeric', month:'short' })} tak active</p>}
+                                        </div>
+                                      </div>
+                                      <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${isEndingSoon ? 'bg-red-500/20 text-red-400' : 'bg-emerald-500/20 text-emerald-400'}`}>{isEndingSoon ? 'ENDING' : 'LIVE'}</span>
+                                    </div>
+                                    {isEndingSoon && endCountdown && (
+                                      <div className="px-4 pb-2">
+                                        <p className="text-[9px] font-black text-red-400">⏰ {endCountdown} — jaldi use karo!</p>
+                                      </div>
+                                    )}
+                                    <div className="px-4 pb-3 space-y-1.5 border-t border-emerald-500/15 pt-2">
+                                      <p className="text-[9px] font-black text-emerald-400/70 uppercase tracking-wider mb-2">Aaj ka Score Limit</p>
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-[10px] text-slate-400">Pehle (Base Limit)</span>
+                                        <span className="text-[10px] text-slate-400 font-black">{baseLimit} pts</span>
+                                      </div>
+                                      {extraPts > 0 && (
+                                        <div className="flex items-center justify-between">
+                                          <span className="text-[10px] text-slate-400">Event Bonus</span>
+                                          <span className="text-[10px] font-black text-emerald-400">+{Math.round((extraPts/Math.max(baseLimit,1))*100)}%</span>
+                                        </div>
+                                      )}
+                                      <div className="flex items-center justify-between pt-1.5 border-t border-emerald-500/20 mt-1">
+                                        <span className="text-[10px] font-black text-emerald-300">Total Aaj</span>
+                                        <span className="text-[10px] font-black text-white">{totalLimit} pts {extraPts > 0 && <span className="text-emerald-400">(+{Math.round((extraPts/Math.max(baseLimit,1))*100)}% extra!)</span>}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              }
+                              const isThemeStudio = ev.includes('Theme Studio');
+                              if (isThemeStudio) {
+                                const tsEvent = (settings as any)?.themeStudioEvent;
+                                const endsAt = tsEvent?.endsAt;
+                                return (
+                                  <div key={i} className="rounded-2xl overflow-hidden" style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.35)' }}>
+                                    <div className="px-4 pt-3.5 pb-3 flex items-center gap-3">
+                                      <span className="text-2xl shrink-0">🎨</span>
+                                      <div className="flex-1 min-w-0">
+                                        <p className="font-black text-white text-sm">{tsEvent?.eventName || 'Theme Studio Event'}</p>
+                                        <p className="text-[10px] text-violet-400/80 mt-0.5">
+                                          {endsAt ? `${new Date(endsAt).toLocaleDateString('en-IN', { day:'numeric', month:'short' })} tak — ` : ''}App ka theme apne hisaab se banao!
+                                        </p>
+                                      </div>
+                                      <span className={`text-[9px] font-black px-2 py-0.5 rounded-full shrink-0 ${isEndingSoon ? 'bg-red-500/20 text-red-400' : 'bg-violet-500/20 text-violet-300'}`}>{isEndingSoon ? 'ENDING' : 'LIVE'}</span>
+                                    </div>
+                                    <div className="px-4 pb-3.5">
+                                      {isEndingSoon && endCountdown && (
+                                        <p className="text-[9px] font-black text-red-400 mb-2">⏰ {endCountdown} — jaldi kholo!</p>
+                                      )}
+                                      <button
+                                        onClick={() => { setShowEventDrawer(false); themeOpenerRef.current = 'HOME'; onTabChange('THEME_CUSTOMIZER' as any); }}
+                                        className="w-full py-2.5 rounded-xl font-black text-xs text-white flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+                                        style={{ background: 'linear-gradient(135deg, #7c3aed, #a855f7)' }}
+                                      >
+                                        🎨 Theme Studio Kholo
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              }
+                              return (
+                                <div key={i} className="rounded-2xl p-4 flex items-center gap-3"
+                                  style={isEndingSoon
+                                    ? { background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.35)' }
+                                    : { background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)' }}>
+                                  <span className="text-2xl shrink-0">{ev.split(' ')[0]}</span>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="font-black text-white text-sm">{ev.slice(ev.indexOf(' ') + 1)}</p>
+                                    {isEndingSoon && endCountdown
+                                      ? <p className="text-[10px] font-black text-red-400 mt-0.5">⏰ {endCountdown} — jaldi use karo!</p>
+                                      : <p className="text-[10px] text-amber-400 mt-0.5">Abhi active — enjoy karo! 🎉</p>}
+                                  </div>
+                                  <span className={`ml-auto text-[9px] font-black px-2 py-0.5 rounded-full shrink-0 ${isEndingSoon ? 'bg-red-500/20 text-red-400' : 'bg-amber-500/20 text-amber-400'}`}>
+                                    {isEndingSoon ? 'ENDING' : 'LIVE'}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                            {/* Expired events history — 7 din tak */}
+                            {(() => {
+                              try {
+                                const hist: any[] = JSON.parse(localStorage.getItem('iic_event_history') || '[]').filter((h: any) => Date.now() - h.expiredAt < 7*24*3600000);
+                                if (hist.length === 0) return null;
+                                return (
+                                  <div className="mt-3 pt-3 border-t border-white/6">
+                                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mb-2">📋 Purane Events (7 din)</p>
+                                    {hist.slice().reverse().map((h: any, hi: number) => {
+                                      const daysAgo = Math.floor((Date.now() - h.expiredAt) / 86400000);
+                                      const expLabel = daysAgo === 0 ? 'Aaj khatam hua' : `${daysAgo} din pehle khatam`;
+                                      const startFmt = h.startsAt ? new Date(h.startsAt).toLocaleDateString('en-IN', { day:'numeric', month:'short' }) : '';
+                                      const endFmt = h.endsAt ? new Date(h.endsAt).toLocaleDateString('en-IN', { day:'numeric', month:'short' }) : '';
+                                      return (
+                                        <div key={hi} className="flex items-center gap-2.5 rounded-2xl px-3 py-2 mb-1.5 opacity-60"
+                                          style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                                          <span className="text-base shrink-0">{h.label?.split(' ')[0] || '📋'}</span>
+                                          <div className="flex-1 min-w-0">
+                                            <p className="text-[10px] font-black text-slate-400">{h.label?.slice(h.label.indexOf(' ')+1) || h.label}</p>
+                                            {(startFmt || endFmt) && <p className="text-[8px] text-slate-600">{startFmt}{startFmt && endFmt ? ' — ' : ''}{endFmt}</p>}
+                                          </div>
+                                          <span className="text-[8px] text-slate-600 shrink-0">{expLabel}</span>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                );
+                              } catch { return null; }
+                            })()}
+
+                            {/* Upcoming events cooldown */}
+                            {upcomingEvents.length > 0 && (
+                              <div className="mt-3 pt-3 border-t border-white/6">
+                                <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mb-2">📅 Aane Wale Events</p>
+                                {upcomingEvents.map((uev, ui) => {
+                                  const ms = new Date(uev.startsAt).getTime() - Date.now();
+                                  const h = Math.floor(ms / 3600000);
+                                  const m = Math.floor((ms % 3600000) / 60000);
+                                  const cdLabel = h >= 48 ? `${Math.floor(h/24)} din baad` : h >= 1 ? `${h}h ${m}m mein` : `${m} minute mein`;
+                                  const endLabel = uev.endsAt ? new Date(uev.endsAt).toLocaleDateString('en-IN', { day:'numeric', month:'short' }) + ' tak' : '';
+                                  return (
+                                    <div key={ui} className="flex items-center gap-3 rounded-2xl px-3 py-2.5 mb-1.5"
+                                      style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)' }}>
+                                      <span className="text-xl shrink-0">{uev.label.split(' ')[0]}</span>
+                                      <div className="flex-1 min-w-0">
+                                        <p className="font-black text-white text-[11px]">{uev.label.slice(uev.label.indexOf(' ')+1)}</p>
+                                        {endLabel && <p className="text-[9px] text-slate-500">{endLabel}</p>}
+                                      </div>
+                                      <div className="text-right shrink-0">
+                                        <p className="text-[9px] font-black text-indigo-400">{cdLabel}</p>
+                                        <p className="text-[8px] text-slate-600">shuru hoga</p>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                            {/* ── Tera Store Discount ── */}
+                            {(() => {
+                              const lvlDiscount = getLevelInfo(user.totalScore || 0).discount;
+                              const personalDiscount = user.storeDiscount && user.storeDiscount > 0 ? user.storeDiscount : 0;
+                              const scoreDisc = getScoreDiscountFromScore(user.totalScore || 0);
+                              const total = lvlDiscount + personalDiscount + scoreDisc;
+                              if (total <= 0) return null;
+                              return (
+                                <div className="mt-3 pt-3 border-t border-white/6">
+                                  <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mb-2">🏷️ Tera Store Discount</p>
+                                  <div className="rounded-2xl px-3 py-3 flex items-center gap-3"
+                                    style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)' }}>
+                                    <span className="text-xl shrink-0">🎟️</span>
+                                    <div className="flex-1">
+                                      <div className="flex gap-1.5 flex-wrap">
+                                        {lvlDiscount > 0 && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400">+{lvlDiscount}% Level</span>}
+                                        {personalDiscount > 0 && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400">+{personalDiscount}% Personal</span>}
+                                        {scoreDisc > 0 && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400">+{scoreDisc}% Score</span>}
+                                      </div>
+                                      <p className="text-[9px] text-slate-500 mt-1">Store mein sabhi purchases pe</p>
+                                    </div>
+                                    <span className="text-base font-black text-emerald-400 shrink-0">{total}% OFF</span>
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                            <p className="text-[10px] text-slate-600 text-center pt-2">Yeh events admin ke dwara set kiye gaye hain.</p>
+                          </div>
+                        </div>
+                      </div>
+                    </>,
+                    document.body
+                  )}
+                </>
+              );
+            })()}
+
+            {/* Streak pill — shows AFTER event badge */}
             <button
               onClick={() => setShowStreakPopup(true)}
               className={`inline-flex items-center gap-0.5 px-2 py-1 rounded-full text-[11px] font-black shrink-0 active:scale-90 transition-all text-white${topBarBtnGlow ? ' nst-topbar-btn-glow' : ''}`}
@@ -9145,81 +9601,6 @@ export const StudentDashboard: React.FC<Props> = ({
               <span className="text-[13px] leading-none">🔥</span>
               <span>{user.streak}d</span>
             </button>
-
-            {/* Event badge */}
-            {(() => {
-              const now = Date.now();
-              const isActive = (en: boolean, s?: string, e?: string) => {
-                if (!en) return false;
-                const st = s ? new Date(s).getTime() : 0;
-                const en2 = e ? new Date(e).getTime() : Infinity;
-                return now >= st && now < en2;
-              };
-              const activeEvents: string[] = [];
-              if (isActive(settings?.scoreBoostEvent?.enabled ?? false, settings?.scoreBoostEvent?.startsAt, settings?.scoreBoostEvent?.endsAt)) activeEvents.push('🚀 Score Boost');
-              if (isActive(settings?.specialDiscountEvent?.enabled ?? false, settings?.specialDiscountEvent?.startsAt, settings?.specialDiscountEvent?.endsAt)) activeEvents.push(`🏷️ ${settings?.specialDiscountEvent?.eventName || 'Discount Sale'}`);
-              const gfEnabled = settings?.globalFreeAccessEvent?.enabled ?? (settings?.isGlobalFreeMode ?? false);
-              if (isActive(gfEnabled, settings?.globalFreeAccessEvent?.startsAt, settings?.globalFreeAccessEvent?.endsAt)) activeEvents.push('🌍 Free Access');
-              const cfEnabled = settings?.creditFreeEvent?.enabled ?? (settings?.isCreditFreeEvent ?? false);
-              if (isActive(cfEnabled, (settings?.creditFreeEvent as any)?.startsAt, (settings?.creditFreeEvent as any)?.endsAt)) activeEvents.push('🪙 Credit Free');
-              if (isActive((settings as any)?.dailyLimitBoostEvent?.enabled ?? false, (settings as any)?.dailyLimitBoostEvent?.startsAt, (settings as any)?.dailyLimitBoostEvent?.endsAt)) activeEvents.push('📈 Limit Boost');
-              if (isActive((settings as any)?.themeStudioEvent?.enabled ?? false, (settings as any)?.themeStudioEvent?.startsAt, (settings as any)?.themeStudioEvent?.endsAt)) activeEvents.push('🎨 Theme Studio');
-
-              if (activeEvents.length === 0) return null;
-              return (
-                <>
-                  <button
-                    onClick={() => setShowEventDrawer(true)}
-                    className="relative inline-flex items-center gap-0.5 px-2 py-1 rounded-full text-[10px] font-black shrink-0 active:scale-90 transition-all"
-                    style={{ background: 'rgba(245,158,11,0.25)', color: '#fcd34d', border: '1px solid rgba(245,158,11,0.5)' }}
-                    title={`${activeEvents.length} event(s) active`}
-                  >
-                    <span className="text-[11px] leading-none">⚡</span>
-                    <span>{activeEvents.length}</span>
-                    <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-amber-400 animate-ping" />
-                    <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-amber-400" />
-                  </button>
-
-                  {showEventDrawer && (
-                    <>
-                      <div className="fixed inset-0 z-[99997] bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
-                        onClick={() => setShowEventDrawer(false)} />
-                      <div className="fixed bottom-0 left-0 right-0 z-[99998] rounded-t-3xl overflow-hidden animate-in slide-in-from-bottom duration-300"
-                        style={{ background: '#0d0d14', border: '1px solid rgba(245,158,11,0.3)', maxHeight: '80dvh' }}>
-                        <div className="p-4 border-b flex items-center justify-between"
-                          style={{ borderColor: 'rgba(245,158,11,0.2)', background: 'rgba(245,158,11,0.08)' }}>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xl">⚡</span>
-                            <div>
-                              <p className="font-black text-white text-sm">Live Events</p>
-                              <p className="text-[10px] text-amber-400">{activeEvents.length} event{activeEvents.length > 1 ? 's' : ''} abhi active hai!</p>
-                            </div>
-                          </div>
-                          <button onClick={() => setShowEventDrawer(false)}
-                            className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white">
-                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
-                          </button>
-                        </div>
-                        <div className="p-4 space-y-3 overflow-y-auto" style={{ maxHeight: 'calc(80dvh - 80px)' }}>
-                          {activeEvents.map((ev, i) => (
-                            <div key={i} className="rounded-2xl p-4 flex items-center gap-3"
-                              style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)' }}>
-                              <span className="text-2xl shrink-0">{ev.split(' ')[0]}</span>
-                              <div>
-                                <p className="font-black text-white text-sm">{ev.slice(ev.indexOf(' ') + 1)}</p>
-                                <p className="text-[10px] text-amber-400 mt-0.5">Abhi active — enjoy karo! 🎉</p>
-                              </div>
-                              <span className="ml-auto text-[9px] font-black px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400">LIVE</span>
-                            </div>
-                          ))}
-                          <p className="text-[10px] text-slate-600 text-center pt-2">Yeh events admin ke dwara set kiye gaye hain.</p>
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </>
-              );
-            })()}
 
             {/* Mail */}
             {(() => {
@@ -12217,6 +12598,7 @@ export const StudentDashboard: React.FC<Props> = ({
                       speakText(fullText, null, 1.0, 'hi-IN', () => setSpeakingId('gk_readall'), () => { setSpeakingId(null); setTtsProgressPercent(0); setTtsSessionKey(null); }, (pct) => {
                         setTtsProgressPercent(pct);
                         const result = awardMilestone(user.id, gkSessionKey, prevTtsPct, pct, user.subscriptionLevel, user.isPremium, getActiveBoost(user));
+                        if (result && result.earned > 0) logScoreActivity(user.id, 'PDF', result.earned);
                         prevTtsPct = pct;
                         if (result && result.earned > 0) triggerRewardEffect(result.earned, `+${result.earned} pts 🎧`);
                       });
@@ -15530,6 +15912,7 @@ export const StudentDashboard: React.FC<Props> = ({
                   // Award milestone score for lucent/notes reading progress
                   if (lucentMilestoneSessionRef.current) {
                     const result = awardMilestone(user.id, lucentMilestoneSessionRef.current, lucentMilestonePrevPctRef.current, pct, user.subscriptionLevel, user.isPremium, getActiveBoost(user));
+                    if (result && result.earned > 0) logScoreActivity(user.id, 'PDF', result.earned);
                     lucentMilestonePrevPctRef.current = pct;
                     if (result && result.earned > 0) triggerRewardEffect(result.earned, `+${result.earned} pts 📚`);
                   }
@@ -19067,6 +19450,9 @@ RULES:
                 })()}
 
                 {/* ── LEVEL SYSTEM TAB (default) ── */}
+                {scorePanelTab === 'LEVEL' && showScoreHistory && (
+                  <ScoreHistoryDashboard user={user} onBack={() => setShowScoreHistory(false)} />
+                )}
                 {scorePanelTab === 'LEVEL' && <React.Fragment>
 
                 {/* Next Level + Daily Score — side by side */}
@@ -19091,26 +19477,43 @@ RULES:
                     <div className="rounded-2xl p-3.5 bg-amber-900/20 border border-amber-500/30 flex flex-col justify-center text-center">
                       <p className="text-2xl mb-1">🏆</p>
                       <p className="text-[10px] font-black text-amber-400 leading-tight">Max Level!</p>
-                      <p className="text-[8px] text-amber-500/60 mt-0.5">20% discount active</p>
+                      <p className="text-[8px] text-amber-500/60 mt-0.5">{lvl.discount}% discount active</p>
                     </div>
                   )}
 
                   {(() => {
                     const earned = getDailyScoreEarned(user.id);
-                    const dailyLimit = getDailyScoreLimit(user.subscriptionLevel, user.isPremium, (user as any).scoreLimitBoostPercent);
-                    const pct = Math.min(100, Math.round((earned / dailyLimit) * 100));
+                    const baseLimit = getDailyScoreLimit(user.subscriptionLevel, user.isPremium, (user as any).scoreLimitBoostPercent);
                     const isUltra = user.isPremium && user.subscriptionLevel === 'ULTRA';
                     const isBasic = user.isPremium && user.subscriptionLevel === 'BASIC';
+                    // Daily Limit Boost Event extra pts
+                    const dlbEvent = (settings as any)?.dailyLimitBoostEvent;
+                    const dlbNow = Date.now();
+                    const dlbActive = dlbEvent?.enabled &&
+                      (dlbEvent.startsAt ? new Date(dlbEvent.startsAt).getTime() <= dlbNow : true) &&
+                      (dlbEvent.endsAt ? new Date(dlbEvent.endsAt).getTime() > dlbNow : true);
+                    const eventExtra = dlbActive
+                      ? (isUltra ? (dlbEvent?.mcqBoostUltra || 0) : isBasic ? (dlbEvent?.mcqBoostBasic || 0) : (dlbEvent?.mcqBoostFree || 0))
+                      : 0;
+                    const dailyLimit = baseLimit + eventExtra;
+                    const pct = Math.min(100, Math.round((earned / dailyLimit) * 100));
                     return (
                       <div className="rounded-2xl p-3.5 bg-emerald-900/20 border border-emerald-500/30 flex flex-col justify-between">
                         <div>
                           <div className="flex items-center justify-between mb-0.5">
                             <p className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">Aaj</p>
-                            {isUltra && <span className="text-[7px] font-black text-amber-300 bg-amber-900/30 px-1 rounded">1.75×</span>}
-                            {isBasic && <span className="text-[7px] font-black text-sky-300 bg-sky-900/30 px-1 rounded">1.25×</span>}
+                            <div className="flex items-center gap-1">
+                              {isUltra && <span className="text-[7px] font-black text-amber-300 bg-amber-900/30 px-1 rounded">1.75×</span>}
+                              {isBasic && <span className="text-[7px] font-black text-sky-300 bg-sky-900/30 px-1 rounded">1.25×</span>}
+                              {dlbActive && eventExtra > 0 && <span className="text-[7px] font-black text-emerald-300 bg-emerald-900/40 px-1 rounded">📈 +{eventExtra}</span>}
+                            </div>
                           </div>
                           <p className="text-base font-black text-white leading-tight">{earned} <span className="text-[10px] font-normal text-slate-400">/ {dailyLimit}</span></p>
-                          <p className="text-[8px] text-slate-500">pts aaj</p>
+                          {dlbActive && eventExtra > 0 ? (
+                            <p className="text-[8px] text-emerald-500/80">{baseLimit} + <span className="text-emerald-400 font-black">+{eventExtra} event</span> = {dailyLimit} pts</p>
+                          ) : (
+                            <p className="text-[8px] text-slate-500">pts aaj</p>
+                          )}
                         </div>
                         <div>
                           <div className="h-1.5 bg-white/8 rounded-full overflow-hidden mt-2">
@@ -19122,6 +19525,19 @@ RULES:
                     );
                   })()}
                 </div>
+
+                {/* Score History Button */}
+                <button
+                  onClick={() => setShowScoreHistory(true)}
+                  className="w-full flex items-center gap-2.5 px-4 py-3 rounded-2xl active:scale-[0.98] transition-all"
+                  style={{ background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)' }}>
+                  <span className="text-base">📊</span>
+                  <div className="flex-1 text-left">
+                    <p className="text-[11px] font-black text-white">Score History</p>
+                    <p className="text-[9px] text-slate-500">Tera din ka pura score record dekho</p>
+                  </div>
+                  <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-400">Dekho →</span>
+                </button>
 
                 {/* Score Boost Active Banner */}
                 {(() => {

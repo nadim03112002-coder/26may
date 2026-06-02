@@ -79,6 +79,31 @@ export const calculateScore = (
   return s;
 };
 
+// ── Score Activity Log ────────────────────────────────────────────
+export interface ScoreLogEntry {
+  date: string;     // YYYY-MM-DD
+  ts:   number;     // unix ms
+  activity: string; // e.g. 'MCQ_CORRECT' | 'VIDEO' | 'DAILY_LOGIN' …
+  pts:  number;     // actual pts earned
+}
+
+const SCORE_LOG_KEY = (uid: string) => `nst_score_log_${uid}`;
+const MAX_LOG = 600;
+
+export const getScoreLog = (userId: string): ScoreLogEntry[] => {
+  try { return JSON.parse(localStorage.getItem(SCORE_LOG_KEY(userId)) || '[]'); } catch { return []; }
+};
+
+export const logScoreActivity = (userId: string, activity: string, pts: number): void => {
+  if (pts <= 0) return;
+  try {
+    const log = getScoreLog(userId);
+    log.push({ date: new Date().toISOString().split('T')[0], ts: Date.now(), activity, pts });
+    if (log.length > MAX_LOG) log.splice(0, log.length - MAX_LOG);
+    localStorage.setItem(SCORE_LOG_KEY(userId), JSON.stringify(log));
+  } catch {}
+};
+
 /**
  * Attempt to earn score. Applies daily limit, multiplier, and booster.
  * Returns actual score earned (may be less than requested if near daily limit).
@@ -89,6 +114,7 @@ export const tryEarnScore = (
   subscriptionLevel: string | undefined,
   isPremium: boolean | undefined,
   boostPercent = 0,
+  activity?: string,
 ): number => {
   const remaining = getRemainingDailyScore(userId, subscriptionLevel, isPremium);
   if (remaining <= 0) return 0;
@@ -99,6 +125,7 @@ export const tryEarnScore = (
     const current = getDailyScoreEarned(userId);
     localStorage.setItem(key, String(current + actual));
   } catch {}
+  if (actual > 0 && activity) logScoreActivity(userId, activity, actual);
   return actual;
 };
 
