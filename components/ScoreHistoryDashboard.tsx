@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from "react";
-import { ChevronLeft, ChevronDown, ChevronUp, TrendingUp, Award, Calendar, Zap, ArrowUp, ArrowDown, Minus } from "lucide-react";
-import { getScoreLog, ScoreLogEntry } from "../utils/scoreSystem";
+import React, { useState, useMemo, useEffect } from "react";
+import { ChevronLeft, ChevronDown, ChevronUp, TrendingUp, Award, Calendar, Zap, ArrowUp, ArrowDown, Minus, Clock } from "lucide-react";
+import { getScoreLog, ScoreLogEntry, getDailyScoreEarned, getDailyScoreLimit } from "../utils/scoreSystem";
 import { getLevelInfo, getNextLevelInfo, LEVEL_INFO } from "../utils/levelSystem";
 
 interface Props {
@@ -8,19 +8,26 @@ interface Props {
   onBack: () => void;
 }
 
-const ACTIVITY_META: Record<string, { emoji: string; label: string; color: string; bg: string }> = {
-  MCQ_CORRECT:  { emoji: '✅', label: 'MCQ Sahi Jawab',    color: '#22c55e', bg: 'rgba(34,197,94,0.12)'   },
-  MCQ_WRONG:    { emoji: '🔵', label: 'MCQ Koshish',       color: '#60a5fa', bg: 'rgba(96,165,250,0.12)'  },
-  MCQ_STREAK_3: { emoji: '🔥', label: 'Streak Bonus 3x',   color: '#fb923c', bg: 'rgba(251,146,60,0.12)'  },
-  MCQ_STREAK_5: { emoji: '⚡', label: 'Streak Bonus 5x',   color: '#fbbf24', bg: 'rgba(251,191,36,0.12)'  },
-  VIDEO:        { emoji: '📹', label: 'Video / Audio',     color: '#3b82f6', bg: 'rgba(59,130,246,0.12)'  },
-  PDF:          { emoji: '📄', label: 'Notes / PDF',       color: '#8b5cf6', bg: 'rgba(139,92,246,0.12)'  },
-  MILESTONE:    { emoji: '🏁', label: 'Milestone Bonus',   color: '#06b6d4', bg: 'rgba(6,182,212,0.12)'   },
-  DAILY_LOGIN:  { emoji: '📅', label: 'Daily Login',       color: '#10b981', bg: 'rgba(16,185,129,0.12)'  },
-  CREDIT_SPEND: { emoji: '🪙', label: 'Credit Kharcha',    color: '#eab308', bg: 'rgba(234,179,8,0.12)'   },
-  REDEEM_CODE:  { emoji: '🎟️', label: 'Redeem Code',      color: '#ec4899', bg: 'rgba(236,72,153,0.12)'  },
-  SUBSCRIPTION: { emoji: '👑', label: 'Subscription Bonus',color: '#f59e0b', bg: 'rgba(245,158,11,0.12)'  },
-  OTHER:        { emoji: '⭐', label: 'Anya Activity',     color: '#94a3b8', bg: 'rgba(148,163,184,0.12)' },
+const ACTIVITY_META: Record<string, { emoji: string; label: string; sublabel: string; color: string; bg: string }> = {
+  MCQ_CORRECT:        { emoji: '✅', label: 'MCQ Sahi Jawab',      sublabel: 'Sahi answer ka reward (+2 base)',        color: '#22c55e', bg: 'rgba(34,197,94,0.12)'   },
+  MCQ_WRONG:          { emoji: '📝', label: 'MCQ Koshish',          sublabel: 'Galat bhi try karne ka reward (+1)',     color: '#60a5fa', bg: 'rgba(96,165,250,0.12)'  },
+  MCQ_STREAK_3:       { emoji: '🔥', label: 'Streak Bonus 3×',      sublabel: '3 sahi lagataar bonus (+5)',            color: '#fb923c', bg: 'rgba(251,146,60,0.12)'  },
+  MCQ_STREAK_5:       { emoji: '⚡', label: 'Streak Bonus 5×',      sublabel: '5 sahi lagataar bonus (+10)',           color: '#fbbf24', bg: 'rgba(251,191,36,0.12)'  },
+  READ_TTS_HIGHLIGHT: { emoji: '🎙️', label: 'Notes TTS Padhna',    sublabel: 'TTS se 1 topic padha (+1)',             color: '#a78bfa', bg: 'rgba(167,139,250,0.12)' },
+  READ_ACTIVE_30S:    { emoji: '📖', label: 'Notes Reading Reward', sublabel: 'Lagatar 30 sec padha (+5 base)',        color: '#38bdf8', bg: 'rgba(56,189,248,0.12)'  },
+  WRITE_ACTIVE_5MIN:  { emoji: '✍️', label: 'Notes Writing Reward', sublabel: '5 min active likhna (+25 base)',        color: '#34d399', bg: 'rgba(52,211,153,0.12)'  },
+  PDF_MILESTONE:      { emoji: '📄', label: 'PDF Progress Reward',  sublabel: 'PDF 25/50/75/100% complete milestone',  color: '#f472b6', bg: 'rgba(244,114,182,0.12)' },
+  READ_NOTES_TIME:    { emoji: '📚', label: 'Notes Reading Time',   sublabel: 'Lagatar 30 sec notes padha (+5 base)',   color: '#818cf8', bg: 'rgba(129,140,248,0.12)' },
+  AUDIO_TTS:          { emoji: '🎵', label: 'Audio Suna',           sublabel: 'Audio/TTS content suna (30 sec = +5)',   color: '#34d399', bg: 'rgba(52,211,153,0.12)'  },
+  NOTES_GK_TTS:       { emoji: '🎧', label: 'GK TTS Padha',         sublabel: 'Lucent GK text-to-speech milestone',    color: '#f472b6', bg: 'rgba(244,114,182,0.12)' },
+  VIDEO:              { emoji: '📹', label: 'Video Dekha',           sublabel: 'Video content reward (30 sec = +5)',    color: '#3b82f6', bg: 'rgba(59,130,246,0.12)'  },
+  PDF:                { emoji: '📄', label: 'PDF Padha',             sublabel: 'PDF content padhne ka milestone',       color: '#8b5cf6', bg: 'rgba(139,92,246,0.12)'  },
+  MILESTONE:          { emoji: '🏅', label: 'Progress Milestone',   sublabel: 'Content progress milestone reward',     color: '#06b6d4', bg: 'rgba(6,182,212,0.12)'   },
+  DAILY_LOGIN:        { emoji: '🌅', label: 'Daily Login',          sublabel: 'Roz login karne ka bonus',              color: '#10b981', bg: 'rgba(16,185,129,0.12)'  },
+  CREDIT_SPEND:       { emoji: '💎', label: 'Credit Bonus',         sublabel: 'Credit use karne par bonus',            color: '#eab308', bg: 'rgba(234,179,8,0.12)'   },
+  REDEEM_CODE:        { emoji: '🎟️', label: 'Redeem Code',         sublabel: 'Code redeem reward',                    color: '#ec4899', bg: 'rgba(236,72,153,0.12)'  },
+  SUBSCRIPTION:       { emoji: '👑', label: 'Subscription Bonus',   sublabel: 'Premium subscription bonus',            color: '#f59e0b', bg: 'rgba(245,158,11,0.12)'  },
+  OTHER:              { emoji: '⭐', label: 'Anya Activity',        sublabel: 'Other activity',                        color: '#94a3b8', bg: 'rgba(148,163,184,0.12)' },
 };
 
 const getMeta = (activity: string) => ACTIVITY_META[activity] ?? ACTIVITY_META['OTHER'];
@@ -46,9 +53,26 @@ const getWeekRange = (weeksAgo: number) => {
   return days;
 };
 
+const getMidnightCountdown = (): string => {
+  const now = new Date();
+  const midnight = new Date(now);
+  midnight.setHours(24, 0, 0, 0);
+  const diff = Math.max(0, midnight.getTime() - now.getTime());
+  const h = Math.floor(diff / 3600000);
+  const m = Math.floor((diff % 3600000) / 60000);
+  const s = Math.floor((diff % 60000) / 1000);
+  return `${h}h ${String(m).padStart(2,'0')}m ${String(s).padStart(2,'0')}s`;
+};
+
 export const ScoreHistoryDashboard: React.FC<Props> = ({ user, onBack }) => {
   const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set(['today']));
   const [touchedBarIdx, setTouchedBarIdx] = useState<number | null>(null);
+  const [countdown, setCountdown] = useState(getMidnightCountdown());
+
+  useEffect(() => {
+    const t = setInterval(() => setCountdown(getMidnightCountdown()), 1000);
+    return () => clearInterval(t);
+  }, []);
 
   const log = useMemo(() => getScoreLog(user.id), [user.id]);
 
@@ -151,6 +175,46 @@ export const ScoreHistoryDashboard: React.FC<Props> = ({ user, onBack }) => {
       </div>
 
       <div className="px-4 py-4 space-y-4 pb-20">
+
+        {/* ── DAILY LIMIT + MIDNIGHT COUNTDOWN ── */}
+        {(() => {
+          const earned    = getDailyScoreEarned(user.id);
+          const limit     = getDailyScoreLimit(user.subscriptionLevel, user.isPremium, (user as any).scoreLimitBoostPercent);
+          const pct       = Math.min(100, Math.round((earned / limit) * 100));
+          const remaining = Math.max(0, limit - earned);
+          const tierLabel = user.isPremium
+            ? (user.subscriptionLevel === 'ULTRA' ? '⚡ Ultra (1.75×)' : '🔵 Basic (1.25×)')
+            : '🔓 Free (1×)';
+          return (
+            <div className="rounded-2xl p-4" style={{ background: 'linear-gradient(135deg,rgba(124,58,237,0.18),rgba(30,27,75,0.35))', border: '1px solid rgba(124,58,237,0.3)' }}>
+              {/* Top row */}
+              <div className="flex items-start justify-between mb-3">
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-widest text-violet-400 mb-0.5">Aaj Ka Daily Score</p>
+                  <p className="text-2xl font-black text-white leading-none">
+                    {fmt(earned)} <span className="text-base font-normal text-slate-400">/ {fmt(limit)}</span>
+                  </p>
+                  <p className="text-[9px] text-slate-500 mt-0.5">{tierLabel} · {remaining > 0 ? `${fmt(remaining)} pts baki` : '🎉 Aaj ka limit pura!'}</p>
+                </div>
+                {/* Midnight countdown */}
+                <div className="text-right shrink-0 ml-3">
+                  <p className="text-[8px] text-slate-600 uppercase tracking-widest mb-0.5">Reset hoga</p>
+                  <div className="flex items-center gap-1 justify-end">
+                    <Clock size={10} color="#f87171" />
+                    <p className="text-[11px] font-black text-rose-400">{countdown}</p>
+                  </div>
+                  <p className="text-[8px] text-slate-600 mt-0.5">Raat 12:00 baje</p>
+                </div>
+              </div>
+              {/* Progress bar */}
+              <div className="h-2.5 rounded-full overflow-hidden mb-1.5" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                <div className="h-full rounded-full transition-all duration-500"
+                  style={{ width: `${pct}%`, background: pct >= 100 ? 'linear-gradient(90deg,#fbbf24,#f59e0b)' : 'linear-gradient(90deg,#7c3aed,#a78bfa)' }} />
+              </div>
+              <p className="text-[9px] text-slate-500">{pct}% complete · daily limit raat 12 baje reset hoga</p>
+            </div>
+          );
+        })()}
 
         {/* Summary Stats */}
         <div className="grid grid-cols-3 gap-2">
@@ -390,7 +454,7 @@ export const ScoreHistoryDashboard: React.FC<Props> = ({ user, onBack }) => {
                               <span className="text-base shrink-0">{meta.emoji}</span>
                               <div className="flex-1 min-w-0">
                                 <p className="text-[11px] font-black text-white">{meta.label}</p>
-                                <p className="text-[9px]" style={{ color: meta.color }}>{count}× activity</p>
+                                <p className="text-[9px] text-slate-500">{count}× · {meta.sublabel}</p>
                               </div>
                               <p className="font-black text-sm shrink-0" style={{ color: meta.color }}>+{fmt(pts)}</p>
                             </div>
@@ -426,6 +490,44 @@ export const ScoreHistoryDashboard: React.FC<Props> = ({ user, onBack }) => {
               })}
             </div>
           )}
+        </div>
+
+        {/* ── SCORE SAMJHAO CARD ── */}
+        <div className="rounded-2xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+          <div className="flex items-center gap-2 px-4 pt-4 pb-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+            <Award size={13} color="#fbbf24" />
+            <p className="text-[10px] font-black text-white uppercase tracking-wider">Score Kaise Milta Hai?</p>
+          </div>
+          <div className="divide-y" style={{ divideColor: 'rgba(255,255,255,0.05)' }}>
+            {[
+              { emoji:'✅', act:'MCQ Sahi Jawab',        base:'+2',      note:'1000 MCQ sahi → ~2000 base pts. Multiplier: Free=2000, Basic=2400, Ultra=3000. Daily limit ke baad split hoga ~5 din mein.' },
+              { emoji:'📝', act:'MCQ Koshish (galat bhi)',base:'+1',      note:'5000 MCQ try → ~5000 base pts + streaks bonus. Galat karne se bhi effort reward milta hai.' },
+              { emoji:'🔥', act:'3 MCQ Streak Bonus',    base:'+5',      note:'Har 3 sahi lagataar pe bonus. 1000 sahi = ~333 streak bonuses = ~1665 extra pts.' },
+              { emoji:'⚡', act:'5 MCQ Streak Bonus',    base:'+10',     note:'Har 5 sahi lagataar pe bada bonus. 1000 sahi = ~200 streak bonuses = ~2000 extra pts.' },
+              { emoji:'🎙️', act:'TTS Topic Padhna',      base:'+1',      note:'Har topic jo speaker se padha jaata hai. 100 topics = 100 pts. Chhota par consistent reward.' },
+              { emoji:'📖', act:'Notes Reading (30 sec)',base:'+5',      note:'Har 30 sec active reading pe reward. 5 min = +50, 10 min = +100. Daily cap lagta hai.' },
+              { emoji:'✍️', act:'Notes Writing (5 min)', base:'+25',     note:'Har 5 min active likhna = +25. Zyada productive activity, isliye zyada reward.' },
+              { emoji:'📄', act:'PDF Progress Milestones',base:'+5 to +25',note:'25%=+5, 50%=+10, 75%=+15, 100%=+25. Ek PDF padho = max +55 base pts.' },
+            ].map((row, i) => (
+              <div key={i} className="flex items-start gap-3 px-4 py-3" style={{ borderTop: i === 0 ? 'none' : '1px solid rgba(255,255,255,0.05)' }}>
+                <span className="text-base shrink-0 mt-0.5">{row.emoji}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-black text-white">{row.act}</p>
+                  <p className="text-[9px] text-slate-500 leading-snug mt-0.5">{row.note}</p>
+                </div>
+                <span className="text-[11px] font-black text-emerald-400 shrink-0 mt-0.5">{row.base}</span>
+              </div>
+            ))}
+          </div>
+          {/* Daily limit warning */}
+          <div className="px-4 py-3 mx-3 mb-3 mt-1 rounded-xl" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
+            <p className="text-[10px] font-black text-rose-300 mb-0.5">⚠️ Daily Limit ke baad score nahi milega</p>
+            <p className="text-[9px] text-slate-500 leading-snug">
+              Free=400 pts/din · Basic=500 pts/din · Ultra=700 pts/din.
+              1000 sahi MCQ → ~2000+ base pts, lekin ek din mein sirf 400-700 milenge.
+              <span className="text-amber-400 font-bold"> Roz thoda thoda padhna sabse zyada faydamand hai.</span>
+            </p>
+          </div>
         </div>
 
       </div>

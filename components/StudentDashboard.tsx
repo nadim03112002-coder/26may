@@ -2334,7 +2334,8 @@ export const StudentDashboard: React.FC<Props> = ({
     const userLevel = getLevelInfo(user.totalScore || 0).level;
     const maxSecs = getMaxReadingSeconds(userLevel);
     const tabEmoji = lucentActiveTab === 'NOTES' ? '📚' : lucentActiveTab === 'PDF' ? '📄' : lucentActiveTab === 'VIDEO' ? '🎬' : '🎵';
-    const activityType = lucentActiveTab === 'VIDEO' ? 'VIDEO' : 'PDF';
+    const activityType = lucentActiveTab === 'VIDEO' ? 'VIDEO' : lucentActiveTab === 'AUDIO' ? 'AUDIO_TTS' : 'READ_NOTES_TIME';
+    const rewardReason = lucentActiveTab === 'VIDEO' ? 'Video Dekha' : lucentActiveTab === 'AUDIO' ? 'Audio Suna' : 'Notes Padha';
     const timer = setInterval(() => {
       if (lucentReadSecsRef.current >= maxSecs) return;
       lucentReadSecsRef.current += 1;
@@ -2347,7 +2348,7 @@ export const StudentDashboard: React.FC<Props> = ({
         if (earned > 0) {
           logScoreActivity(user.id, activityType, earned);
           handleUserUpdate({ ...user, totalScore: (user.totalScore || 0) + earned });
-          triggerRewardEffect(earned, `+${earned} pts ${tabEmoji}`);
+          triggerRewardEffect(earned, `+${earned} pts ${tabEmoji} ${rewardReason}`);
         }
       }
     }, 1000);
@@ -5857,6 +5858,23 @@ export const StudentDashboard: React.FC<Props> = ({
                             subject: activeHw.targetSubject,
                           }
                         ) : undefined}
+                        readingScoreConfig={user?.id ? {
+                          userId: user.id,
+                          userLevel: getLevelInfo(user.totalScore || 0).level,
+                          subscriptionLevel: user.subscriptionLevel || 'FREE',
+                          isPremium: !!(user.isPremium || (user.subscriptionLevel && user.subscriptionLevel !== 'FREE')),
+                          boostPercent: getActiveBoost(user),
+                          onScoreEarned: (pts: number, activity: string) => {
+                            if (pts <= 0) return;
+                            const lbl = activity === 'READ_TTS_HIGHLIGHT'
+                              ? `+${pts} pts 🎙️ TTS Topic Padha!`
+                              : activity === 'READ_ACTIVE_30S'
+                              ? `+${pts} pts 📖 Homework Notes!`
+                              : `+${pts} pts 📚 Reading Score`;
+                            triggerRewardEffect(pts, lbl);
+                            handleUserUpdate({ ...user, totalScore: (user.totalScore || 0) + pts });
+                          },
+                        } : undefined}
                       />
                       )}
                     </div>
@@ -12851,9 +12869,9 @@ export const StudentDashboard: React.FC<Props> = ({
                       speakText(fullText, null, 1.0, 'hi-IN', () => setSpeakingId('gk_readall'), () => { setSpeakingId(null); setTtsProgressPercent(0); setTtsSessionKey(null); }, (pct) => {
                         setTtsProgressPercent(pct);
                         const result = awardMilestone(user.id, gkSessionKey, prevTtsPct, pct, user.subscriptionLevel, user.isPremium, getActiveBoost(user));
-                        if (result && result.earned > 0) { logScoreActivity(user.id, 'PDF', result.earned); handleUserUpdate({ ...user, totalScore: (user.totalScore || 0) + result.earned }); }
+                        if (result && result.earned > 0) { logScoreActivity(user.id, 'NOTES_GK_TTS', result.earned); handleUserUpdate({ ...user, totalScore: (user.totalScore || 0) + result.earned }); }
                         prevTtsPct = pct;
-                        if (result && result.earned > 0) triggerRewardEffect(result.earned, `+${result.earned} pts 🎧`);
+                        if (result && result.earned > 0) triggerRewardEffect(result.earned, `+${result.earned} pts 🎧 GK TTS Padha!`);
                       });
                     }
                   }}
@@ -16307,6 +16325,23 @@ export const StudentDashboard: React.FC<Props> = ({
                         subject: entry.subject,
                       }
                     )}
+                    readingScoreConfig={user?.id ? {
+                      userId: user.id,
+                      userLevel: getLevelInfo(user.totalScore || 0).level,
+                      subscriptionLevel: user.subscriptionLevel || 'FREE',
+                      isPremium: !!(user.isPremium || (user.subscriptionLevel && user.subscriptionLevel !== 'FREE')),
+                      boostPercent: getActiveBoost(user),
+                      onScoreEarned: (pts: number, activity: string) => {
+                        if (pts <= 0) return;
+                        const lbl = activity === 'READ_TTS_HIGHLIGHT'
+                          ? `+${pts} pts 🎙️ TTS Topic Padha!`
+                          : activity === 'READ_ACTIVE_30S'
+                          ? `+${pts} pts 📖 Notes Reading!`
+                          : `+${pts} pts 📚 Notes Score`;
+                        triggerRewardEffect(pts, lbl);
+                        handleUserUpdate({ ...user, totalScore: (user.totalScore || 0) + pts });
+                      },
+                    } : undefined}
                   />
                   )}
 

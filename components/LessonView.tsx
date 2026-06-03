@@ -24,6 +24,9 @@ import { downloadAsMHTML } from '../utils/downloadUtils';
 import { saveOfflineItem } from '../utils/offlineStorage';
 import { rotateScreen, isDesktopModeOn, setDesktopMode } from '../utils/displayPrefs';
 import { applyDeduction, getTotalCredits } from '../utils/creditSystem';
+import { getLevelFromScore } from '../utils/levelSystem';
+import { getActiveBoost } from '../utils/scoreSystem';
+import { PdfViewer } from './PdfViewer';
 
 
 interface Props {
@@ -94,6 +97,24 @@ export const LessonView: React.FC<Props> = ({
   useEffect(() => {
     if (onImmersiveChange) onImmersiveChange(isImmersive);
   }, [isImmersive]);
+
+  // ── Reading Score Config ──────────────────────────────────────────────────
+  const handleReadingScoreEarned = useCallback((pts: number, _activity: string) => {
+    if (!user || !onUpdateUser || pts <= 0) return;
+    const updated = { ...user, totalScore: (user.totalScore || 0) + pts };
+    onUpdateUser(updated);
+    try { localStorage.setItem('nst_current_user', JSON.stringify(updated)); } catch {}
+    saveUserToLive(updated);
+  }, [user, onUpdateUser]);
+
+  const readingScoreConfig = user?.id ? {
+    userId: user.id,
+    userLevel: getLevelFromScore(user.totalScore || 0),
+    subscriptionLevel: user.subscriptionTier || 'FREE',
+    isPremium: !!(user.isPremium || (user.subscriptionTier && user.subscriptionTier !== 'FREE')),
+    boostPercent: getActiveBoost(user),
+    onScoreEarned: handleReadingScoreEarned,
+  } : undefined;
 
   // On mount: always re-apply stored desktop mode preference to the viewport
   useEffect(() => {
@@ -595,6 +616,7 @@ export const LessonView: React.FC<Props> = ({
                           preferChunkMode
                           hideTopBar={isImmersive}
                           onDesktopModeChange={setIsDesktopMode}
+                          readingScoreConfig={readingScoreConfig}
                       />
                   ) : (
                       <>
@@ -824,29 +846,17 @@ export const LessonView: React.FC<Props> = ({
       }
 
       return (
-          <div className="fixed inset-0 z-50 bg-white flex flex-col animate-in fade-in">
-              <header className={`bg-white border-b p-4 flex items-center justify-between${isImmersive ? ' hidden' : ''}`}>
-                  <div className="flex items-center gap-3"><button onClick={toggleFullScreen} className="p-2 bg-slate-100 rounded-full text-slate-600 hover:bg-slate-200" title="Toggle Fullscreen"><Maximize size={20} /></button>
-                      <button onClick={onBack} className="p-2 bg-slate-100 rounded-full"><ArrowLeft size={20} /></button>
-                      <h2 className="font-bold truncate">{content.title}</h2>
-                  </div>
-                  <div className="flex items-center gap-2">
-                      <a href={contentValue} target="_blank" rel="noopener noreferrer" className="p-2 bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100 transition-colors">
-                          <ExternalLink size={20} />
-                      </a>
-                      <button onClick={onBack} className="p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors"><X size={20} /></button>
-                  </div>
-              </header>
-              <div className="flex-1 bg-slate-100 relative">
-                  <iframe 
-                      src={contentValue} 
-                      className="absolute inset-0 w-full h-full border-none"
-                      title={content.title}
-                      allowFullScreen
-                  />
-              </div>
-          {floatingBtn}
-          </div>
+          <PdfViewer
+              url={contentValue}
+              title={content.title}
+              onBack={onBack}
+              sessionKey={chapter?.id ? `chapter_${chapter.id}` : undefined}
+              userId={user?.id}
+              subscriptionLevel={user?.subscriptionTier || 'FREE'}
+              isPremium={!!(user?.isPremium || (user?.subscriptionTier && user.subscriptionTier !== 'FREE'))}
+              boostPercent={getActiveBoost(user as any)}
+              onScoreEarned={handleScoreEarned}
+          />
       );
   }
 
@@ -900,6 +910,7 @@ export const LessonView: React.FC<Props> = ({
                           preferChunkMode
                           hideTopBar={isImmersive}
                           onDesktopModeChange={setIsDesktopMode}
+                          readingScoreConfig={readingScoreConfig}
                       />
                       {isStreaming && (
                         <div className="flex items-center gap-2 text-slate-600 mt-4 animate-pulse">

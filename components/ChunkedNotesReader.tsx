@@ -5,6 +5,8 @@ import { speakText, stopSpeech } from '../utils/textToSpeech';
 import { splitIntoTopics, NotesTopic as Topic } from '../utils/notesSplitter';
 import { READING_FONTS, TOP_10_READING_FONTS, ensureReadingFontLoaded, getReadingFontById, ReadingFont } from '../utils/notesFonts';
 import { ReadingStylePopover } from './ReadingStylePopover';
+import { ReadingScoreSession, ReadingScoreState, ReadingScoreConfig } from '../utils/readingScoreEngine';
+import { ReadingScoreHUD } from './ReadingScoreHUD';
 
 const FONT_SIZES = [13, 15, 17, 20] as const;
 const FONT_SIZE_KEY = 'nst_reading_font_size';
@@ -177,10 +179,12 @@ interface Props {
   onSaveOffline?: () => void;
   /** When true, shows the Save Offline button in a saved/success state. */
   isSavedOffline?: boolean;
+  /** Reading score config — when provided, activates time-based score tracking with HUD */
+  readingScoreConfig?: ReadingScoreConfig;
 }
 
 
-export const ChunkedNotesReader: React.FC<Props> = ({ content, className, language = 'hi-IN', topBarLabel, autoStart, onComplete, onReadingStart, hideTopBar, initialIndex, onPositionChange, noteKey, isStarred, onStarToggle, searchQuery, getStarCount, textColorOverride, preferChunkMode, onDesktopModeChange, hideDesktopToggle, suppressStickyControls, htmlContent, isUltraUser, ultraHtmlRemaining, userCredits = 0, htmlUnlockCost = 5, onSpendCredits, onHtmlOpen, onUpgradeClick, isBasicUser = false, basicHtmlRemaining = 0, onHtmlViewChange, onMoreOptions, triggerControlsRef, hideInline3dot, onBack, onSaveOffline, isSavedOffline }) => {
+export const ChunkedNotesReader: React.FC<Props> = ({ content, className, language = 'hi-IN', topBarLabel, autoStart, onComplete, onReadingStart, hideTopBar, initialIndex, onPositionChange, noteKey, isStarred, onStarToggle, searchQuery, getStarCount, textColorOverride, preferChunkMode, onDesktopModeChange, hideDesktopToggle, suppressStickyControls, htmlContent, isUltraUser, ultraHtmlRemaining, userCredits = 0, htmlUnlockCost = 5, onSpendCredits, onHtmlOpen, onUpgradeClick, isBasicUser = false, basicHtmlRemaining = 0, onHtmlViewChange, onMoreOptions, triggerControlsRef, hideInline3dot, onBack, onSaveOffline, isSavedOffline, readingScoreConfig }) => {
   const topics = useMemo(() => splitIntoTopics(content), [content]);
 
   // ── Strips [span_N](start_span) / [span_N](end_span) TTS markers ──
@@ -499,6 +503,30 @@ export const ChunkedNotesReader: React.FC<Props> = ({ content, className, langua
   const isReadingRef = useRef(false);
   useEffect(() => { isReadingRef.current = isReading; }, [isReading]);
 
+  // ── Reading Score Session ───────────────────────────────────────────────────
+  const scoreSessionRef = useRef<ReadingScoreSession | null>(null);
+  const [scoreState, setScoreState] = useState<ReadingScoreState | null>(null);
+  const maxTopicReachedRef = useRef<number>(0);
+
+  useEffect(() => {
+    if (!readingScoreConfig) return;
+    const session = new ReadingScoreSession(readingScoreConfig, setScoreState);
+    scoreSessionRef.current = session;
+    session.start();
+    return () => { session.stop(); scoreSessionRef.current = null; };
+  }, [readingScoreConfig?.userId, readingScoreConfig?.userLevel]);
+
+  // Update net-forward progress whenever activeIdx changes
+  useEffect(() => {
+    if (!scoreSessionRef.current || activeIdx === null) return;
+    const total = Math.max(1, activeTopicList.length - 1);
+    const pct = (activeIdx / total) * 100;
+    if (activeIdx > maxTopicReachedRef.current) {
+      maxTopicReachedRef.current = activeIdx;
+    }
+    scoreSessionRef.current.updateProgress(pct);
+  }, [activeIdx, activeTopicList.length]);
+
   // Voice speed control
   const [speedIdx, setSpeedIdx] = useState<number>(getStoredSpeedIdx);
   const speedIdxRef = useRef(speedIdx);
@@ -734,6 +762,10 @@ export const ChunkedNotesReader: React.FC<Props> = ({ content, className, langua
       return;
     }
     setActiveIdx(idx);
+    // TTS highlight → +1 score per topic read aloud
+    if (scoreSessionRef.current && !activeTopicList[idx]?.isHeading) {
+      scoreSessionRef.current.onTtsHighlight();
+    }
     setTimeout(() => {
       itemRefs.current[idx]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 60);
@@ -1323,6 +1355,14 @@ export const ChunkedNotesReader: React.FC<Props> = ({ content, className, langua
             );
           })()}
         </div>
+      )}
+
+      {/* Reading Score HUD — fixed overlay, always visible when score config present */}
+      {readingScoreConfig && scoreState && (
+        <ReadingScoreHUD
+          state={scoreState}
+          visible={true}
+        />
       )}
 
       {/* Topic list — tap any line to start TTS from that line */}
