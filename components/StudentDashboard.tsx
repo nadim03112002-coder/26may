@@ -1093,18 +1093,23 @@ export const StudentDashboard: React.FC<Props> = ({
 
   // --- MCQ DAILY TRACKING HELPER ---
   // Uses userRef.current (via __dashUserRef) to prevent stale closure overwriting inbox
-  const trackDailyMcqAnswer = (isCorrect: boolean) => {
+  // Returns true if the MCQ was counted (allowed), false if blocked by daily limit.
+  const trackDailyMcqAnswer = (isCorrect: boolean): boolean => {
     try {
       const freshUser = (window as any).__dashUserRef?.current ?? user;
       const today = new Date().toISOString().split('T')[0];
       const countKey = `nst_mcq_daily_total_${today}_${freshUser.id}`;
-      // ── Hard gate: block free users who have hit their daily MCQ limit ────
-      if (freshUser.role !== 'ADMIN' && freshUser.role !== 'SUB_ADMIN' && !freshUser.isPremium) {
+      // ── Hard gate: block ALL non-admin users who have hit their tier's daily MCQ limit ────
+      if (freshUser.role !== 'ADMIN' && freshUser.role !== 'SUB_ADMIN') {
         const prevTotal = parseInt(localStorage.getItem(countKey) || '0', 10);
-        const mcqLimGate = getEffectiveDailyLimit('mcq', getLevelInfo(freshUser.totalScore || 0).level, 'FREE', settings);
-        if (prevTotal >= mcqLimGate) {
-          showAlert(`🚫 Daily MCQ Limit khatam! (${mcqLimGate}/${mcqLimGate}) — Kal reset hoga.`, 'INFO');
-          return;
+        const _subValid = SubscriptionEngine.isPremium(freshUser);
+        const _tier: 'FREE' | 'BASIC' | 'ULTRA' =
+          _subValid && freshUser.subscriptionLevel === 'ULTRA' ? 'ULTRA' :
+          _subValid && freshUser.subscriptionLevel === 'BASIC' ? 'BASIC' : 'FREE';
+        const mcqLimGate = getEffectiveDailyLimit('mcq', getLevelInfo(freshUser.totalScore || 0).level, _tier, settings);
+        if (mcqLimGate < UNLIMITED && prevTotal >= mcqLimGate) {
+          showAlert(`🚫 Daily MCQ Limit khatam! (${prevTotal}/${mcqLimGate}) — Kal reset hoga.`, 'INFO');
+          return false;
         }
       }
       const correctKey = `nst_mcq_daily_correct_${today}_${freshUser.id}`;
@@ -1125,14 +1130,20 @@ export const StudentDashboard: React.FC<Props> = ({
         handleUserUpdate(mcqUpdated);
       } catch {}
 
-      // ── Free limit notification: show count after each MCQ for free users ──
-      if (!freshUser.isPremium) {
-        const mcqLim = getEffectiveDailyLimit('mcq', getLevelInfo(freshUser.totalScore || 0).level, 'FREE', settings);
-        const left = Math.max(0, mcqLim - total);
-        if (left <= 10 && left > 0) {
-          showAlert(`📊 Daily Free MCQ Limit: ${mcqLim}-${total}=${left} remaining`, 'INFO');
-        } else if (left === 0) {
-          showAlert(`🚫 Daily Free MCQ Limit khatam! (${mcqLim}/${mcqLim}) — Kal dobara milega.`, 'INFO');
+      // ── Limit notification: show remaining count for non-admin users ──
+      if (freshUser.role !== 'ADMIN' && freshUser.role !== 'SUB_ADMIN') {
+        const _subValid2 = SubscriptionEngine.isPremium(freshUser);
+        const _tier2: 'FREE' | 'BASIC' | 'ULTRA' =
+          _subValid2 && freshUser.subscriptionLevel === 'ULTRA' ? 'ULTRA' :
+          _subValid2 && freshUser.subscriptionLevel === 'BASIC' ? 'BASIC' : 'FREE';
+        const mcqLim = getEffectiveDailyLimit('mcq', getLevelInfo(freshUser.totalScore || 0).level, _tier2, settings);
+        if (mcqLim < UNLIMITED) {
+          const left = Math.max(0, mcqLim - total);
+          if (left <= 10 && left > 0) {
+            showAlert(`📊 Daily MCQ Limit: ${total}/${mcqLim} — ${left} remaining`, 'INFO');
+          } else if (left === 0) {
+            showAlert(`🚫 Daily MCQ Limit khatam! (${mcqLim}/${mcqLim}) — Kal dobara milega.`, 'INFO');
+          }
         }
       }
       // ── Score earning per MCQ: wrong=+1 · correct=+2 · 3-streak=+5 · 5-streak=+10 ──
@@ -1197,6 +1208,7 @@ export const StudentDashboard: React.FC<Props> = ({
       handleUserUpdate({ ...freshUser, inbox: [rewardMsg, ...(freshUser.inbox || [])] });
       showAlert(`🎯 MCQ Prize! ${applicableRule.label}`, 'SUCCESS', 'Daily MCQ Reward!');
     } catch (err) { console.warn('MCQ tracking failed:', err); }
+    return true;
   };
 
   // --- DAILY GATE HELPER (video / pdf / tts) ---
@@ -1206,9 +1218,10 @@ export const StudentDashboard: React.FC<Props> = ({
     try {
       const freshUser = (window as any).__dashUserRef?.current ?? user;
       if (freshUser.role === 'ADMIN' || freshUser.role === 'SUB_ADMIN') return true;
+      const _freshSubValid = SubscriptionEngine.isPremium(freshUser);
       const tier: 'FREE'|'BASIC'|'ULTRA' =
-        freshUser.subscriptionLevel === 'ULTRA' ? 'ULTRA' :
-        freshUser.subscriptionLevel === 'BASIC' ? 'BASIC' : 'FREE';
+        _freshSubValid && freshUser.subscriptionLevel === 'ULTRA' ? 'ULTRA' :
+        _freshSubValid && freshUser.subscriptionLevel === 'BASIC' ? 'BASIC' : 'FREE';
       const lvl = getLevelInfo(freshUser.totalScore || 0).level;
       const lim = getEffectiveDailyLimit(feature, lvl, tier, settings);
       if (lim >= UNLIMITED) return true;
@@ -2260,7 +2273,9 @@ export const StudentDashboard: React.FC<Props> = ({
   // Back-navigation refs for the homework viewer — populated during render
   const hwFilteredRef = useRef<any[]>([]);
   const hwGoToRef = useRef<((hw: any) => void) | null>(null);
-  const lucentMilestonePrevPctRef = useRef(0);
+  // Time-based scoring: track seconds spent reading on current page
+  const lucentReadSecsRef = useRef(0);
+  const lucentLastAwardedTierRef = useRef(0);
 
   // Subscribe to real-time content_index stats from Firebase for each class
   useEffect(() => {
@@ -2293,13 +2308,44 @@ export const StudentDashboard: React.FC<Props> = ({
     return () => clearInterval(timer);
   }, [settings?.topBarAutoScroll, settings?.topBarAutoScrollInterval]);
 
-  // Reset scroll % whenever the user moves to a different Lucent page or
+  // Reset scroll % and scroll to top whenever the user moves to a different Lucent page or
   // closes the viewer entirely.
   useEffect(() => {
     setLucentScrollProgress(0);
     lucentMilestoneSessionRef.current = `lucent_${lucentNoteViewer?.id || 'x'}_pg${lucentPageIndex}_${Date.now()}`;
-    lucentMilestonePrevPctRef.current = 0;
+    // Reset time-based scoring refs on page change
+    lucentReadSecsRef.current = 0;
+    lucentLastAwardedTierRef.current = 0;
+    // Scroll notes container to top instantly on page change
+    const node = lucentScrollContainerRef.current;
+    if (node) node.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
   }, [lucentPageIndex, lucentNoteViewer?.id]);
+
+  // Time-based scoring: award 5 pts every 30 seconds spent on the NOTES tab
+  // 30s=5, 60s=10, 90s=15, 120s=20, 150s=25, 180s=30 ... every 30s +5 pts
+  useEffect(() => {
+    if (!lucentNoteViewer || lucentActiveTab !== 'NOTES') return;
+    lucentReadSecsRef.current = 0;
+    lucentLastAwardedTierRef.current = 0;
+    const timer = setInterval(() => {
+      if (lucentReadSecsRef.current >= 300) return; // Max 5 min (300s) reward per page
+      lucentReadSecsRef.current += 1;
+      const newTier = Math.floor(lucentReadSecsRef.current / 30);
+      if (newTier > lucentLastAwardedTierRef.current) {
+        const tiers = newTier - lucentLastAwardedTierRef.current;
+        lucentLastAwardedTierRef.current = newTier;
+        const baseScore = tiers * 5;
+        const earned = tryEarnScore(user.id, baseScore, user.subscriptionLevel, user.isPremium, getActiveBoost(user));
+        if (earned > 0) {
+          logScoreActivity(user.id, 'PDF', earned);
+          handleUserUpdate({ ...user, totalScore: (user.totalScore || 0) + earned });
+          triggerRewardEffect(earned, `+${earned} pts 📚`);
+        }
+      }
+    }, 1000);
+    return () => clearInterval(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lucentNoteViewer?.id, lucentPageIndex, lucentActiveTab]);
   // Local Auto-Read & Sync state for the Lucent viewer (mirrors LessonView pattern).
   // Initialised from settings.isAutoTtsEnabled but stays local to this view.
   const [lucentAutoSync, setLucentAutoSync] = useState<boolean>(!!settings?.isAutoTtsEnabled);
@@ -2427,6 +2473,7 @@ export const StudentDashboard: React.FC<Props> = ({
   const [hwActivePdf, setHwActivePdf] = useState<string | null>(null);
   const [hwAudioVisible, setHwAudioVisible] = useState(false);
   const [hwVideoVisible, setHwVideoVisible] = useState(false);
+  const [compUnlockedVideos, setCompUnlockedVideos] = useState<Set<string>>(new Set());
   const hwAutoOpenRef = useRef<'audio' | 'video' | null>(null);
 
   // --- NOTIFICATION STATE ---
@@ -2512,6 +2559,8 @@ export const StudentDashboard: React.FC<Props> = ({
   };
   const startProfileStarRead = (notes: any[]) => {
     if (notes.length === 0) return;
+    const _tk = `nst_tts_daily_${user.id}_${new Date().toISOString().split('T')[0]}`;
+    if (!checkDailyGate('tts', _tk)) return;
     stopSpeech();
     isReadingProfileStarsRef.current = true;
     setIsReadingProfileStars(true);
@@ -3693,6 +3742,8 @@ export const StudentDashboard: React.FC<Props> = ({
       return;
     }
     if (playerChunks.length === 0) return;
+    const _tk = `nst_tts_daily_${user.id}_${new Date().toISOString().split('T')[0]}`;
+    if (!checkDailyGate('tts', _tk)) return;
     playerIsReadingAllRef.current = true;
     setPlayerIsReadingAll(true);
     playPlayerFromIndex(playerCurrentIndex || 0);
@@ -6268,9 +6319,9 @@ export const StudentDashboard: React.FC<Props> = ({
                                 // Auto-submit pending answer if any
                                 if (!isAnswered && pendingOpt !== undefined) {
                                   const isCorrect = mcq.correctAnswer === pendingOpt;
+                                  if (!trackDailyMcqAnswer(isCorrect)) return;
                                   setHwAnswers(prev => ({ ...prev, [ansKey]: pendingOpt }));
                                   setHwPendingAnswers(prev => { const n = { ...prev }; delete n[ansKey]; return n; });
-                                  trackDailyMcqAnswer(isCorrect);
                                 }
                                 setHwMcqCurrentIdx(prev => ({ ...prev, [hwKey]: ci + 1 }));
                               }}
@@ -10685,8 +10736,8 @@ export const StudentDashboard: React.FC<Props> = ({
                           onClick={() => {
                             const mcq = settings.globalChallengeMcq![0];
                             const isCorrect = i === mcq.correctAnswer;
-                            // Track daily MCQ for prize system
-                            trackDailyMcqAnswer(isCorrect);
+                            // Track daily MCQ for prize system — block if limit reached
+                            if (!trackDailyMcqAnswer(isCorrect)) return;
                             // ── MY MISTAKE BANK ──────────────────────────
                             // Challenge of the Day auto-submits on tap (no
                             // Submit button) — user reported wrong answers
@@ -12122,8 +12173,8 @@ export const StudentDashboard: React.FC<Props> = ({
                                   key={oi}
                                   disabled={showResult}
                                   onClick={() => {
+                                    if (!trackDailyMcqAnswer(oi === current.correctAnswer)) return;
                                     setCompMcqSelected(oi);
-                                    trackDailyMcqAnswer(oi === current.correctAnswer);
                                   }}
                                   className={`w-full text-left p-3.5 rounded-xl border-2 font-semibold text-sm transition-colors flex items-start gap-3 ${cls}`}
                                 >
@@ -12366,6 +12417,8 @@ export const StudentDashboard: React.FC<Props> = ({
                                                     stopSpeech();
                                                     setSpeakingId(null);
                                                   } else {
+                                                    const _tk = `nst_tts_daily_${user.id}_${new Date().toISOString().split('T')[0]}`;
+                                                    if (!checkDailyGate('tts', _tk)) return;
                                                     speakText(
                                                       chunk,
                                                       null,
@@ -12400,11 +12453,27 @@ export const StudentDashboard: React.FC<Props> = ({
                                 </div>
                               )}
                               {hw.videoUrl && (
-                                <div className="bg-rose-50 border border-rose-200 rounded-xl overflow-hidden">
-                                  <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
-                                    <iframe src={formatVideoEmbed(hw.videoUrl)} className="absolute inset-0 w-full h-full border-none" allow="autoplay; encrypted-media; fullscreen" sandbox="allow-scripts allow-same-origin allow-presentation allow-popups" title="Video" />
-                                  </div>
-                                </div>
+                                compUnlockedVideos.has(hw.id || `idx-${i}`)
+                                  ? (
+                                    <div className="bg-rose-50 border border-rose-200 rounded-xl overflow-hidden">
+                                      <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+                                        <iframe src={formatVideoEmbed(hw.videoUrl)} className="absolute inset-0 w-full h-full border-none" allow="autoplay; encrypted-media; fullscreen" sandbox="allow-scripts allow-same-origin allow-presentation allow-popups" title="Video" />
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      onClick={() => {
+                                        const _vk = `nst_vid_daily_${user.id}_${new Date().toISOString().split('T')[0]}`;
+                                        if (!checkDailyGate('video', _vk)) return;
+                                        const _id = hw.id || `idx-${i}`;
+                                        setCompUnlockedVideos(prev => new Set([...prev, _id]));
+                                      }}
+                                      className="w-full bg-rose-50 border border-rose-200 p-3 rounded-xl flex items-center gap-3 hover:bg-rose-100 active:scale-[0.98] transition-all"
+                                    >
+                                      <span className="text-rose-600 text-lg">🎬</span>
+                                      <span className="text-sm font-bold text-rose-800">Video Dekhein</span>
+                                    </button>
+                                  )
                               )}
                               {hw.audioUrl && (
                                 <div className="bg-purple-50 border border-purple-200 p-3 rounded-xl">
@@ -12462,6 +12531,8 @@ export const StudentDashboard: React.FC<Props> = ({
                                                 stopSpeech();
                                                 setSpeakingId(null);
                                               } else {
+                                                const _tk = `nst_tts_daily_${user.id}_${new Date().toISOString().split('T')[0]}`;
+                                                if (!checkDailyGate('tts', _tk)) return;
                                                 const textToSpeak = `${mcq.question} ${mcq.statements?.join(" ") || ""} ${mcq.options.map((o, i) => `Option ${String.fromCharCode(65 + i)}: ${o}`).join(". ")}`;
                                                 speakText(
                                                   textToSpeak,
@@ -12698,6 +12769,8 @@ export const StudentDashboard: React.FC<Props> = ({
                     stopSpeech();
                     setSpeakingId(null);
                   } else {
+                    const _tk = `nst_tts_daily_${user.id}_${new Date().toISOString().split('T')[0]}`;
+                    if (!checkDailyGate('tts', _tk)) return;
                     const textToSpeak = `Question: ${gk.question}. Answer: ${gk.answer}`;
                     speakText(
                       textToSpeak,
@@ -12760,6 +12833,8 @@ export const StudentDashboard: React.FC<Props> = ({
                       stopSpeech();
                       setSpeakingId(null);
                     } else if (gksToRead.length > 0) {
+                      const _tk = `nst_tts_daily_${user.id}_${new Date().toISOString().split('T')[0]}`;
+                      if (!checkDailyGate('tts', _tk)) return;
                       const fullText = gksToRead.map((gk, i) => `Question ${i + 1}: ${gk.question}. Answer: ${gk.answer}`).join('. ');
                       const gkSessionKey = `gk_tts_${Date.now()}`;
                       setTtsSessionKey(gkSessionKey);
@@ -16035,7 +16110,14 @@ export const StudentDashboard: React.FC<Props> = ({
                   )}
                   {_pgHasVideo && (
                     <button
-                      onClick={() => { stopSpeech(); setLucentActiveTab('VIDEO'); }}
+                      onClick={() => {
+                        if (lucentActiveTab !== 'VIDEO') {
+                          const _vk = `nst_vid_daily_${user.id}_${new Date().toISOString().split('T')[0]}`;
+                          if (!checkDailyGate('video', _vk)) return;
+                        }
+                        stopSpeech();
+                        setLucentActiveTab('VIDEO');
+                      }}
                       className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-black transition-all ${
                         lucentActiveTab === 'VIDEO'
                           ? 'bg-rose-600 text-white shadow-sm'
@@ -16059,7 +16141,14 @@ export const StudentDashboard: React.FC<Props> = ({
                   )}
                   {_pgHasPdf && (
                     <button
-                      onClick={() => { stopSpeech(); setLucentActiveTab('PDF'); }}
+                      onClick={() => {
+                        if (lucentActiveTab !== 'PDF') {
+                          const _pk = `nst_pdf_daily_${user.id}_${new Date().toISOString().split('T')[0]}`;
+                          if (!checkDailyGate('pdf', _pk)) return;
+                        }
+                        stopSpeech();
+                        setLucentActiveTab('PDF');
+                      }}
                       className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-black transition-all ${
                         lucentActiveTab === 'PDF'
                           ? 'bg-blue-600 text-white shadow-sm'
@@ -16081,18 +16170,7 @@ export const StudentDashboard: React.FC<Props> = ({
                 const max = t.scrollHeight - t.clientHeight;
                 const pct = max > 0 ? Math.min(100, Math.max(0, (t.scrollTop / max) * 100)) : 0;
                 setLucentScrollProgress(pct);
-                // Throttle persist via micro-debounce: only save once user has
-                // scrolled past 5% so we don't spam writes on tiny movements.
-                if (pct > 5) {
-                  persistLucentProgress(pct);
-                  // Award milestone score for lucent/notes reading progress
-                  if (lucentMilestoneSessionRef.current) {
-                    const result = awardMilestone(user.id, lucentMilestoneSessionRef.current, lucentMilestonePrevPctRef.current, pct, user.subscriptionLevel, user.isPremium, getActiveBoost(user));
-                    if (result && result.earned > 0) { logScoreActivity(user.id, 'PDF', result.earned); handleUserUpdate({ ...user, totalScore: (user.totalScore || 0) + result.earned }); }
-                    lucentMilestonePrevPctRef.current = pct;
-                    if (result && result.earned > 0) triggerRewardEffect(result.earned, `+${result.earned} pts 📚`);
-                  }
-                }
+                if (pct > 5) persistLucentProgress(pct);
               }}
             >
               {currentPage ? (
@@ -16611,9 +16689,9 @@ RULES:
                         if (isAnswered) return;
                         const key = `${pageKey}_${ci}`;
                         const isCorrectAns = oi === cq.correctAnswer;
+                        if (!trackDailyMcqAnswer(isCorrectAns)) return;
                         setLucentMcqAnswers(prev => ({ ...prev, [key]: oi }));
                         setLucentMcqSubmitted(prev => ({ ...prev, [key]: true }));
-                        trackDailyMcqAnswer(isCorrectAns);
                         if (!isCorrectAns) {
                           try {
                             addMistakes([{
@@ -17239,6 +17317,8 @@ RULES:
                                 setPlayerIsReadingAll(false);
                                 stopSpeech();
                               } else {
+                                const _tk = `nst_tts_daily_${user.id}_${new Date().toISOString().split('T')[0]}`;
+                                if (!checkDailyGate('tts', _tk)) return;
                                 stopSpeech();
                                 setPlayerCurrentIndex(idx);
                                 playerIsReadingAllRef.current = true;
@@ -17296,6 +17376,8 @@ RULES:
                               onClick={() => {
                                 if (speakingId === `player_mcq_${idx}`) { stopSpeech(); setSpeakingId(null); }
                                 else {
+                                  const _tk = `nst_tts_daily_${user.id}_${new Date().toISOString().split('T')[0]}`;
+                                  if (!checkDailyGate('tts', _tk)) return;
                                   speakText(chunk.text, undefined, 1.0, 'hi-IN',
                                     () => setSpeakingId(`player_mcq_${idx}`),
                                     () => setSpeakingId(null));
@@ -17356,9 +17438,8 @@ RULES:
                             const handleClick = () => {
                               if (!isInteractive) return;
                               if (userAnswered) return;
+                              if (!trackDailyMcqAnswer(isCorrect)) return;
                               setPlayerMcqAnswers(prev => ({ ...prev, [idx]: oi }));
-                              // Track daily MCQ answer for prize system
-                              trackDailyMcqAnswer(isCorrect);
                             };
                             return (
                               <button

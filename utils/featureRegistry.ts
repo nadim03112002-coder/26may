@@ -671,7 +671,7 @@ export const ALL_FEATURES: Feature[] = [
     },
     {
         id: 'ADMIN_CHALLENGE',
-        label: 'Challenge Config',
+        label: 'Theme',
         group: 'GAME',
         surfaceLevel: 3,
         adminVisible: true,

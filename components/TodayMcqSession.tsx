@@ -1,20 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { User, MCQItem, MCQResult, TopicItem } from '../types';
+import { User, MCQItem, MCQResult, TopicItem, SystemSettings } from '../types';
 import { X, CheckCircle, ArrowRight, Loader2, BrainCircuit, AlertCircle, List } from 'lucide-react';
 import { getChapterData, saveUserToLive, saveTestResult, saveDemand } from '../firebase';
 import { storage } from '../utils/storage';
 import { generateAnalysisJson } from '../utils/analysisUtils';
 import { recordAttempt as recordRevisionAttempt } from '../utils/revisionTrackerV2';
 import { addMistakes, removeMistakeByQuestion } from '../utils/mistakeBank';
+import { getEffectiveDailyLimit, getLevelInfo, UNLIMITED } from '../utils/levelSystem';
+import { SubscriptionEngine } from '../utils/engines/subscriptionEngine';
 
 interface Props {
     user: User;
     topics: TopicItem[];
     onClose: () => void;
     onComplete: (results: MCQResult[], questions?: any[]) => void;
+    settings?: SystemSettings | null;
+    onTrackAnswer?: (isCorrect: boolean) => boolean;
 }
 
-export const TodayMcqSession: React.FC<Props> = ({ user, topics, onClose, onComplete }) => {
+export const TodayMcqSession: React.FC<Props> = ({ user, topics, onClose, onComplete, settings, onTrackAnswer }) => {
     const [loading, setLoading] = useState(true);
     const [currentIndex, setCurrentIndex] = useState(0);
     const [currentMcqData, setCurrentMcqData] = useState<MCQItem[]>([]);
@@ -201,6 +205,35 @@ export const TodayMcqSession: React.FC<Props> = ({ user, topics, onClose, onComp
 
     const handleAnswer = (optionIdx: number) => {
         if (answers[qIndex] !== undefined) return;
+
+        // ── Daily MCQ limit enforcement ──────────────────────────────────────
+        if (user.role !== 'ADMIN' && user.role !== 'SUB_ADMIN') {
+            const today = new Date().toISOString().split('T')[0];
+            const countKey = `nst_mcq_daily_total_${today}_${user.id}`;
+            const prevTotal = parseInt(localStorage.getItem(countKey) || '0', 10);
+            const _subValid = SubscriptionEngine.isPremium(user);
+            const _tier: 'FREE' | 'BASIC' | 'ULTRA' =
+                _subValid && user.subscriptionLevel === 'ULTRA' ? 'ULTRA' :
+                _subValid && user.subscriptionLevel === 'BASIC' ? 'BASIC' : 'FREE';
+            const mcqLim = getEffectiveDailyLimit('mcq', getLevelInfo(user.totalScore || 0).level, _tier, settings);
+            if (mcqLim < UNLIMITED && prevTotal >= mcqLim) {
+                // Notify parent (which shows the alert toast) if available, else no-op
+                if (onTrackAnswer) { onTrackAnswer(false); }
+                return;
+            }
+        }
+
+        // Track via parent callback if provided (increments count + prize check)
+        const isCorrect = currentMcqData[qIndex]?.correctAnswer === optionIdx;
+        if (onTrackAnswer) {
+            if (!onTrackAnswer(isCorrect)) return;
+        } else if (user.role !== 'ADMIN' && user.role !== 'SUB_ADMIN') {
+            // Fallback: track locally in localStorage
+            const today = new Date().toISOString().split('T')[0];
+            const countKey = `nst_mcq_daily_total_${today}_${user.id}`;
+            const prevTotal = parseInt(localStorage.getItem(countKey) || '0', 10);
+            localStorage.setItem(countKey, String(prevTotal + 1));
+        }
 
         const newAnswers = { ...answers, [qIndex]: optionIdx };
         setAnswers(newAnswers);

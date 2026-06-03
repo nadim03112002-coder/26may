@@ -15,15 +15,23 @@ export interface FeatureAccessResult {
 }
 
 /**
- * Determines the effective tier of a user.
+ * Determines the effective tier of a user, accounting for subscription expiry.
  */
 export const getUserTier = (user: User | null): UserTier => {
     if (!user) return 'FREE';
 
-    // Check if subscription is active
-    const isSubscribed = user.subscriptionTier && user.subscriptionTier !== 'FREE';
+    // LIFETIME subscriptions never expire
+    const isLifetime = user.subscriptionTier === 'LIFETIME';
 
-    // Also check legacy isPremium flag if needed, or rely on subscriptionTier
+    // Check expiry for non-lifetime subscriptions
+    const isExpired = !isLifetime && user.subscriptionEndDate
+        ? new Date(user.subscriptionEndDate).getTime() < Date.now()
+        : false;
+
+    if (isExpired) return 'FREE';
+
+    // Check if subscription is active
+    const isSubscribed = !!(user.subscriptionTier && user.subscriptionTier !== 'FREE');
     const isPremium = user.isPremium || isSubscribed;
 
     if (!isPremium) return 'FREE';
