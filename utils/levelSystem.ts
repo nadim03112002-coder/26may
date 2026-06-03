@@ -291,6 +291,15 @@ export const SUBSCRIPTION_BONUS: Record<string, { score: number; bonusCredits: n
   'LIFETIME_ULTRA':  { score: 100, bonusCredits: 0 },
 };
 
+// Returns max reading/watching seconds for time-based scoring (Notes, PDF, Video, Audio)
+// Base 300s (5 min) for all levels. Level 9+ gets +30s per level above 8.
+// L1–L8: 300s  L9: 330s  L10: 360s  L11: 390s  L12: 420s  ...
+export const getMaxReadingSeconds = (level: number): number => {
+  const base = 300;
+  if (level <= 8) return base;
+  return base + (level - 8) * 30;
+};
+
 export const getLevelTopBarEffects = (lvl: LevelInfo): Array<{id:string;enabled:boolean;color:string;speed?:number;opacity?:number}> => {
   const c = lvl.color;
   const g = lvl.glowColor;

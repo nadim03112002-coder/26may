@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { FeatureHints, FeatureTipsList } from "./FeatureHints";
 import { TopBarEffectsLayer } from "../utils/topBarEffects";
-import { getLevelInfo, getNextLevelInfo, getLevelProgress, LEVEL_INFO, ACTIVITY_SCORES, getLevelTopBarEffects, getLevelLimitBonus, getLevelDailyLimits, getLevelDailyLimitsWithOverride, getEffectiveDailyLimit, UNLIMITED } from "../utils/levelSystem";
+import { getLevelInfo, getNextLevelInfo, getLevelProgress, LEVEL_INFO, ACTIVITY_SCORES, getLevelTopBarEffects, getLevelLimitBonus, getLevelDailyLimits, getLevelDailyLimitsWithOverride, getEffectiveDailyLimit, UNLIMITED, getMaxReadingSeconds } from "../utils/levelSystem";
 import { tryEarnScore, awardMilestone, getDailyScoreEarned, DAILY_SCORE_LIMIT, getDailyScoreLimit, getActiveBoost, logScoreActivity } from "../utils/scoreSystem";
 import { ScoreHistoryDashboard } from "./ScoreHistoryDashboard";
 import { applyDeduction, getTotalCredits } from "../utils/creditSystem";
@@ -2321,14 +2321,22 @@ export const StudentDashboard: React.FC<Props> = ({
     if (node) node.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
   }, [lucentPageIndex, lucentNoteViewer?.id]);
 
-  // Time-based scoring: award 5 pts every 30 seconds spent on the NOTES tab
-  // 30s=5, 60s=10, 90s=15, 120s=20, 150s=25, 180s=30 ... every 30s +5 pts
+  // -- Lucent Page-wise MCQ tab state (declared here to avoid TDZ error in production build) --
+  const [lucentActiveTab, setLucentActiveTab] = useState<'NOTES' | 'MCQS' | 'VIDEO' | 'PDF' | 'AUDIO'>('NOTES');
+
+  // Time-based scoring: award 5 pts every 30 seconds on NOTES, PDF, VIDEO, AUDIO tabs
+  // 30s=5, 60s=10, 90s=15 ... max 5 min (level 8+ gets +30s/level bonus max)
   useEffect(() => {
-    if (!lucentNoteViewer || lucentActiveTab !== 'NOTES') return;
+    const scorableTabs: Array<typeof lucentActiveTab> = ['NOTES', 'PDF', 'VIDEO', 'AUDIO'];
+    if (!lucentNoteViewer || !scorableTabs.includes(lucentActiveTab)) return;
     lucentReadSecsRef.current = 0;
     lucentLastAwardedTierRef.current = 0;
+    const userLevel = getLevelInfo(user.totalScore || 0).level;
+    const maxSecs = getMaxReadingSeconds(userLevel);
+    const tabEmoji = lucentActiveTab === 'NOTES' ? '📚' : lucentActiveTab === 'PDF' ? '📄' : lucentActiveTab === 'VIDEO' ? '🎬' : '🎵';
+    const activityType = lucentActiveTab === 'VIDEO' ? 'VIDEO' : 'PDF';
     const timer = setInterval(() => {
-      if (lucentReadSecsRef.current >= 300) return; // Max 5 min (300s) reward per page
+      if (lucentReadSecsRef.current >= maxSecs) return;
       lucentReadSecsRef.current += 1;
       const newTier = Math.floor(lucentReadSecsRef.current / 30);
       if (newTier > lucentLastAwardedTierRef.current) {
@@ -2337,9 +2345,9 @@ export const StudentDashboard: React.FC<Props> = ({
         const baseScore = tiers * 5;
         const earned = tryEarnScore(user.id, baseScore, user.subscriptionLevel, user.isPremium, getActiveBoost(user));
         if (earned > 0) {
-          logScoreActivity(user.id, 'PDF', earned);
+          logScoreActivity(user.id, activityType, earned);
           handleUserUpdate({ ...user, totalScore: (user.totalScore || 0) + earned });
-          triggerRewardEffect(earned, `+${earned} pts 📚`);
+          triggerRewardEffect(earned, `+${earned} pts ${tabEmoji}`);
         }
       }
     }, 1000);
@@ -2578,8 +2586,7 @@ export const StudentDashboard: React.FC<Props> = ({
     if (!showStarredPage) stopProfileStarRead();
   }, [showStarredPage]);
 
-  // -- Lucent Page-wise MCQ tab state --
-  const [lucentActiveTab, setLucentActiveTab] = useState<'NOTES' | 'MCQS' | 'VIDEO' | 'PDF' | 'AUDIO'>('NOTES');
+  // -- Lucent Page-wise MCQ tab state (continued) --
   const [lucentMcqsByPage, setLucentMcqsByPage] = useState<Record<string, MCQItem[]>>({});
   const [lucentMcqLoading, setLucentMcqLoading] = useState(false);
   const [lucentMcqRevealed, setLucentMcqRevealed] = useState<Record<string, number>>({});
@@ -19621,9 +19628,18 @@ RULES:
                     {
                       emoji: '📊',
                       title: 'Activity Score Tracking',
-                      desc: 'MCQ, video, PDF, audio se daily score earn karo — level up karo',
+                      desc: 'MCQ, video, PDF, audio se daily score earn karo — level up karo. Notes/PDF/Video/Audio: har 30 sec pe +5 pts milenge, max 5 min tak.',
                       color: '#10b981',
                       active: true,
+                    },
+                    {
+                      emoji: '⏱️',
+                      title: _fl.level >= 9 ? `Reading Time Bonus: Max ${getMaxReadingSeconds(_fl.level)}s (${Math.floor(getMaxReadingSeconds(_fl.level)/60)}m ${getMaxReadingSeconds(_fl.level)%60}s) 🔥` : 'Reading Time Bonus: Level 9 se unlock hoga',
+                      desc: _fl.level >= 9
+                        ? `Level ${_fl.level} bonus: Notes/PDF/Video/Audio padhne ka max time ${getMaxReadingSeconds(_fl.level)} seconds (base 300s + ${(_fl.level-8)*30}s bonus). Har level pe +30 sec milte hain.`
+                        : 'Level 8 (GrandMaster) ke baad har level pe max reading/watching time +30 sec badhta hai — zyada time mein zyada score earn kar sakte ho.',
+                      color: _fl.level >= 9 ? '#f59e0b' : '#475569',
+                      active: _fl.level >= 9,
                     },
                     {
                       emoji: '🎁',
@@ -19867,37 +19883,52 @@ RULES:
                     <span>⚡</span>
                     <p className="text-[10px] font-black text-white uppercase tracking-widest">Score Kaise Kamayein</p>
                   </div>
+                  {/* Time-based rule banner */}
+                  <div className="px-4 py-2.5 border-b border-white/6 flex items-center gap-2.5" style={{ background: 'rgba(99,102,241,0.08)' }}>
+                    <span className="text-base">⏱️</span>
+                    <div>
+                      <p className="text-[10px] font-black text-indigo-300 leading-tight">Notes · PDF · Video · Audio — Padhne / Dekhne / Sunne ka Score</p>
+                      <p className="text-[9px] font-bold text-slate-400 mt-0.5">Har <span className="text-white font-black">30 sec</span> pe <span className="text-indigo-300 font-black">+5 pts</span> milenge · Max <span className="text-white font-black">5 min</span> tak (Level 8 ke baad +30 sec/level bonus)</p>
+                    </div>
+                  </div>
                   <div className="grid grid-cols-2">
                     {[
-                      { emoji: '📹', label: 'Video / Audio', pts: '5–25 pts', color: '#3b82f6' },
-                      { emoji: '📄', label: 'PDF / Notes / GK', pts: '5–25 pts', color: '#8b5cf6' },
-                      { emoji: '❓', label: 'MCQ Sahi Jawab', pts: '+2 pts each', color: '#f97316' },
-                      { emoji: '📅', label: 'Daily Login', pts: `+${ACTIVITY_SCORES.DAILY_LOGIN} pts`, color: '#10b981' },
-                      { emoji: '🪙', label: 'Credit Spend', pts: `+${ACTIVITY_SCORES.CREDIT_SPEND} pt/credit`, color: '#eab308' },
-                      { emoji: '🎟️', label: 'Redeem Code', pts: `+${ACTIVITY_SCORES.REDEEM_CODE} pts`, color: '#ec4899' },
+                      { emoji: '📚', label: 'Notes Padhna', pts: '+5 pts / 30 sec', sub: 'Max 5 min', color: '#8b5cf6' },
+                      { emoji: '📄', label: 'PDF Dekhna', pts: '+5 pts / 30 sec', sub: 'Max 5 min', color: '#3b82f6' },
+                      { emoji: '🎬', label: 'Video Dekhna', pts: '+5 pts / 30 sec', sub: 'Max 5 min', color: '#f97316' },
+                      { emoji: '🎵', label: 'Audio Sunna', pts: '+5 pts / 30 sec', sub: 'Max 5 min', color: '#10b981' },
+                      { emoji: '❓', label: 'MCQ Sahi Jawab', pts: '+2 pts each', sub: 'Per correct answer', color: '#ec4899' },
+                      { emoji: '📅', label: 'Daily Login', pts: `+${ACTIVITY_SCORES.DAILY_LOGIN} pts`, sub: 'Roz login karo', color: '#eab308' },
                     ].map((item, i) => (
                       <div key={item.label} className={`flex items-center gap-2.5 px-3.5 py-3 ${i % 2 === 0 ? 'border-r border-white/6' : ''} ${i < 4 ? 'border-b border-white/6' : ''}`}
                         style={{ background: `${item.color}08` }}>
                         <span className="text-xl flex-shrink-0">{item.emoji}</span>
                         <div className="min-w-0">
                           <p className="text-[10px] font-black text-slate-200 leading-tight">{item.label}</p>
-                          <p className="text-[8px] font-bold mt-0.5" style={{ color: item.color }}>{item.pts}</p>
+                          <p className="text-[9px] font-black mt-0.5" style={{ color: item.color }}>{item.pts}</p>
+                          <p className="text-[7px] text-slate-500 mt-0.5">{item.sub}</p>
                         </div>
                       </div>
                     ))}
                   </div>
-                  <div className="px-4 py-2.5 border-t border-white/6 flex items-center gap-3 flex-wrap" style={{ background: 'rgba(255,255,255,0.02)' }}>
-                    <p className="text-[8px] font-black text-slate-600 uppercase tracking-widest">Multiplier:</p>
-                    {[
-                      { label: '🌱 Free', val: '1×', color: '#64748b' },
-                      { label: '★ Basic', val: '1.2×', color: '#06b6d4' },
-                      { label: '⚡ Ultra', val: '1.5×', color: '#f59e0b' },
-                    ].map(m => (
-                      <div key={m.label} className="flex items-center gap-1 px-2 py-0.5 rounded-lg" style={{ background: `${m.color}18`, border: `1px solid ${m.color}30` }}>
-                        <span className="text-[8px] font-bold" style={{ color: m.color }}>{m.label}</span>
-                        <span className="text-[9px] font-black text-white">{m.val}</span>
-                      </div>
-                    ))}
+                  <div className="px-4 py-2.5 border-t border-white/6 flex flex-col gap-2" style={{ background: 'rgba(255,255,255,0.02)' }}>
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <p className="text-[8px] font-black text-slate-600 uppercase tracking-widest">Multiplier:</p>
+                      {[
+                        { label: '🌱 Free', val: '1×', color: '#64748b' },
+                        { label: '★ Basic', val: '1.2×', color: '#06b6d4' },
+                        { label: '⚡ Ultra', val: '1.5×', color: '#f59e0b' },
+                      ].map(m => (
+                        <div key={m.label} className="flex items-center gap-1 px-2 py-0.5 rounded-lg" style={{ background: `${m.color}18`, border: `1px solid ${m.color}30` }}>
+                          <span className="text-[8px] font-bold" style={{ color: m.color }}>{m.label}</span>
+                          <span className="text-[9px] font-black text-white">{m.val}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-2 px-2 py-1.5 rounded-xl" style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)' }}>
+                      <span className="text-base">💎</span>
+                      <p className="text-[8px] font-bold text-amber-400">Level 8 (GrandMaster) ke baad har level pe max reading time +30 sec badhta hai — zyada time = zyada score!</p>
+                    </div>
                   </div>
                 </div>
 
@@ -20005,9 +20036,18 @@ RULES:
           {
             emoji: '📊',
             title: 'Activity Score Tracking',
-            desc: 'MCQ, video, PDF, audio se daily score earn karo — level up karo',
+            desc: 'MCQ, video, PDF, audio se daily score earn karo — level up karo. Notes/PDF/Video/Audio: har 30 sec pe +5 pts milenge, max 5 min tak.',
             color: '#10b981',
             active: true,
+          },
+          {
+            emoji: '⏱️',
+            title: l.level >= 9 ? `Reading Time Bonus: Max ${getMaxReadingSeconds(l.level)}s (${Math.floor(getMaxReadingSeconds(l.level)/60)}m ${getMaxReadingSeconds(l.level)%60}s) 🔥` : 'Reading Time Bonus: Level 9 se unlock hoga',
+            desc: l.level >= 9
+              ? `Level ${l.level} bonus: Notes/PDF/Video/Audio padhne ka max time ${getMaxReadingSeconds(l.level)} seconds (base 300s + ${(l.level-8)*30}s bonus). Har level pe +30 sec milte hain.`
+              : 'Level 8 (GrandMaster) ke baad har level pe max reading/watching time +30 sec badhta hai — zyada time mein zyada score earn kar sakte ho.',
+            color: l.level >= 9 ? '#f59e0b' : undefined,
+            active: l.level >= 9,
           },
           {
             emoji: '🎁',
